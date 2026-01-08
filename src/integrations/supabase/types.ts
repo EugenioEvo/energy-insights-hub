@@ -93,88 +93,235 @@ export type Database = {
       }
       faturas_mensais: {
         Row: {
+          alertas: Json | null
+          bandeira_te_fp_rs: number | null
+          bandeira_te_hr_rs: number | null
+          bandeira_te_p_rs: number | null
           bandeiras: string
+          base_icms_rs: number | null
+          base_pis_cofins_rs: number | null
+          cip_rs: number | null
+          cofins_aliquota_percent: number | null
+          cofins_rs: number | null
+          consumo_reservado_kwh: number | null
           consumo_total_kwh: number
           created_at: string
+          data_apresentacao: string | null
+          data_emissao: string | null
           demanda_contratada_kw: number
           demanda_contratada_rs: number
           demanda_geracao_kw: number
           demanda_geracao_rs: number
           demanda_medida_kw: number
+          demanda_ultrapassagem_kw: number | null
+          dias_faturados: number | null
           energia_fora_ponta_rs: number
           energia_ponta_rs: number
           fora_ponta_kwh: number
+          icms_aliquota_percent: number | null
+          icms_rs: number | null
           id: string
           iluminacao_publica: number
+          leitura_anterior: string | null
+          leitura_atual: string | null
           mes_ref: string
           multa_demanda: number
           multa_demanda_ultrapassagem: number
           multa_reativo: number
           multa_ufer_fora_ponta: number
           multa_ufer_ponta: number
+          nao_compensado_te_fp_rs: number | null
+          nao_compensado_te_hr_rs: number | null
+          nao_compensado_te_p_rs: number | null
+          nao_compensado_tusd_fp_rs: number | null
+          nao_compensado_tusd_hr_rs: number | null
+          nao_compensado_tusd_p_rs: number | null
           outros_encargos: number
+          pis_aliquota_percent: number | null
+          pis_rs: number | null
           ponta_kwh: number
+          proxima_leitura: string | null
+          recomendacoes: Json | null
+          scee_consumo_fp_tusd_rs: number | null
+          scee_credito_recebido_kwh: number | null
+          scee_excedente_recebido_kwh: number | null
+          scee_geracao_ciclo_fp_kwh: number | null
+          scee_geracao_ciclo_hr_kwh: number | null
+          scee_geracao_ciclo_ponta_kwh: number | null
+          scee_injecao_fp_te_rs: number | null
+          scee_injecao_fp_tusd_rs: number | null
+          scee_parcela_te_fp_rs: number | null
+          scee_rateio_percent: number | null
+          scee_saldo_expirar_30d_kwh: number | null
+          scee_saldo_expirar_60d_kwh: number | null
+          scee_saldo_kwh_fp: number | null
+          scee_saldo_kwh_hr: number | null
+          scee_saldo_kwh_p: number | null
+          status: string
           uc_id: string
+          ufer_fp_kvarh: number | null
+          ufer_fp_rs: number | null
           updated_at: string
+          valor_demanda_rs: number | null
+          valor_demanda_ultrapassagem_rs: number | null
           valor_te: number
           valor_total: number
           valor_tusd: number
+          vencimento: string | null
         }
         Insert: {
+          alertas?: Json | null
+          bandeira_te_fp_rs?: number | null
+          bandeira_te_hr_rs?: number | null
+          bandeira_te_p_rs?: number | null
           bandeiras: string
+          base_icms_rs?: number | null
+          base_pis_cofins_rs?: number | null
+          cip_rs?: number | null
+          cofins_aliquota_percent?: number | null
+          cofins_rs?: number | null
+          consumo_reservado_kwh?: number | null
           consumo_total_kwh?: number
           created_at?: string
+          data_apresentacao?: string | null
+          data_emissao?: string | null
           demanda_contratada_kw?: number
           demanda_contratada_rs?: number
           demanda_geracao_kw?: number
           demanda_geracao_rs?: number
           demanda_medida_kw?: number
+          demanda_ultrapassagem_kw?: number | null
+          dias_faturados?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
           fora_ponta_kwh?: number
+          icms_aliquota_percent?: number | null
+          icms_rs?: number | null
           id?: string
           iluminacao_publica?: number
+          leitura_anterior?: string | null
+          leitura_atual?: string | null
           mes_ref: string
           multa_demanda?: number
           multa_demanda_ultrapassagem?: number
           multa_reativo?: number
           multa_ufer_fora_ponta?: number
           multa_ufer_ponta?: number
+          nao_compensado_te_fp_rs?: number | null
+          nao_compensado_te_hr_rs?: number | null
+          nao_compensado_te_p_rs?: number | null
+          nao_compensado_tusd_fp_rs?: number | null
+          nao_compensado_tusd_hr_rs?: number | null
+          nao_compensado_tusd_p_rs?: number | null
           outros_encargos?: number
+          pis_aliquota_percent?: number | null
+          pis_rs?: number | null
           ponta_kwh?: number
+          proxima_leitura?: string | null
+          recomendacoes?: Json | null
+          scee_consumo_fp_tusd_rs?: number | null
+          scee_credito_recebido_kwh?: number | null
+          scee_excedente_recebido_kwh?: number | null
+          scee_geracao_ciclo_fp_kwh?: number | null
+          scee_geracao_ciclo_hr_kwh?: number | null
+          scee_geracao_ciclo_ponta_kwh?: number | null
+          scee_injecao_fp_te_rs?: number | null
+          scee_injecao_fp_tusd_rs?: number | null
+          scee_parcela_te_fp_rs?: number | null
+          scee_rateio_percent?: number | null
+          scee_saldo_expirar_30d_kwh?: number | null
+          scee_saldo_expirar_60d_kwh?: number | null
+          scee_saldo_kwh_fp?: number | null
+          scee_saldo_kwh_hr?: number | null
+          scee_saldo_kwh_p?: number | null
+          status?: string
           uc_id: string
+          ufer_fp_kvarh?: number | null
+          ufer_fp_rs?: number | null
           updated_at?: string
+          valor_demanda_rs?: number | null
+          valor_demanda_ultrapassagem_rs?: number | null
           valor_te?: number
           valor_total?: number
           valor_tusd?: number
+          vencimento?: string | null
         }
         Update: {
+          alertas?: Json | null
+          bandeira_te_fp_rs?: number | null
+          bandeira_te_hr_rs?: number | null
+          bandeira_te_p_rs?: number | null
           bandeiras?: string
+          base_icms_rs?: number | null
+          base_pis_cofins_rs?: number | null
+          cip_rs?: number | null
+          cofins_aliquota_percent?: number | null
+          cofins_rs?: number | null
+          consumo_reservado_kwh?: number | null
           consumo_total_kwh?: number
           created_at?: string
+          data_apresentacao?: string | null
+          data_emissao?: string | null
           demanda_contratada_kw?: number
           demanda_contratada_rs?: number
           demanda_geracao_kw?: number
           demanda_geracao_rs?: number
           demanda_medida_kw?: number
+          demanda_ultrapassagem_kw?: number | null
+          dias_faturados?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
           fora_ponta_kwh?: number
+          icms_aliquota_percent?: number | null
+          icms_rs?: number | null
           id?: string
           iluminacao_publica?: number
+          leitura_anterior?: string | null
+          leitura_atual?: string | null
           mes_ref?: string
           multa_demanda?: number
           multa_demanda_ultrapassagem?: number
           multa_reativo?: number
           multa_ufer_fora_ponta?: number
           multa_ufer_ponta?: number
+          nao_compensado_te_fp_rs?: number | null
+          nao_compensado_te_hr_rs?: number | null
+          nao_compensado_te_p_rs?: number | null
+          nao_compensado_tusd_fp_rs?: number | null
+          nao_compensado_tusd_hr_rs?: number | null
+          nao_compensado_tusd_p_rs?: number | null
           outros_encargos?: number
+          pis_aliquota_percent?: number | null
+          pis_rs?: number | null
           ponta_kwh?: number
+          proxima_leitura?: string | null
+          recomendacoes?: Json | null
+          scee_consumo_fp_tusd_rs?: number | null
+          scee_credito_recebido_kwh?: number | null
+          scee_excedente_recebido_kwh?: number | null
+          scee_geracao_ciclo_fp_kwh?: number | null
+          scee_geracao_ciclo_hr_kwh?: number | null
+          scee_geracao_ciclo_ponta_kwh?: number | null
+          scee_injecao_fp_te_rs?: number | null
+          scee_injecao_fp_tusd_rs?: number | null
+          scee_parcela_te_fp_rs?: number | null
+          scee_rateio_percent?: number | null
+          scee_saldo_expirar_30d_kwh?: number | null
+          scee_saldo_expirar_60d_kwh?: number | null
+          scee_saldo_kwh_fp?: number | null
+          scee_saldo_kwh_hr?: number | null
+          scee_saldo_kwh_p?: number | null
+          status?: string
           uc_id?: string
+          ufer_fp_kvarh?: number | null
+          ufer_fp_rs?: number | null
           updated_at?: string
+          valor_demanda_rs?: number | null
+          valor_demanda_ultrapassagem_rs?: number | null
           valor_te?: number
           valor_total?: number
           valor_tusd?: number
+          vencimento?: string | null
         }
         Relationships: [
           {
@@ -238,36 +385,51 @@ export type Database = {
       }
       unidades_consumidoras: {
         Row: {
+          classe_tarifaria: string | null
           cliente_id: string
+          concessionaria: string
           created_at: string
           demanda_contratada: number
+          demanda_geracao_kw: number | null
           distribuidora: string
           endereco: string
           id: string
           modalidade_tarifaria: string
           numero: string
+          tensao_kv: number | null
+          tipo_fornecimento: string | null
           updated_at: string
         }
         Insert: {
+          classe_tarifaria?: string | null
           cliente_id: string
+          concessionaria?: string
           created_at?: string
           demanda_contratada?: number
+          demanda_geracao_kw?: number | null
           distribuidora: string
           endereco: string
           id?: string
           modalidade_tarifaria: string
           numero: string
+          tensao_kv?: number | null
+          tipo_fornecimento?: string | null
           updated_at?: string
         }
         Update: {
+          classe_tarifaria?: string | null
           cliente_id?: string
+          concessionaria?: string
           created_at?: string
           demanda_contratada?: number
+          demanda_geracao_kw?: number | null
           distribuidora?: string
           endereco?: string
           id?: string
           modalidade_tarifaria?: string
           numero?: string
+          tensao_kv?: number | null
+          tipo_fornecimento?: string | null
           updated_at?: string
         }
         Relationships: [
