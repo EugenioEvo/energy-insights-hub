@@ -8,13 +8,16 @@ import { SubscriptionChart } from '@/components/charts/SubscriptionChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { SavingsTrendChart } from '@/components/charts/SavingsTrendChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useEnergy } from '@/contexts/EnergyContext';
+import { useExportPDF } from '@/hooks/useExportPDF';
 import { formatCurrency, formatNumber, formatPercent } from '@/data/mockData';
 import { calcularKPIsMensais } from '@/lib/calculations';
 import { FaturaMensal, GeracaoMensal, AssinaturaMensal } from '@/types/energy';
 import { 
   DollarSign, TrendingUp, Zap, Activity, Sun, Battery, Plug, 
-  Receipt, TrendingDown, AlertTriangle, FileText, Percent, AlertCircle 
+  Receipt, TrendingDown, AlertTriangle, FileText, Percent, AlertCircle,
+  Download, Loader2
 } from 'lucide-react';
 
 // Helper functions
@@ -67,6 +70,11 @@ function convertAssinatura(a: any): AssinaturaMensal {
 
 export default function ExecutiveDashboard() {
   const { kpis, faturas, geracoes, assinaturas, mesAtual, isLoading } = useEnergy();
+  const { exportToPDF, isExporting } = useExportPDF();
+
+  const handleExportPDF = async () => {
+    await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`);
+  };
 
   // Current month data
   const faturaMesAtualDB = faturas.find(f => f.mes_ref === mesAtual);
@@ -216,14 +224,34 @@ export default function ExecutiveDashboard() {
 
   return (
     <DashboardLayout title="Visão Executiva" subtitle="Resumo consolidado: Fatura, Solar e Assinatura">
-      <div className="space-y-6">
+      <div id="dashboard-content" className="space-y-6">
         {/* Status Geral + KPIs Principais */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Status Geral</h2>
             <p className="text-muted-foreground">Mês de referência: {mesAtual}</p>
           </div>
-          <StatusBadge status={kpis.statusGeral} size="lg" />
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Exportar PDF
+                </>
+              )}
+            </Button>
+            <StatusBadge status={kpis.statusGeral} size="lg" />
+          </div>
         </div>
 
         {/* KPIs Principais */}
