@@ -1,6 +1,7 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { ComparisonChart } from '@/components/charts/ComparisonChart';
+import { DonutChart } from '@/components/charts/DonutChart';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { formatCurrency, formatNumber, getMonthName } from '@/data/mockData';
 import { calcularKPIsMensais } from '@/lib/calculations';
@@ -138,11 +139,27 @@ export default function EnergiaFatura() {
           />
         </div>
 
-        {/* Comparison Chart */}
-        <ComparisonChart
-          data={comparisonData}
-          title="Comparativo: Conta Original vs Conta Otimizada"
-        />
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Invoice Composition Chart */}
+          <DonutChart
+            data={[
+              { name: 'Energia (TE + TUSD)', value: (faturaMesAtual?.valorTe || 0) + (faturaMesAtual?.valorTusd || 0), color: 'hsl(var(--primary))' },
+              { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
+              { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
+              { name: 'Encargos', value: iluminacaoPublica + (faturaMesAtual?.outrosEncargos || 0), color: 'hsl(var(--muted-foreground))' },
+            ].filter(item => item.value > 0)}
+            title="Composição da Fatura"
+            centerLabel="Total"
+            centerValue={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+          />
+
+          {/* Comparison Chart */}
+          <ComparisonChart
+            data={comparisonData}
+            title="Comparativo: Original vs Otimizado"
+          />
+        </div>
 
         {/* Details Grid - Grupo A */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
