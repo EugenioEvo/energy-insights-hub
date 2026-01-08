@@ -6,6 +6,7 @@ import { GenerationChart } from '@/components/charts/GenerationChart';
 import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { SubscriptionChart } from '@/components/charts/SubscriptionChart';
 import { DonutChart } from '@/components/charts/DonutChart';
+import { SavingsTrendChart } from '@/components/charts/SavingsTrendChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { formatCurrency, formatNumber, formatPercent } from '@/data/mockData';
@@ -135,6 +136,33 @@ export default function ExecutiveDashboard() {
     alocada: Number(assinatura.energia_alocada_kwh),
   })).reverse();
 
+  // Savings trend data (economia mensal e acumulada)
+  const savingsTrendData = faturas.slice(0, 6).map((fatura, index, arr) => {
+    const geracao = geracoes.find(g => g.mes_ref === fatura.mes_ref);
+    const assinatura = assinaturas.find(a => a.mes_ref === fatura.mes_ref);
+    const kpisCalc = geracao && assinatura
+      ? calcularKPIsMensais(convertFatura(fatura), convertGeracao(geracao), convertAssinatura(assinatura))
+      : null;
+    
+    // Calculate accumulated savings up to this point
+    let economiaAcumulada = 0;
+    for (let i = arr.length - 1; i >= index; i--) {
+      const f = arr[i];
+      const g = geracoes.find(gf => gf.mes_ref === f.mes_ref);
+      const a = assinaturas.find(af => af.mes_ref === f.mes_ref);
+      if (g && a) {
+        const kpis = calcularKPIsMensais(convertFatura(f), convertGeracao(g), convertAssinatura(a));
+        economiaAcumulada += kpis.economiaMensalRs;
+      }
+    }
+
+    return {
+      mesRef: fatura.mes_ref,
+      economiaMensal: kpisCalc?.economiaMensalRs || 0,
+      economiaAcumulada,
+    };
+  }).reverse();
+
   // Subscription calculations
   const utilizacao = assinaturaMesAtual
     ? (assinaturaMesAtual.energiaAlocadaKwh / assinaturaMesAtual.energiaContratadaKwh) * 100
@@ -246,6 +274,12 @@ export default function ExecutiveDashboard() {
             variant={variacao > 10 ? 'warning' : 'default'}
           />
         </div>
+
+        {/* Gráfico de Tendência de Economia */}
+        <SavingsTrendChart 
+          data={savingsTrendData} 
+          title="Tendência de Economia Acumulada"
+        />
 
         {/* Alertas */}
         {kpis.alertas.length > 0 && (
