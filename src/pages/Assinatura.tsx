@@ -4,48 +4,91 @@ import { SubscriptionChart } from '@/components/charts/SubscriptionChart';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { formatCurrency, formatNumber, formatPercent } from '@/data/mockData';
 import { calcularKPIsMensais } from '@/lib/calculations';
+import { FaturaMensal, GeracaoMensal, AssinaturaMensal } from '@/types/energy';
 import { FileText, TrendingUp, AlertCircle, Percent } from 'lucide-react';
 
 export default function Assinatura() {
   const { faturas, geracoes, assinaturas, mesAtual } = useEnergy();
 
-  const faturaMesAtual = faturas.find(f => f.mesRef === mesAtual);
-  const geracaoMesAtual = geracoes.find(g => g.mesRef === mesAtual);
-  const assinaturaMesAtual = assinaturas.find(a => a.mesRef === mesAtual);
+  const faturaMesAtual = faturas.find(f => f.mes_ref === mesAtual);
+  const geracaoMesAtual = geracoes.find(g => g.mes_ref === mesAtual);
+  const assinaturaMesAtual = assinaturas.find(a => a.mes_ref === mesAtual);
 
-  const kpisMensais = faturaMesAtual && geracaoMesAtual && assinaturaMesAtual
-    ? calcularKPIsMensais(faturaMesAtual, geracaoMesAtual, assinaturaMesAtual)
+  // Convert to calculation types
+  const faturaMesAtualCalc: FaturaMensal | null = faturaMesAtual ? {
+    id: faturaMesAtual.id,
+    ucId: faturaMesAtual.uc_id,
+    mesRef: faturaMesAtual.mes_ref,
+    consumoTotalKwh: Number(faturaMesAtual.consumo_total_kwh),
+    pontaKwh: Number(faturaMesAtual.ponta_kwh),
+    foraPontaKwh: Number(faturaMesAtual.fora_ponta_kwh),
+    demandaContratadaKw: Number(faturaMesAtual.demanda_contratada_kw),
+    demandaMedidaKw: Number(faturaMesAtual.demanda_medida_kw),
+    valorTotal: Number(faturaMesAtual.valor_total),
+    valorTe: Number(faturaMesAtual.valor_te),
+    valorTusd: Number(faturaMesAtual.valor_tusd),
+    bandeiras: faturaMesAtual.bandeiras as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
+    multaDemanda: Number(faturaMesAtual.multa_demanda),
+    multaReativo: Number(faturaMesAtual.multa_reativo),
+    outrosEncargos: Number(faturaMesAtual.outros_encargos),
+  } : null;
+
+  const geracaoMesAtualCalc: GeracaoMensal | null = geracaoMesAtual ? {
+    id: geracaoMesAtual.id,
+    ucId: geracaoMesAtual.uc_id,
+    mesRef: geracaoMesAtual.mes_ref,
+    geracaoTotalKwh: Number(geracaoMesAtual.geracao_total_kwh),
+    autoconsumoKwh: Number(geracaoMesAtual.autoconsumo_kwh),
+    injecaoKwh: Number(geracaoMesAtual.injecao_kwh),
+    compensacaoKwh: Number(geracaoMesAtual.compensacao_kwh),
+    disponibilidadePercent: Number(geracaoMesAtual.disponibilidade_percent),
+    perdasEstimadasKwh: Number(geracaoMesAtual.perdas_estimadas_kwh),
+  } : null;
+
+  const assinaturaMesAtualCalc: AssinaturaMensal | null = assinaturaMesAtual ? {
+    id: assinaturaMesAtual.id,
+    ucId: assinaturaMesAtual.uc_id,
+    mesRef: assinaturaMesAtual.mes_ref,
+    ucRemota: assinaturaMesAtual.uc_remota,
+    energiaContratadaKwh: Number(assinaturaMesAtual.energia_contratada_kwh),
+    energiaAlocadaKwh: Number(assinaturaMesAtual.energia_alocada_kwh),
+    valorAssinatura: Number(assinaturaMesAtual.valor_assinatura),
+    economiaPrometidaPercent: Number(assinaturaMesAtual.economia_prometida_percent),
+  } : null;
+
+  const kpisMensais = faturaMesAtualCalc && geracaoMesAtualCalc && assinaturaMesAtualCalc
+    ? calcularKPIsMensais(faturaMesAtualCalc, geracaoMesAtualCalc, assinaturaMesAtualCalc)
     : null;
 
   // Prepare subscription chart data
   const subscriptionData = assinaturas
     .slice(0, 6)
     .map(assinatura => ({
-      mesRef: assinatura.mesRef,
-      contratada: assinatura.energiaContratadaKwh,
-      alocada: assinatura.energiaAlocadaKwh,
+      mesRef: assinatura.mes_ref,
+      contratada: Number(assinatura.energia_contratada_kwh),
+      alocada: Number(assinatura.energia_alocada_kwh),
     }))
     .reverse();
 
-  const utilizacao = assinaturaMesAtual
-    ? (assinaturaMesAtual.energiaAlocadaKwh / assinaturaMesAtual.energiaContratadaKwh) * 100
+  const utilizacao = assinaturaMesAtualCalc
+    ? (assinaturaMesAtualCalc.energiaAlocadaKwh / assinaturaMesAtualCalc.energiaContratadaKwh) * 100
     : 0;
 
   // Check for recurring underutilization
   const ultimas3Assinaturas = assinaturas.slice(0, 3);
   const mediaUtilizacao = ultimas3Assinaturas.length > 0
     ? ultimas3Assinaturas.reduce((acc, a) => 
-        acc + (a.energiaAlocadaKwh / a.energiaContratadaKwh), 0) / ultimas3Assinaturas.length * 100
+        acc + (Number(a.energia_alocada_kwh) / Number(a.energia_contratada_kwh)), 0) / ultimas3Assinaturas.length * 100
     : 100;
 
   const subutilizacaoRecorrente = mediaUtilizacao < 85;
 
   // Calculate real vs promised economy
   const economiaRealPercent = kpisMensais 
-    ? (kpisMensais.economiaMensalRs / (faturaMesAtual?.valorTotal || 1)) * 100
+    ? (kpisMensais.economiaMensalRs / (faturaMesAtualCalc?.valorTotal || 1)) * 100
     : 0;
   
-  const economiaPrometida = assinaturaMesAtual?.economiaPrometidaPercent || 0;
+  const economiaPrometida = assinaturaMesAtualCalc?.economiaPrometidaPercent || 0;
   const diferencaEconomia = economiaRealPercent - economiaPrometida;
 
   return (
@@ -55,15 +98,15 @@ export default function Assinatura() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             title="Valor da Assinatura"
-            value={formatCurrency(assinaturaMesAtual?.valorAssinatura || 0)}
-            subtitle={`UC Remota: ${assinaturaMesAtual?.ucRemota}`}
+            value={formatCurrency(assinaturaMesAtualCalc?.valorAssinatura || 0)}
+            subtitle={`UC Remota: ${assinaturaMesAtualCalc?.ucRemota || '-'}`}
             icon={<FileText className="h-6 w-6" />}
           />
 
           <KPICard
             title="Utilização"
             value={formatPercent(utilizacao)}
-            subtitle={`${formatNumber(assinaturaMesAtual?.energiaAlocadaKwh || 0)} de ${formatNumber(assinaturaMesAtual?.energiaContratadaKwh || 0)} kWh`}
+            subtitle={`${formatNumber(assinaturaMesAtualCalc?.energiaAlocadaKwh || 0)} de ${formatNumber(assinaturaMesAtualCalc?.energiaContratadaKwh || 0)} kWh`}
             icon={<Percent className="h-6 w-6" />}
             variant={utilizacao >= 90 ? 'success' : utilizacao >= 70 ? 'warning' : 'danger'}
           />
@@ -104,15 +147,15 @@ export default function Assinatura() {
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">UC Remota</span>
-                <span className="font-medium">{assinaturaMesAtual?.ucRemota}</span>
+                <span className="font-medium">{assinaturaMesAtualCalc?.ucRemota || '-'}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Energia Contratada</span>
-                <span className="font-medium">{formatNumber(assinaturaMesAtual?.energiaContratadaKwh || 0)} kWh</span>
+                <span className="font-medium">{formatNumber(assinaturaMesAtualCalc?.energiaContratadaKwh || 0)} kWh</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Energia Alocada</span>
-                <span className="font-medium">{formatNumber(assinaturaMesAtual?.energiaAlocadaKwh || 0)} kWh</span>
+                <span className="font-medium">{formatNumber(assinaturaMesAtualCalc?.energiaAlocadaKwh || 0)} kWh</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Energia Não Utilizada</span>
@@ -122,7 +165,7 @@ export default function Assinatura() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Economia Prometida</span>
-                <span className="font-medium">{formatPercent(assinaturaMesAtual?.economiaPrometidaPercent || 0)}</span>
+                <span className="font-medium">{formatPercent(assinaturaMesAtualCalc?.economiaPrometidaPercent || 0)}</span>
               </div>
               <div className={`flex justify-between items-center py-3 -mx-6 px-6 rounded-lg mt-4 ${
                 utilizacao >= 90 ? 'bg-success/10' : 'bg-warning/10'
@@ -147,7 +190,7 @@ export default function Assinatura() {
                   <div className="mt-3 p-3 bg-card rounded border border-border">
                     <p className="text-sm font-medium">Sugestão de novo volume:</p>
                     <p className="text-lg font-bold text-accent">
-                      {formatNumber(Math.round((assinaturaMesAtual?.energiaContratadaKwh || 0) * (mediaUtilizacao / 100) * 1.05))} kWh
+                      {formatNumber(Math.round((assinaturaMesAtualCalc?.energiaContratadaKwh || 0) * (mediaUtilizacao / 100) * 1.05))} kWh
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Baseado na média de utilização + 5% de margem de segurança
@@ -185,7 +228,7 @@ export default function Assinatura() {
                 <p className="text-sm text-muted-foreground mt-1">
                   Custo por kWh da assinatura: 
                   <span className="font-medium text-foreground ml-1">
-                    R$ {((assinaturaMesAtual?.valorAssinatura || 0) / (assinaturaMesAtual?.energiaContratadaKwh || 1)).toFixed(4)}
+                    R$ {((assinaturaMesAtualCalc?.valorAssinatura || 0) / (assinaturaMesAtualCalc?.energiaContratadaKwh || 1)).toFixed(4)}
                   </span>
                 </p>
               </div>
@@ -210,13 +253,13 @@ export default function Assinatura() {
               </thead>
               <tbody>
                 {assinaturas.slice(0, 6).map((assinatura) => {
-                  const util = (assinatura.energiaAlocadaKwh / assinatura.energiaContratadaKwh) * 100;
-                  const naoUtilizada = assinatura.energiaContratadaKwh - assinatura.energiaAlocadaKwh;
+                  const util = (Number(assinatura.energia_alocada_kwh) / Number(assinatura.energia_contratada_kwh)) * 100;
+                  const naoUtilizada = Number(assinatura.energia_contratada_kwh) - Number(assinatura.energia_alocada_kwh);
                   return (
                     <tr key={assinatura.id}>
-                      <td className="font-medium">{assinatura.mesRef}</td>
-                      <td className="text-right">{formatNumber(assinatura.energiaContratadaKwh)} kWh</td>
-                      <td className="text-right">{formatNumber(assinatura.energiaAlocadaKwh)} kWh</td>
+                      <td className="font-medium">{assinatura.mes_ref}</td>
+                      <td className="text-right">{formatNumber(Number(assinatura.energia_contratada_kwh))} kWh</td>
+                      <td className="text-right">{formatNumber(Number(assinatura.energia_alocada_kwh))} kWh</td>
                       <td className={`text-right ${naoUtilizada > 0 ? 'text-warning' : ''}`}>
                         {formatNumber(naoUtilizada)} kWh
                       </td>
@@ -228,7 +271,7 @@ export default function Assinatura() {
                           {formatPercent(util)}
                         </span>
                       </td>
-                      <td className="text-right font-medium">{formatCurrency(assinatura.valorAssinatura)}</td>
+                      <td className="text-right font-medium">{formatCurrency(Number(assinatura.valor_assinatura))}</td>
                     </tr>
                   );
                 })}

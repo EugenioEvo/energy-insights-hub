@@ -18,7 +18,7 @@ interface HeaderProps {
 export function Header({ title, subtitle }: HeaderProps) {
   const { mesAtual, setMesAtual, faturas, kpis } = useEnergy();
   
-  const mesesDisponiveis = [...new Set(faturas.map(f => f.mesRef))].sort().reverse();
+  const mesesDisponiveis = [...new Set(faturas.map(f => f.mes_ref))].sort().reverse();
 
   const alertCount = kpis.alertas.filter(a => a.severidade !== 'info').length;
 
@@ -34,21 +34,23 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         <div className="flex items-center gap-3">
           {/* Month Selector */}
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Select value={mesAtual} onValueChange={setMesAtual}>
-              <SelectTrigger className="w-[140px] h-9">
-                <SelectValue placeholder="Selecione o mês" />
-              </SelectTrigger>
-              <SelectContent>
-                {mesesDisponiveis.map((mes) => (
-                  <SelectItem key={mes} value={mes}>
-                    {getMonthName(mes)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {mesesDisponiveis.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Select value={mesAtual} onValueChange={setMesAtual}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mesesDisponiveis.map((mes) => (
+                    <SelectItem key={mes} value={mes}>
+                      {getMonthName(mes)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Export Button */}
           <Button variant="outline" size="sm" className="gap-2">

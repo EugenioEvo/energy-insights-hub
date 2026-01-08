@@ -18,12 +18,13 @@ import {
 } from '@/components/ui/tabs';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, Sun, FileText, Save } from 'lucide-react';
+import { Receipt, Sun, FileText, Save, Loader2 } from 'lucide-react';
 
 export default function LancarDados() {
-  const { addFatura, addGeracao, addAssinatura, unidadeConsumidora } = useEnergy();
+  const { addFatura, addGeracao, addAssinatura, ucId, unidadesConsumidoras, isLoading } = useEnergy();
   const { toast } = useToast();
 
+  const [saving, setSaving] = useState(false);
   const [mesRef, setMesRef] = useState('');
 
   // Fatura state
@@ -61,69 +62,105 @@ export default function LancarDados() {
     economiaPrometidaPercent: '',
   });
 
-  const handleSaveFatura = () => {
+  const handleSaveFatura = async () => {
     if (!mesRef) {
       toast({ title: 'Erro', description: 'Selecione o mês de referência', variant: 'destructive' });
       return;
     }
 
-    addFatura({
-      ucId: unidadeConsumidora.id,
-      mesRef,
-      consumoTotalKwh: parseFloat(fatura.consumoTotalKwh) || 0,
-      pontaKwh: parseFloat(fatura.pontaKwh) || 0,
-      foraPontaKwh: parseFloat(fatura.foraPontaKwh) || 0,
-      demandaContratadaKw: parseFloat(fatura.demandaContratadaKw) || 0,
-      demandaMedidaKw: parseFloat(fatura.demandaMedidaKw) || 0,
-      valorTotal: parseFloat(fatura.valorTotal) || 0,
-      valorTe: parseFloat(fatura.valorTe) || 0,
-      valorTusd: parseFloat(fatura.valorTusd) || 0,
-      bandeiras: fatura.bandeiras,
-      multaDemanda: parseFloat(fatura.multaDemanda) || 0,
-      multaReativo: parseFloat(fatura.multaReativo) || 0,
-      outrosEncargos: parseFloat(fatura.outrosEncargos) || 0,
-    });
+    if (!ucId) {
+      toast({ title: 'Erro', description: 'Nenhuma unidade consumidora selecionada', variant: 'destructive' });
+      return;
+    }
 
-    toast({ title: 'Sucesso', description: 'Fatura registrada com sucesso!' });
+    setSaving(true);
+    try {
+      await addFatura({
+        uc_id: ucId,
+        mes_ref: mesRef,
+        consumo_total_kwh: parseFloat(fatura.consumoTotalKwh) || 0,
+        ponta_kwh: parseFloat(fatura.pontaKwh) || 0,
+        fora_ponta_kwh: parseFloat(fatura.foraPontaKwh) || 0,
+        demanda_contratada_kw: parseFloat(fatura.demandaContratadaKw) || 0,
+        demanda_medida_kw: parseFloat(fatura.demandaMedidaKw) || 0,
+        valor_total: parseFloat(fatura.valorTotal) || 0,
+        valor_te: parseFloat(fatura.valorTe) || 0,
+        valor_tusd: parseFloat(fatura.valorTusd) || 0,
+        bandeiras: fatura.bandeiras,
+        multa_demanda: parseFloat(fatura.multaDemanda) || 0,
+        multa_reativo: parseFloat(fatura.multaReativo) || 0,
+        outros_encargos: parseFloat(fatura.outrosEncargos) || 0,
+      });
+
+      toast({ title: 'Sucesso', description: 'Fatura registrada com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao salvar fatura', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSaveGeracao = () => {
+  const handleSaveGeracao = async () => {
     if (!mesRef) {
       toast({ title: 'Erro', description: 'Selecione o mês de referência', variant: 'destructive' });
       return;
     }
 
-    addGeracao({
-      ucId: unidadeConsumidora.id,
-      mesRef,
-      geracaoTotalKwh: parseFloat(geracao.geracaoTotalKwh) || 0,
-      autoconsumoKwh: parseFloat(geracao.autoconsumoKwh) || 0,
-      injecaoKwh: parseFloat(geracao.injecaoKwh) || 0,
-      compensacaoKwh: parseFloat(geracao.compensacaoKwh) || 0,
-      disponibilidadePercent: parseFloat(geracao.disponibilidadePercent) || 0,
-      perdasEstimadasKwh: parseFloat(geracao.perdasEstimadasKwh) || 0,
-    });
+    if (!ucId) {
+      toast({ title: 'Erro', description: 'Nenhuma unidade consumidora selecionada', variant: 'destructive' });
+      return;
+    }
 
-    toast({ title: 'Sucesso', description: 'Geração registrada com sucesso!' });
+    setSaving(true);
+    try {
+      await addGeracao({
+        uc_id: ucId,
+        mes_ref: mesRef,
+        geracao_total_kwh: parseFloat(geracao.geracaoTotalKwh) || 0,
+        autoconsumo_kwh: parseFloat(geracao.autoconsumoKwh) || 0,
+        injecao_kwh: parseFloat(geracao.injecaoKwh) || 0,
+        compensacao_kwh: parseFloat(geracao.compensacaoKwh) || 0,
+        disponibilidade_percent: parseFloat(geracao.disponibilidadePercent) || 0,
+        perdas_estimadas_kwh: parseFloat(geracao.perdasEstimadasKwh) || 0,
+      });
+
+      toast({ title: 'Sucesso', description: 'Geração registrada com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao salvar geração', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSaveAssinatura = () => {
+  const handleSaveAssinatura = async () => {
     if (!mesRef) {
       toast({ title: 'Erro', description: 'Selecione o mês de referência', variant: 'destructive' });
       return;
     }
 
-    addAssinatura({
-      ucId: unidadeConsumidora.id,
-      mesRef,
-      ucRemota: assinatura.ucRemota,
-      energiaContratadaKwh: parseFloat(assinatura.energiaContratadaKwh) || 0,
-      energiaAlocadaKwh: parseFloat(assinatura.energiaAlocadaKwh) || 0,
-      valorAssinatura: parseFloat(assinatura.valorAssinatura) || 0,
-      economiaPrometidaPercent: parseFloat(assinatura.economiaPrometidaPercent) || 0,
-    });
+    if (!ucId) {
+      toast({ title: 'Erro', description: 'Nenhuma unidade consumidora selecionada', variant: 'destructive' });
+      return;
+    }
 
-    toast({ title: 'Sucesso', description: 'Assinatura registrada com sucesso!' });
+    setSaving(true);
+    try {
+      await addAssinatura({
+        uc_id: ucId,
+        mes_ref: mesRef,
+        uc_remota: assinatura.ucRemota,
+        energia_contratada_kwh: parseFloat(assinatura.energiaContratadaKwh) || 0,
+        energia_alocada_kwh: parseFloat(assinatura.energiaAlocadaKwh) || 0,
+        valor_assinatura: parseFloat(assinatura.valorAssinatura) || 0,
+        economia_prometida_percent: parseFloat(assinatura.economiaPrometidaPercent) || 0,
+      });
+
+      toast({ title: 'Sucesso', description: 'Assinatura registrada com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao salvar assinatura', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const generateMonths = () => {
@@ -137,6 +174,19 @@ export default function LancarDados() {
     }
     return months;
   };
+
+  if (unidadesConsumidoras.length === 0) {
+    return (
+      <DashboardLayout title="Lançar Dados" subtitle="Registro mensal de faturas, geração e assinatura">
+        <div className="flex flex-col items-center justify-center h-64 bg-card rounded-xl border border-border">
+          <p className="text-muted-foreground text-lg">Nenhuma unidade consumidora cadastrada.</p>
+          <p className="text-muted-foreground text-sm mt-2">
+            Acesse "Clientes" para cadastrar um cliente e uma unidade consumidora primeiro.
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Lançar Dados" subtitle="Registro mensal de faturas, geração e assinatura">
@@ -330,8 +380,8 @@ export default function LancarDados() {
               </div>
 
               <div className="mt-6 flex justify-end">
-                <Button onClick={handleSaveFatura} className="gap-2">
-                  <Save className="h-4 w-4" />
+                <Button onClick={handleSaveFatura} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Salvar Fatura
                 </Button>
               </div>
@@ -413,8 +463,8 @@ export default function LancarDados() {
               </div>
 
               <div className="mt-6 flex justify-end">
-                <Button onClick={handleSaveGeracao} className="gap-2">
-                  <Save className="h-4 w-4" />
+                <Button onClick={handleSaveGeracao} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Salvar Geração
                 </Button>
               </div>
@@ -460,7 +510,7 @@ export default function LancarDados() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="valorAssinatura">Valor da Assinatura (R$)</Label>
+                  <Label htmlFor="valorAssinatura">Valor Assinatura (R$)</Label>
                   <Input
                     id="valorAssinatura"
                     type="number"
@@ -485,8 +535,8 @@ export default function LancarDados() {
               </div>
 
               <div className="mt-6 flex justify-end">
-                <Button onClick={handleSaveAssinatura} className="gap-2">
-                  <Save className="h-4 w-4" />
+                <Button onClick={handleSaveAssinatura} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Salvar Assinatura
                 </Button>
               </div>

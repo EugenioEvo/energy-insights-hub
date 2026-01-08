@@ -9,15 +9,26 @@ import { Sun, Battery, Plug, Activity } from 'lucide-react';
 export default function Solar() {
   const { geracoes, mesAtual } = useEnergy();
 
-  const geracaoMesAtual = geracoes.find(g => g.mesRef === mesAtual);
+  const geracaoMesAtualDB = geracoes.find(g => g.mes_ref === mesAtual);
+
+  // Convert to typed object for easier access
+  const geracaoMesAtual = geracaoMesAtualDB ? {
+    geracaoTotalKwh: Number(geracaoMesAtualDB.geracao_total_kwh),
+    autoconsumoKwh: Number(geracaoMesAtualDB.autoconsumo_kwh),
+    injecaoKwh: Number(geracaoMesAtualDB.injecao_kwh),
+    compensacaoKwh: Number(geracaoMesAtualDB.compensacao_kwh),
+    disponibilidadePercent: Number(geracaoMesAtualDB.disponibilidade_percent),
+    perdasEstimadasKwh: Number(geracaoMesAtualDB.perdas_estimadas_kwh),
+    mesRef: geracaoMesAtualDB.mes_ref,
+  } : null;
 
   // Calculate expected generation (average of last 3 months as baseline)
-  const geracoesOrdenadas = [...geracoes].sort((a, b) => b.mesRef.localeCompare(a.mesRef));
-  const indexAtual = geracoesOrdenadas.findIndex(g => g.mesRef === mesAtual);
+  const geracoesOrdenadas = [...geracoes].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
+  const indexAtual = geracoesOrdenadas.findIndex(g => g.mes_ref === mesAtual);
   
   const geracoesAnteriores = geracoesOrdenadas.slice(indexAtual + 1, indexAtual + 4);
   const mediaEsperada = geracoesAnteriores.length > 0
-    ? geracoesAnteriores.reduce((acc, g) => acc + g.geracaoTotalKwh, 0) / geracoesAnteriores.length
+    ? geracoesAnteriores.reduce((acc, g) => acc + Number(g.geracao_total_kwh), 0) / geracoesAnteriores.length
     : geracaoMesAtual?.geracaoTotalKwh || 0;
 
   // Prepare generation chart data
@@ -27,12 +38,12 @@ export default function Solar() {
       // Calculate rolling average for expected
       const previousGeracoes = arr.slice(index + 1, index + 4);
       const esperado = previousGeracoes.length > 0
-        ? previousGeracoes.reduce((acc, g) => acc + g.geracaoTotalKwh, 0) / previousGeracoes.length
-        : geracao.geracaoTotalKwh;
+        ? previousGeracoes.reduce((acc, g) => acc + Number(g.geracao_total_kwh), 0) / previousGeracoes.length
+        : Number(geracao.geracao_total_kwh);
 
       return {
-        mesRef: geracao.mesRef,
-        geracao: geracao.geracaoTotalKwh,
+        mesRef: geracao.mes_ref,
+        geracao: Number(geracao.geracao_total_kwh),
         esperado: esperado,
       };
     })

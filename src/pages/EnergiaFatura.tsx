@@ -4,14 +4,67 @@ import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { formatCurrency, formatNumber, getMonthName } from '@/data/mockData';
 import { calcularKPIsMensais } from '@/lib/calculations';
+import { FaturaMensal, GeracaoMensal, AssinaturaMensal } from '@/types/energy';
 import { Receipt, TrendingDown, AlertTriangle, Zap } from 'lucide-react';
+
+// Helper function to convert DB types to calculation types
+function convertFatura(f: any): FaturaMensal {
+  return {
+    id: f.id,
+    ucId: f.uc_id,
+    mesRef: f.mes_ref,
+    consumoTotalKwh: Number(f.consumo_total_kwh),
+    pontaKwh: Number(f.ponta_kwh),
+    foraPontaKwh: Number(f.fora_ponta_kwh),
+    demandaContratadaKw: Number(f.demanda_contratada_kw),
+    demandaMedidaKw: Number(f.demanda_medida_kw),
+    valorTotal: Number(f.valor_total),
+    valorTe: Number(f.valor_te),
+    valorTusd: Number(f.valor_tusd),
+    bandeiras: f.bandeiras as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
+    multaDemanda: Number(f.multa_demanda),
+    multaReativo: Number(f.multa_reativo),
+    outrosEncargos: Number(f.outros_encargos),
+  };
+}
+
+function convertGeracao(g: any): GeracaoMensal {
+  return {
+    id: g.id,
+    ucId: g.uc_id,
+    mesRef: g.mes_ref,
+    geracaoTotalKwh: Number(g.geracao_total_kwh),
+    autoconsumoKwh: Number(g.autoconsumo_kwh),
+    injecaoKwh: Number(g.injecao_kwh),
+    compensacaoKwh: Number(g.compensacao_kwh),
+    disponibilidadePercent: Number(g.disponibilidade_percent),
+    perdasEstimadasKwh: Number(g.perdas_estimadas_kwh),
+  };
+}
+
+function convertAssinatura(a: any): AssinaturaMensal {
+  return {
+    id: a.id,
+    ucId: a.uc_id,
+    mesRef: a.mes_ref,
+    ucRemota: a.uc_remota,
+    energiaContratadaKwh: Number(a.energia_contratada_kwh),
+    energiaAlocadaKwh: Number(a.energia_alocada_kwh),
+    valorAssinatura: Number(a.valor_assinatura),
+    economiaPrometidaPercent: Number(a.economia_prometida_percent),
+  };
+}
 
 export default function EnergiaFatura() {
   const { faturas, geracoes, assinaturas, mesAtual } = useEnergy();
 
-  const faturaMesAtual = faturas.find(f => f.mesRef === mesAtual);
-  const geracaoMesAtual = geracoes.find(g => g.mesRef === mesAtual);
-  const assinaturaMesAtual = assinaturas.find(a => a.mesRef === mesAtual);
+  const faturaMesAtualDB = faturas.find(f => f.mes_ref === mesAtual);
+  const geracaoMesAtualDB = geracoes.find(g => g.mes_ref === mesAtual);
+  const assinaturaMesAtualDB = assinaturas.find(a => a.mes_ref === mesAtual);
+
+  const faturaMesAtual = faturaMesAtualDB ? convertFatura(faturaMesAtualDB) : null;
+  const geracaoMesAtual = geracaoMesAtualDB ? convertGeracao(geracaoMesAtualDB) : null;
+  const assinaturaMesAtual = assinaturaMesAtualDB ? convertAssinatura(assinaturaMesAtualDB) : null;
 
   const kpisMensais = faturaMesAtual && geracaoMesAtual && assinaturaMesAtual
     ? calcularKPIsMensais(faturaMesAtual, geracaoMesAtual, assinaturaMesAtual)
@@ -21,16 +74,16 @@ export default function EnergiaFatura() {
   const comparisonData = faturas
     .slice(0, 6)
     .map(fatura => {
-      const geracao = geracoes.find(g => g.mesRef === fatura.mesRef);
-      const assinatura = assinaturas.find(a => a.mesRef === fatura.mesRef);
+      const geracao = geracoes.find(g => g.mes_ref === fatura.mes_ref);
+      const assinatura = assinaturas.find(a => a.mes_ref === fatura.mes_ref);
       const kpis = geracao && assinatura
-        ? calcularKPIsMensais(fatura, geracao, assinatura)
+        ? calcularKPIsMensais(convertFatura(fatura), convertGeracao(geracao), convertAssinatura(assinatura))
         : null;
 
       return {
-        mesRef: fatura.mesRef,
-        original: fatura.valorTotal + (assinatura?.valorAssinatura || 0),
-        otimizado: (fatura.valorTotal + (assinatura?.valorAssinatura || 0)) - (kpis?.economiaMensalRs || 0),
+        mesRef: fatura.mes_ref,
+        original: Number(fatura.valor_total) + Number(assinatura?.valor_assinatura || 0),
+        otimizado: (Number(fatura.valor_total) + Number(assinatura?.valor_assinatura || 0)) - (kpis?.economiaMensalRs || 0),
       };
     })
     .reverse();
@@ -52,7 +105,7 @@ export default function EnergiaFatura() {
           <KPICard
             title="Economia Mensal"
             value={formatCurrency(kpisMensais?.economiaMensalRs || 0)}
-            subtitle={`${kpisMensais?.economiaMensalPercent.toFixed(1)}% de economia`}
+            subtitle={`${kpisMensais?.economiaMensalPercent.toFixed(1) || 0}% de economia`}
             icon={<TrendingDown className="h-6 w-6" />}
             variant="success"
           />
@@ -99,7 +152,7 @@ export default function EnergiaFatura() {
                   faturaMesAtual?.bandeiras === 'verde' ? 'text-success' :
                   faturaMesAtual?.bandeiras === 'amarela' ? 'text-warning' : 'text-destructive'
                 }`}>
-                  {faturaMesAtual?.bandeiras}
+                  {faturaMesAtual?.bandeiras || '-'}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
@@ -137,7 +190,7 @@ export default function EnergiaFatura() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Demanda Contratada</span>
-                <span className="font-medium">{faturaMesAtual?.demandaContratadaKw} kW</span>
+                <span className="font-medium">{faturaMesAtual?.demandaContratadaKw || 0} kW</span>
               </div>
               <div className={`flex justify-between items-center py-2 border-b ${
                 (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
@@ -153,7 +206,7 @@ export default function EnergiaFatura() {
                   (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
                     ? 'text-destructive'
                     : ''
-                }`}>{faturaMesAtual?.demandaMedidaKw} kW</span>
+                }`}>{faturaMesAtual?.demandaMedidaKw || 0} kW</span>
               </div>
               <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Custo por kWh</span>

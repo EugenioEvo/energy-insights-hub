@@ -47,7 +47,9 @@ export function Sidebar() {
         <div className="px-4 py-4 border-b border-sidebar-border">
           <div className="rounded-lg bg-sidebar-accent p-3">
             <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider">Cliente</p>
-            <p className="text-sm font-medium text-sidebar-foreground truncate">{cliente.nome}</p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate">
+              {cliente?.nome || 'Nenhum cliente selecionado'}
+            </p>
           </div>
         </div>
 
