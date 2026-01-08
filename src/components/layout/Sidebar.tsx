@@ -7,7 +7,8 @@ import {
   Settings, 
   PlusCircle,
   Building2,
-  LogOut
+  LogOut,
+  FileSearch
 } from 'lucide-react';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'Lançar Dados', href: '/admin/lancar', icon: PlusCircle },
+  { name: 'Gerenciar Faturas', href: '/admin/faturas', icon: FileSearch },
   { name: 'Clientes', href: '/admin/clientes', icon: Building2 },
 ];
 
