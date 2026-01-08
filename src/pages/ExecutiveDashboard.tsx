@@ -72,8 +72,19 @@ export default function ExecutiveDashboard() {
   const { kpis, faturas, geracoes, assinaturas, mesAtual, isLoading } = useEnergy();
   const { exportToPDF, isExporting } = useExportPDF();
 
+  // Format month for display
+  const mesFormatado = (() => {
+    const [year, month] = mesAtual.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  })();
+
   const handleExportPDF = async () => {
-    await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`);
+    await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`, {
+      companyName: 'Evolight Energia',
+      reportTitle: 'Relatório Executivo de Energia',
+      mesRef: mesFormatado,
+    });
   };
 
   // Current month data
