@@ -6,119 +6,119 @@
 
 @layer base {
   :root {
-    /* Corporate Energy Theme */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* Corporate Energy Theme - Azul Petróleo & Amarelo Escuro */
+    --background: 195 20% 97%;
+    --foreground: 195 50% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 195 50% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 195 50% 10%;
 
-    /* Deep Navy - Trust & Corporate */
-    --primary: 222 47% 20%;
-    --primary-foreground: 210 40% 98%;
+    /* Azul Petróleo - Primary */
+    --primary: 195 50% 25%;
+    --primary-foreground: 45 90% 95%;
 
-    /* Light Blue-Gray */
-    --secondary: 210 25% 93%;
-    --secondary-foreground: 222 47% 20%;
+    /* Light Petrol */
+    --secondary: 195 25% 92%;
+    --secondary-foreground: 195 50% 20%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 195 15% 95%;
+    --muted-foreground: 195 20% 45%;
 
-    /* Emerald Green - Energy & Sustainability */
-    --accent: 160 60% 45%;
-    --accent-foreground: 0 0% 100%;
+    /* Amarelo Escuro - Accent */
+    --accent: 45 85% 45%;
+    --accent-foreground: 195 50% 10%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
     /* Warning - Amber */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Success - Green */
-    --success: 142 71% 45%;
+    /* Success - Teal Green */
+    --success: 160 60% 40%;
     --success-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 47% 20%;
+    --border: 195 25% 88%;
+    --input: 195 25% 88%;
+    --ring: 195 50% 25%;
 
     --radius: 0.625rem;
 
-    /* Sidebar */
-    --sidebar-background: 222 47% 15%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 160 60% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 22%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 47% 25%;
-    --sidebar-ring: 160 60% 50%;
+    /* Sidebar - Azul Petróleo Escuro */
+    --sidebar-background: 195 55% 18%;
+    --sidebar-foreground: 45 30% 95%;
+    --sidebar-primary: 45 85% 50%;
+    --sidebar-primary-foreground: 195 50% 10%;
+    --sidebar-accent: 195 50% 25%;
+    --sidebar-accent-foreground: 45 30% 95%;
+    --sidebar-border: 195 45% 28%;
+    --sidebar-ring: 45 85% 50%;
 
     /* Custom Energy Dashboard Variables */
-    --energy-positive: 142 71% 45%;
+    --energy-positive: 160 60% 40%;
     --energy-negative: 0 72% 51%;
-    --energy-neutral: 215 16% 47%;
-    --energy-highlight: 160 60% 45%;
+    --energy-neutral: 195 20% 45%;
+    --energy-highlight: 45 85% 50%;
     
     /* Chart Colors */
-    --chart-original: 222 47% 40%;
-    --chart-optimized: 160 60% 45%;
-    --chart-generation: 45 93% 47%;
-    --chart-consumption: 222 47% 55%;
+    --chart-original: 195 50% 35%;
+    --chart-optimized: 45 85% 50%;
+    --chart-generation: 45 90% 45%;
+    --chart-consumption: 195 45% 45%;
     
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(222, 47%, 20%), hsl(222, 47%, 30%));
-    --gradient-accent: linear-gradient(135deg, hsl(160, 60%, 45%), hsl(160, 60%, 55%));
-    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(210, 20%, 98%));
+    --gradient-primary: linear-gradient(135deg, hsl(195, 50%, 20%), hsl(195, 50%, 30%));
+    --gradient-accent: linear-gradient(135deg, hsl(45, 85%, 45%), hsl(45, 85%, 55%));
+    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(195, 20%, 97%));
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    --background: 195 50% 8%;
+    --foreground: 45 30% 95%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 195 50% 12%;
+    --card-foreground: 45 30% 95%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 195 50% 12%;
+    --popover-foreground: 45 30% 95%;
 
-    --primary: 160 60% 50%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 45 85% 50%;
+    --primary-foreground: 195 50% 10%;
 
-    --secondary: 222 47% 18%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 195 45% 18%;
+    --secondary-foreground: 45 30% 95%;
 
-    --muted: 222 47% 15%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 195 45% 15%;
+    --muted-foreground: 195 25% 60%;
 
-    --accent: 160 60% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 45 85% 50%;
+    --accent-foreground: 195 50% 10%;
 
     --destructive: 0 62% 50%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
 
-    --success: 142 71% 45%;
+    --success: 160 60% 45%;
     --success-foreground: 0 0% 100%;
 
-    --border: 222 47% 20%;
-    --input: 222 47% 20%;
-    --ring: 160 60% 50%;
+    --border: 195 45% 22%;
+    --input: 195 45% 22%;
+    --ring: 45 85% 50%;
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 160 60% 50%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 222 47% 15%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 160 60% 50%;
+    --sidebar-background: 195 55% 8%;
+    --sidebar-foreground: 45 30% 95%;
+    --sidebar-primary: 45 85% 50%;
+    --sidebar-primary-foreground: 195 50% 10%;
+    --sidebar-accent: 195 50% 18%;
+    --sidebar-accent-foreground: 45 30% 95%;
+    --sidebar-border: 195 45% 20%;
+    --sidebar-ring: 45 85% 50%;
   }
 }
 
