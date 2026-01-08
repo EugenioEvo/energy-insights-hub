@@ -27,19 +27,34 @@ export default function LancarDados() {
   const [saving, setSaving] = useState(false);
   const [mesRef, setMesRef] = useState('');
 
-  // Fatura state
+  // Fatura state - Grupo A completo
   const [fatura, setFatura] = useState({
+    // Consumo
     consumoTotalKwh: '',
     pontaKwh: '',
     foraPontaKwh: '',
+    // Demanda
     demandaContratadaKw: '',
     demandaMedidaKw: '',
+    demandaGeracaoKw: '',
+    // Valores de Energia (R$)
+    energiaPontaRs: '',
+    energiaForaPontaRs: '',
+    // Valores de Demanda (R$)
+    demandaContratadaRs: '',
+    demandaGeracaoRs: '',
+    // Componentes tarifários
     valorTotal: '',
     valorTe: '',
     valorTusd: '',
     bandeiras: 'verde' as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
+    // Multas
     multaDemanda: '',
-    multaReativo: '',
+    multaDemandaUltrapassagem: '',
+    multaUferPonta: '',
+    multaUferForaPonta: '',
+    // Outros
+    iluminacaoPublica: '',
     outrosEncargos: '',
   });
 
@@ -78,17 +93,33 @@ export default function LancarDados() {
       await addFatura({
         uc_id: ucId,
         mes_ref: mesRef,
+        // Consumo
         consumo_total_kwh: parseFloat(fatura.consumoTotalKwh) || 0,
         ponta_kwh: parseFloat(fatura.pontaKwh) || 0,
         fora_ponta_kwh: parseFloat(fatura.foraPontaKwh) || 0,
+        // Demanda
         demanda_contratada_kw: parseFloat(fatura.demandaContratadaKw) || 0,
         demanda_medida_kw: parseFloat(fatura.demandaMedidaKw) || 0,
+        demanda_geracao_kw: parseFloat(fatura.demandaGeracaoKw) || 0,
+        // Valores de Energia (R$)
+        energia_ponta_rs: parseFloat(fatura.energiaPontaRs) || 0,
+        energia_fora_ponta_rs: parseFloat(fatura.energiaForaPontaRs) || 0,
+        // Valores de Demanda (R$)
+        demanda_contratada_rs: parseFloat(fatura.demandaContratadaRs) || 0,
+        demanda_geracao_rs: parseFloat(fatura.demandaGeracaoRs) || 0,
+        // Componentes tarifários
         valor_total: parseFloat(fatura.valorTotal) || 0,
         valor_te: parseFloat(fatura.valorTe) || 0,
         valor_tusd: parseFloat(fatura.valorTusd) || 0,
         bandeiras: fatura.bandeiras,
+        // Multas
         multa_demanda: parseFloat(fatura.multaDemanda) || 0,
-        multa_reativo: parseFloat(fatura.multaReativo) || 0,
+        multa_demanda_ultrapassagem: parseFloat(fatura.multaDemandaUltrapassagem) || 0,
+        multa_ufer_ponta: parseFloat(fatura.multaUferPonta) || 0,
+        multa_ufer_fora_ponta: parseFloat(fatura.multaUferForaPonta) || 0,
+        multa_reativo: 0, // mantido por compatibilidade
+        // Outros
+        iluminacao_publica: parseFloat(fatura.iluminacaoPublica) || 0,
         outros_encargos: parseFloat(fatura.outrosEncargos) || 0,
       });
 
@@ -189,8 +220,8 @@ export default function LancarDados() {
   }
 
   return (
-    <DashboardLayout title="Lançar Dados" subtitle="Registro mensal de faturas, geração e assinatura">
-      <div className="max-w-4xl">
+    <DashboardLayout title="Lançar Dados" subtitle="Registro mensal de faturas, geração e assinatura - Grupo A">
+      <div className="max-w-5xl">
         {/* Month Selector */}
         <div className="bg-card rounded-xl border border-border p-6 mb-6">
           <Label htmlFor="mesRef" className="text-base font-medium">Mês de Referência</Label>
@@ -213,7 +244,7 @@ export default function LancarDados() {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="fatura" className="gap-2">
               <Receipt className="h-4 w-4" />
-              Fatura Mensal
+              Fatura Grupo A
             </TabsTrigger>
             <TabsTrigger value="geracao" className="gap-2">
               <Sun className="h-4 w-4" />
@@ -225,161 +256,264 @@ export default function LancarDados() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Fatura Tab */}
+          {/* Fatura Tab - Grupo A */}
           <TabsContent value="fatura">
-            <div className="bg-card rounded-xl border border-border p-6 mt-4">
-              <h3 className="text-lg font-semibold mb-6">Dados da Fatura de Energia</h3>
+            <div className="bg-card rounded-xl border border-border p-6 mt-4 space-y-6">
+              <h3 className="text-lg font-semibold">Dados da Fatura - Grupo A</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="consumoTotal">Consumo Total (kWh)</Label>
-                  <Input
-                    id="consumoTotal"
-                    type="number"
-                    value={fatura.consumoTotalKwh}
-                    onChange={(e) => setFatura({ ...fatura, consumoTotalKwh: e.target.value })}
-                    placeholder="45000"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pontaKwh">Consumo Ponta (kWh)</Label>
-                  <Input
-                    id="pontaKwh"
-                    type="number"
-                    value={fatura.pontaKwh}
-                    onChange={(e) => setFatura({ ...fatura, pontaKwh: e.target.value })}
-                    placeholder="8500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="foraPontaKwh">Consumo Fora Ponta (kWh)</Label>
-                  <Input
-                    id="foraPontaKwh"
-                    type="number"
-                    value={fatura.foraPontaKwh}
-                    onChange={(e) => setFatura({ ...fatura, foraPontaKwh: e.target.value })}
-                    placeholder="36500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="demandaContratada">Demanda Contratada (kW)</Label>
-                  <Input
-                    id="demandaContratada"
-                    type="number"
-                    value={fatura.demandaContratadaKw}
-                    onChange={(e) => setFatura({ ...fatura, demandaContratadaKw: e.target.value })}
-                    placeholder="500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="demandaMedida">Demanda Medida (kW)</Label>
-                  <Input
-                    id="demandaMedida"
-                    type="number"
-                    value={fatura.demandaMedidaKw}
-                    onChange={(e) => setFatura({ ...fatura, demandaMedidaKw: e.target.value })}
-                    placeholder="485"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bandeiras">Bandeira Tarifária</Label>
-                  <Select 
-                    value={fatura.bandeiras} 
-                    onValueChange={(value: 'verde' | 'amarela' | 'vermelha1' | 'vermelha2') => 
-                      setFatura({ ...fatura, bandeiras: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="verde">Verde</SelectItem>
-                      <SelectItem value="amarela">Amarela</SelectItem>
-                      <SelectItem value="vermelha1">Vermelha 1</SelectItem>
-                      <SelectItem value="vermelha2">Vermelha 2</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="valorTotal">Valor Total (R$)</Label>
-                  <Input
-                    id="valorTotal"
-                    type="number"
-                    step="0.01"
-                    value={fatura.valorTotal}
-                    onChange={(e) => setFatura({ ...fatura, valorTotal: e.target.value })}
-                    placeholder="38500.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="valorTe">Valor TE (R$)</Label>
-                  <Input
-                    id="valorTe"
-                    type="number"
-                    step="0.01"
-                    value={fatura.valorTe}
-                    onChange={(e) => setFatura({ ...fatura, valorTe: e.target.value })}
-                    placeholder="22000.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="valorTusd">Valor TUSD (R$)</Label>
-                  <Input
-                    id="valorTusd"
-                    type="number"
-                    step="0.01"
-                    value={fatura.valorTusd}
-                    onChange={(e) => setFatura({ ...fatura, valorTusd: e.target.value })}
-                    placeholder="14500.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="multaDemanda">Multa Demanda (R$)</Label>
-                  <Input
-                    id="multaDemanda"
-                    type="number"
-                    step="0.01"
-                    value={fatura.multaDemanda}
-                    onChange={(e) => setFatura({ ...fatura, multaDemanda: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="multaReativo">Multa Reativo (R$)</Label>
-                  <Input
-                    id="multaReativo"
-                    type="number"
-                    step="0.01"
-                    value={fatura.multaReativo}
-                    onChange={(e) => setFatura({ ...fatura, multaReativo: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="outrosEncargos">Outros Encargos (R$)</Label>
-                  <Input
-                    id="outrosEncargos"
-                    type="number"
-                    step="0.01"
-                    value={fatura.outrosEncargos}
-                    onChange={(e) => setFatura({ ...fatura, outrosEncargos: e.target.value })}
-                    placeholder="2000.00"
-                  />
+              {/* Consumo */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Consumo de Energia</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Consumo Total (kWh)</Label>
+                    <Input
+                      type="number"
+                      value={fatura.consumoTotalKwh}
+                      onChange={(e) => setFatura({ ...fatura, consumoTotalKwh: e.target.value })}
+                      placeholder="45000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Consumo Ponta (kWh)</Label>
+                    <Input
+                      type="number"
+                      value={fatura.pontaKwh}
+                      onChange={(e) => setFatura({ ...fatura, pontaKwh: e.target.value })}
+                      placeholder="8500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Consumo Fora Ponta (kWh)</Label>
+                    <Input
+                      type="number"
+                      value={fatura.foraPontaKwh}
+                      onChange={(e) => setFatura({ ...fatura, foraPontaKwh: e.target.value })}
+                      placeholder="36500"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              {/* Demanda */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Demanda</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Demanda Contratada (kW)</Label>
+                    <Input
+                      type="number"
+                      value={fatura.demandaContratadaKw}
+                      onChange={(e) => setFatura({ ...fatura, demandaContratadaKw: e.target.value })}
+                      placeholder="500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Demanda Medida (kW)</Label>
+                    <Input
+                      type="number"
+                      value={fatura.demandaMedidaKw}
+                      onChange={(e) => setFatura({ ...fatura, demandaMedidaKw: e.target.value })}
+                      placeholder="485"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Demanda de Geração (kW)</Label>
+                    <Input
+                      type="number"
+                      value={fatura.demandaGeracaoKw}
+                      onChange={(e) => setFatura({ ...fatura, demandaGeracaoKw: e.target.value })}
+                      placeholder="200"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Valores de Energia */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Valores de Energia (R$)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Energia Ponta (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.energiaPontaRs}
+                      onChange={(e) => setFatura({ ...fatura, energiaPontaRs: e.target.value })}
+                      placeholder="12000.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Energia Fora Ponta (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.energiaForaPontaRs}
+                      onChange={(e) => setFatura({ ...fatura, energiaForaPontaRs: e.target.value })}
+                      placeholder="18000.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Valores de Demanda */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Valores de Demanda (R$)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Demanda Contratada (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.demandaContratadaRs}
+                      onChange={(e) => setFatura({ ...fatura, demandaContratadaRs: e.target.value })}
+                      placeholder="8500.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Demanda de Geração (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.demandaGeracaoRs}
+                      onChange={(e) => setFatura({ ...fatura, demandaGeracaoRs: e.target.value })}
+                      placeholder="3500.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Componentes Tarifários */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Componentes Tarifários</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>Valor Total (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.valorTotal}
+                      onChange={(e) => setFatura({ ...fatura, valorTotal: e.target.value })}
+                      placeholder="45000.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor TE (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.valorTe}
+                      onChange={(e) => setFatura({ ...fatura, valorTe: e.target.value })}
+                      placeholder="22000.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor TUSD (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.valorTusd}
+                      onChange={(e) => setFatura({ ...fatura, valorTusd: e.target.value })}
+                      placeholder="20000.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bandeira Tarifária</Label>
+                    <Select 
+                      value={fatura.bandeiras} 
+                      onValueChange={(value: 'verde' | 'amarela' | 'vermelha1' | 'vermelha2') => 
+                        setFatura({ ...fatura, bandeiras: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="verde">Verde</SelectItem>
+                        <SelectItem value="amarela">Amarela</SelectItem>
+                        <SelectItem value="vermelha1">Vermelha 1</SelectItem>
+                        <SelectItem value="vermelha2">Vermelha 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Multas */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Multas e Penalidades</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>Multa Demanda (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.multaDemanda}
+                      onChange={(e) => setFatura({ ...fatura, multaDemanda: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ultrapassagem Demanda (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.multaDemandaUltrapassagem}
+                      onChange={(e) => setFatura({ ...fatura, multaDemandaUltrapassagem: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>UFER Ponta (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.multaUferPonta}
+                      onChange={(e) => setFatura({ ...fatura, multaUferPonta: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>UFER Fora Ponta (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.multaUferForaPonta}
+                      onChange={(e) => setFatura({ ...fatura, multaUferForaPonta: e.target.value })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Outros */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">Outros Encargos</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Iluminação Pública - CIP (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.iluminacaoPublica}
+                      onChange={(e) => setFatura({ ...fatura, iluminacaoPublica: e.target.value })}
+                      placeholder="350.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Outros Encargos (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={fatura.outrosEncargos}
+                      onChange={(e) => setFatura({ ...fatura, outrosEncargos: e.target.value })}
+                      placeholder="500.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-border">
                 <Button onClick={handleSaveFatura} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Salvar Fatura

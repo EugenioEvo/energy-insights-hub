@@ -97,12 +97,21 @@ export type Database = {
           consumo_total_kwh: number
           created_at: string
           demanda_contratada_kw: number
+          demanda_contratada_rs: number
+          demanda_geracao_kw: number
+          demanda_geracao_rs: number
           demanda_medida_kw: number
+          energia_fora_ponta_rs: number
+          energia_ponta_rs: number
           fora_ponta_kwh: number
           id: string
+          iluminacao_publica: number
           mes_ref: string
           multa_demanda: number
+          multa_demanda_ultrapassagem: number
           multa_reativo: number
+          multa_ufer_fora_ponta: number
+          multa_ufer_ponta: number
           outros_encargos: number
           ponta_kwh: number
           uc_id: string
@@ -116,12 +125,21 @@ export type Database = {
           consumo_total_kwh?: number
           created_at?: string
           demanda_contratada_kw?: number
+          demanda_contratada_rs?: number
+          demanda_geracao_kw?: number
+          demanda_geracao_rs?: number
           demanda_medida_kw?: number
+          energia_fora_ponta_rs?: number
+          energia_ponta_rs?: number
           fora_ponta_kwh?: number
           id?: string
+          iluminacao_publica?: number
           mes_ref: string
           multa_demanda?: number
+          multa_demanda_ultrapassagem?: number
           multa_reativo?: number
+          multa_ufer_fora_ponta?: number
+          multa_ufer_ponta?: number
           outros_encargos?: number
           ponta_kwh?: number
           uc_id: string
@@ -135,12 +153,21 @@ export type Database = {
           consumo_total_kwh?: number
           created_at?: string
           demanda_contratada_kw?: number
+          demanda_contratada_rs?: number
+          demanda_geracao_kw?: number
+          demanda_geracao_rs?: number
           demanda_medida_kw?: number
+          energia_fora_ponta_rs?: number
+          energia_ponta_rs?: number
           fora_ponta_kwh?: number
           id?: string
+          iluminacao_publica?: number
           mes_ref?: string
           multa_demanda?: number
+          multa_demanda_ultrapassagem?: number
           multa_reativo?: number
+          multa_ufer_fora_ponta?: number
+          multa_ufer_ponta?: number
           outros_encargos?: number
           ponta_kwh?: number
           uc_id?: string
