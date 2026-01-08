@@ -119,7 +119,8 @@ export function calcularKPIsGlobais(
   geracoes: GeracaoMensal[],
   assinaturas: AssinaturaMensal[]
 ): KPIs {
-  if (faturas.length === 0) {
+  // Return empty KPIs if any required data is missing
+  if (faturas.length === 0 || geracoes.length === 0 || assinaturas.length === 0) {
     return {
       economiaDoMes: 0,
       economiaAcumulada: 0,
@@ -138,6 +139,18 @@ export function calcularKPIsGlobais(
   const faturaMaisRecente = faturasSorted[0];
   const geracaoMaisRecente = geracoesSorted.find(g => g.mesRef === faturaMaisRecente.mesRef) || geracoesSorted[0];
   const assinaturaMaisRecente = assinaturasSorted.find(a => a.mesRef === faturaMaisRecente.mesRef) || assinaturasSorted[0];
+
+  // Safety check - should not happen due to length check above, but just in case
+  if (!geracaoMaisRecente || !assinaturaMaisRecente) {
+    return {
+      economiaDoMes: 0,
+      economiaAcumulada: 0,
+      custoKwhAntes: 0,
+      custoKwhDepois: 0,
+      statusGeral: 'OK',
+      alertas: [],
+    };
+  }
 
   // Calcular KPIs do mês mais recente
   const kpisMensais = calcularKPIsMensais(faturaMaisRecente, geracaoMaisRecente, assinaturaMaisRecente);
