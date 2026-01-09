@@ -8,7 +8,8 @@ import {
   PlusCircle,
   Building2,
   LogOut,
-  FileSearch
+  FileSearch,
+  Factory
 } from 'lucide-react';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ const adminNavigation = [
   { name: 'Lançar Dados', href: '/admin/lancar', icon: PlusCircle },
   { name: 'Gerenciar Faturas', href: '/admin/faturas', icon: FileSearch },
   { name: 'Clientes', href: '/admin/clientes', icon: Building2 },
+  { name: 'Usinas Remotas', href: '/admin/usinas', icon: Factory },
 ];
 
 export function Sidebar() {
