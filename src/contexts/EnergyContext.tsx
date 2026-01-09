@@ -59,7 +59,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [user] = useState<User>(mockUser);
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [ucId, setUcId] = useState<string | null>(null);
-  const [mesAtual, setMesAtual] = useState<string>('2024-12');
+  const [mesAtual, setMesAtual] = useState<string>('');
 
   // Fetch data from database
   const { data: clientes = [], isLoading: loadingClientes, refetch: refetchClientes } = useClientes();
@@ -72,6 +72,14 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const upsertFatura = useUpsertFatura();
   const upsertGeracao = useUpsertGeracao();
   const upsertAssinatura = useUpsertAssinatura();
+
+  // Auto-detect most recent month from faturas
+  React.useEffect(() => {
+    if (faturas.length > 0 && !mesAtual) {
+      const sortedFaturas = [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
+      setMesAtual(sortedFaturas[0].mes_ref);
+    }
+  }, [faturas, mesAtual]);
 
   // Auto-select first cliente and UC if none selected
   React.useEffect(() => {
