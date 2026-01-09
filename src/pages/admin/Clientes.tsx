@@ -18,18 +18,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useEnergy } from '@/contexts/EnergyContext';
-import { useCreateCliente } from '@/hooks/useClientes';
+import { useCreateCliente, useUpdateCliente, Cliente } from '@/hooks/useClientes';
 import { useCreateUnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Plus, MapPin, Zap, Loader2 } from 'lucide-react';
+import { Building2, Plus, MapPin, Zap, Loader2, Pencil } from 'lucide-react';
 
 export default function Clientes() {
   const { clientes, unidadesConsumidoras, clienteId, setClienteId, refetchAll } = useEnergy();
   const createCliente = useCreateCliente();
+  const updateCliente = useUpdateCliente();
   const createUC = useCreateUnidadeConsumidora();
   const { toast } = useToast();
 
   const [clienteDialogOpen, setClienteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [ucDialogOpen, setUcDialogOpen] = useState(false);
 
   // New cliente form
@@ -39,6 +41,15 @@ export default function Clientes() {
     email: '',
     telefone: '',
   });
+
+  // Edit cliente form
+  const [editCliente, setEditCliente] = useState<{
+    id: string;
+    nome: string;
+    cnpj: string;
+    email: string;
+    telefone: string;
+  } | null>(null);
 
   // New UC form
   const [novaUC, setNovaUC] = useState({
@@ -68,6 +79,42 @@ export default function Clientes() {
       refetchAll();
     } catch (error) {
       toast({ title: 'Erro', description: 'Falha ao criar cliente', variant: 'destructive' });
+    }
+  };
+
+  const handleEditCliente = (cliente: Cliente) => {
+    setEditCliente({
+      id: cliente.id,
+      nome: cliente.nome,
+      cnpj: cliente.cnpj,
+      email: cliente.email,
+      telefone: cliente.telefone || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateCliente = async () => {
+    if (!editCliente) return;
+    
+    if (!editCliente.nome || !editCliente.cnpj || !editCliente.email) {
+      toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await updateCliente.mutateAsync({
+        id: editCliente.id,
+        nome: editCliente.nome,
+        cnpj: editCliente.cnpj,
+        email: editCliente.email,
+        telefone: editCliente.telefone || null,
+      });
+      toast({ title: 'Sucesso', description: 'Cliente atualizado com sucesso!' });
+      setEditDialogOpen(false);
+      setEditCliente(null);
+      refetchAll();
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao atualizar cliente', variant: 'destructive' });
     }
   };
 
@@ -165,6 +212,56 @@ export default function Clientes() {
           </Dialog>
         </div>
 
+        {/* Edit Cliente Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Cliente</DialogTitle>
+            </DialogHeader>
+            {editCliente && (
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input
+                    value={editCliente.nome}
+                    onChange={(e) => setEditCliente({ ...editCliente, nome: e.target.value })}
+                    placeholder="Nome da empresa"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>CNPJ *</Label>
+                  <Input
+                    value={editCliente.cnpj}
+                    onChange={(e) => setEditCliente({ ...editCliente, cnpj: e.target.value })}
+                    placeholder="00.000.000/0000-00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>E-mail *</Label>
+                  <Input
+                    type="email"
+                    value={editCliente.email}
+                    onChange={(e) => setEditCliente({ ...editCliente, email: e.target.value })}
+                    placeholder="contato@empresa.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone</Label>
+                  <Input
+                    value={editCliente.telefone}
+                    onChange={(e) => setEditCliente({ ...editCliente, telefone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+                <Button onClick={handleUpdateCliente} disabled={updateCliente.isPending} className="w-full">
+                  {updateCliente.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Clients List */}
         {clientes.length === 0 ? (
           <div className="bg-card rounded-xl border border-dashed border-border p-8 text-center">
@@ -204,6 +301,16 @@ export default function Clientes() {
                     )}
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditCliente(cliente);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* UCs for this client */}
