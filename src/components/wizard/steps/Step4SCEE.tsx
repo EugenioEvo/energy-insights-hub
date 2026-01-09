@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useWizard } from '../WizardContext';
-import { Sun, Info } from 'lucide-react';
+import { Sun, Info, Zap, Receipt } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 
 export function Step4SCEE() {
   const { data, updateData, setCanProceed } = useWizard();
@@ -17,6 +18,10 @@ export function Step4SCEE() {
 
   const formatNumber = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   const totalGeracaoCiclo = 
@@ -33,6 +38,10 @@ export function Step4SCEE() {
     (data.scee_saldo_expirar_30d_kwh || 0) + 
     (data.scee_saldo_expirar_60d_kwh || 0);
 
+  // Total de economia (simultânea + créditos)
+  const totalEconomiaEnergia = (data.energia_simultanea_kwh || 0) + (data.credito_assinatura_kwh || 0);
+  const totalEconomiaRs = (data.energia_simultanea_rs || 0) + (data.credito_assinatura_rs || 0);
+
   return (
     <Card>
       <CardHeader>
@@ -45,6 +54,116 @@ export function Step4SCEE() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        
+        {/* NOVA SEÇÃO: Energia Simultânea vs Créditos de Assinatura */}
+        <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+          <h4 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            Energia Simultânea (Geração Própria)
+          </h4>
+          <p className="text-xs text-muted-foreground mb-3">
+            Energia gerada e consumida em tempo real pela própria usina do cliente. Economia de 100%.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Energia Simultânea (kWh)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.energia_simultanea_kwh || ''} 
+                onChange={(e) => updateData({ energia_simultanea_kwh: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Economizado (R$)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.energia_simultanea_rs || ''} 
+                onChange={(e) => updateData({ energia_simultanea_rs: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-chart-optimized/10 rounded-lg p-4 border border-chart-optimized/20">
+          <h4 className="text-sm font-semibold text-chart-optimized mb-4 flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            Créditos de Assinatura (Usina Remota)
+          </h4>
+          <p className="text-xs text-muted-foreground mb-3">
+            Créditos recebidos de usina remota através de contrato de assinatura com desconto garantido.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Créditos Recebidos (kWh)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.credito_assinatura_kwh || ''} 
+                onChange={(e) => updateData({ credito_assinatura_kwh: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Créditos (R$)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.credito_assinatura_rs || ''} 
+                onChange={(e) => updateData({ credito_assinatura_rs: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Desconto Assinatura (%)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={data.desconto_assinatura_percent || ''} 
+                onChange={(e) => updateData({ desconto_assinatura_percent: parseFloat(e.target.value) || 0 })}
+                placeholder="15"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Resumo de Economia */}
+        <div className="bg-success/10 rounded-lg p-4 border border-success/20">
+          <h5 className="font-medium mb-3 text-success">Resumo de Economia por Tipo</h5>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Zap className="h-3 w-3" /> Simultânea
+              </span>
+              <p className="font-semibold">{formatNumber(data.energia_simultanea_kwh || 0)} kWh</p>
+              <p className="text-xs text-success">{formatCurrency(data.energia_simultanea_rs || 0)}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Receipt className="h-3 w-3" /> Assinatura
+              </span>
+              <p className="font-semibold">{formatNumber(data.credito_assinatura_kwh || 0)} kWh</p>
+              <p className="text-xs text-chart-optimized">{formatCurrency(data.credito_assinatura_rs || 0)}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Desconto</span>
+              <p className="font-semibold">{formatNumber(data.desconto_assinatura_percent || 0)}%</p>
+            </div>
+            <div className="bg-background rounded p-2">
+              <span className="text-muted-foreground font-medium">Total Economia</span>
+              <p className="font-bold text-lg">{formatNumber(totalEconomiaEnergia)} kWh</p>
+              <p className="text-sm font-semibold text-success">{formatCurrency(totalEconomiaRs)}</p>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
         {/* Geração do Ciclo */}
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
@@ -90,7 +209,7 @@ export function Step4SCEE() {
         {/* Créditos Recebidos */}
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-            Créditos Recebidos (kWh)
+            Créditos Recebidos da Distribuidora (kWh)
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

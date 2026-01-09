@@ -51,6 +51,13 @@ export type FaturaWizardData = {
   scee_saldo_expirar_60d_kwh: number;
   scee_rateio_percent: number;
   
+  // Energia Simultânea vs Créditos de Assinatura
+  energia_simultanea_kwh: number;
+  energia_simultanea_rs: number;
+  credito_assinatura_kwh: number;
+  credito_assinatura_rs: number;
+  desconto_assinatura_percent: number;
+  
   // Passo 5 - Itens de Fatura
   bandeira_te_p_rs: number;
   bandeira_te_fp_rs: number;
@@ -125,6 +132,11 @@ export const initialWizardData: FaturaWizardData = {
   scee_saldo_expirar_30d_kwh: 0,
   scee_saldo_expirar_60d_kwh: 0,
   scee_rateio_percent: 0,
+  energia_simultanea_kwh: 0,
+  energia_simultanea_rs: 0,
+  credito_assinatura_kwh: 0,
+  credito_assinatura_rs: 0,
+  desconto_assinatura_percent: 0,
   bandeira_te_p_rs: 0,
   bandeira_te_fp_rs: 0,
   bandeira_te_hr_rs: 0,
