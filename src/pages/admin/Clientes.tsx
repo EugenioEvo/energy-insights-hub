@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { useCreateCliente, useUpdateCliente, Cliente } from '@/hooks/useClientes';
-import { useCreateUnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
+import { useCreateUnidadeConsumidora, useUpdateUnidadeConsumidora, UnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useUsinasRemotas } from '@/hooks/useUsinasRemotas';
 import { useVinculosByCliente, useCreateVinculo, useDeleteVinculo, ClienteUsinaVinculoWithRelations } from '@/hooks/useClienteUsinaVinculo';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +48,7 @@ export default function Clientes() {
   const createCliente = useCreateCliente();
   const updateCliente = useUpdateCliente();
   const createUC = useCreateUnidadeConsumidora();
+  const updateUC = useUpdateUnidadeConsumidora();
   const { data: usinas = [] } = useUsinasRemotas();
   const { data: vinculos = [], refetch: refetchVinculos } = useVinculosByCliente(clienteId);
   const createVinculo = useCreateVinculo();
@@ -57,6 +58,7 @@ export default function Clientes() {
   const [clienteDialogOpen, setClienteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [ucDialogOpen, setUcDialogOpen] = useState(false);
+  const [editUCDialogOpen, setEditUCDialogOpen] = useState(false);
   const [vinculoDialogOpen, setVinculoDialogOpen] = useState(false);
   const [deleteVinculoDialogOpen, setDeleteVinculoDialogOpen] = useState(false);
   const [selectedVinculo, setSelectedVinculo] = useState<ClienteUsinaVinculoWithRelations | null>(null);
@@ -86,6 +88,16 @@ export default function Clientes() {
     modalidade_tarifaria: 'verde' as 'convencional' | 'branca' | 'verde' | 'azul',
     demanda_contratada: '',
   });
+
+  // Edit UC form
+  const [editUC, setEditUC] = useState<{
+    id: string;
+    numero: string;
+    endereco: string;
+    distribuidora: string;
+    modalidade_tarifaria: 'convencional' | 'branca' | 'verde' | 'azul';
+    demanda_contratada: string;
+  } | null>(null);
 
   // New Vinculo form
   const [novoVinculo, setNovoVinculo] = useState({
@@ -182,6 +194,44 @@ export default function Clientes() {
       refetchAll();
     } catch (error) {
       toast({ title: 'Erro', description: 'Falha ao criar unidade consumidora', variant: 'destructive' });
+    }
+  };
+
+  const handleEditUC = (uc: UnidadeConsumidora) => {
+    setEditUC({
+      id: uc.id,
+      numero: uc.numero,
+      endereco: uc.endereco,
+      distribuidora: uc.distribuidora,
+      modalidade_tarifaria: uc.modalidade_tarifaria as 'convencional' | 'branca' | 'verde' | 'azul',
+      demanda_contratada: String(uc.demanda_contratada),
+    });
+    setEditUCDialogOpen(true);
+  };
+
+  const handleUpdateUC = async () => {
+    if (!editUC) return;
+    
+    if (!editUC.numero || !editUC.endereco || !editUC.distribuidora) {
+      toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await updateUC.mutateAsync({
+        id: editUC.id,
+        numero: editUC.numero,
+        endereco: editUC.endereco,
+        distribuidora: editUC.distribuidora,
+        modalidade_tarifaria: editUC.modalidade_tarifaria,
+        demanda_contratada: parseFloat(editUC.demanda_contratada) || 0,
+      });
+      toast({ title: 'Sucesso', description: 'Unidade consumidora atualizada com sucesso!' });
+      setEditUCDialogOpen(false);
+      setEditUC(null);
+      refetchAll();
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao atualizar unidade consumidora', variant: 'destructive' });
     }
   };
 
@@ -349,6 +399,75 @@ export default function Clientes() {
                 </div>
                 <Button onClick={handleUpdateCliente} disabled={updateCliente.isPending} className="w-full">
                   {updateCliente.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit UC Dialog */}
+        <Dialog open={editUCDialogOpen} onOpenChange={setEditUCDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Unidade Consumidora</DialogTitle>
+            </DialogHeader>
+            {editUC && (
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Número da UC *</Label>
+                  <Input
+                    value={editUC.numero}
+                    onChange={(e) => setEditUC({ ...editUC, numero: e.target.value })}
+                    placeholder="0000000000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Endereço *</Label>
+                  <Input
+                    value={editUC.endereco}
+                    onChange={(e) => setEditUC({ ...editUC, endereco: e.target.value })}
+                    placeholder="Rua, número, cidade - UF"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Distribuidora *</Label>
+                  <Input
+                    value={editUC.distribuidora}
+                    onChange={(e) => setEditUC({ ...editUC, distribuidora: e.target.value })}
+                    placeholder="CEMIG, CPFL, etc."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Modalidade Tarifária</Label>
+                  <Select 
+                    value={editUC.modalidade_tarifaria} 
+                    onValueChange={(value: 'convencional' | 'branca' | 'verde' | 'azul') => 
+                      setEditUC({ ...editUC, modalidade_tarifaria: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="convencional">Convencional</SelectItem>
+                      <SelectItem value="branca">Branca</SelectItem>
+                      <SelectItem value="verde">Verde</SelectItem>
+                      <SelectItem value="azul">Azul</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Demanda Contratada (kW)</Label>
+                  <Input
+                    type="number"
+                    value={editUC.demanda_contratada}
+                    onChange={(e) => setEditUC({ ...editUC, demanda_contratada: e.target.value })}
+                    placeholder="500"
+                  />
+                </div>
+                <Button onClick={handleUpdateUC} disabled={updateUC.isPending} className="w-full">
+                  {updateUC.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Salvar Alterações
                 </Button>
               </div>
@@ -534,6 +653,16 @@ export default function Clientes() {
                                   </div>
                                 </div>
                               </div>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditUC(uc);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         ))}
