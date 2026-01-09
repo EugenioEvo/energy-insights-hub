@@ -196,6 +196,8 @@ export type Database = {
           consumo_reservado_kwh: number | null
           consumo_total_kwh: number
           created_at: string
+          credito_assinatura_kwh: number | null
+          credito_assinatura_rs: number | null
           data_apresentacao: string | null
           data_emissao: string | null
           demanda_contratada_kw: number
@@ -204,9 +206,12 @@ export type Database = {
           demanda_geracao_rs: number
           demanda_medida_kw: number
           demanda_ultrapassagem_kw: number | null
+          desconto_assinatura_percent: number | null
           dias_faturados: number | null
           energia_fora_ponta_rs: number
           energia_ponta_rs: number
+          energia_simultanea_kwh: number | null
+          energia_simultanea_rs: number | null
           fora_ponta_kwh: number
           icms_aliquota_percent: number | null
           icms_rs: number | null
@@ -273,6 +278,8 @@ export type Database = {
           consumo_reservado_kwh?: number | null
           consumo_total_kwh?: number
           created_at?: string
+          credito_assinatura_kwh?: number | null
+          credito_assinatura_rs?: number | null
           data_apresentacao?: string | null
           data_emissao?: string | null
           demanda_contratada_kw?: number
@@ -281,9 +288,12 @@ export type Database = {
           demanda_geracao_rs?: number
           demanda_medida_kw?: number
           demanda_ultrapassagem_kw?: number | null
+          desconto_assinatura_percent?: number | null
           dias_faturados?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
+          energia_simultanea_kwh?: number | null
+          energia_simultanea_rs?: number | null
           fora_ponta_kwh?: number
           icms_aliquota_percent?: number | null
           icms_rs?: number | null
@@ -350,6 +360,8 @@ export type Database = {
           consumo_reservado_kwh?: number | null
           consumo_total_kwh?: number
           created_at?: string
+          credito_assinatura_kwh?: number | null
+          credito_assinatura_rs?: number | null
           data_apresentacao?: string | null
           data_emissao?: string | null
           demanda_contratada_kw?: number
@@ -358,9 +370,12 @@ export type Database = {
           demanda_geracao_rs?: number
           demanda_medida_kw?: number
           demanda_ultrapassagem_kw?: number | null
+          desconto_assinatura_percent?: number | null
           dias_faturados?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
+          energia_simultanea_kwh?: number | null
+          energia_simultanea_rs?: number | null
           fora_ponta_kwh?: number
           icms_aliquota_percent?: number | null
           icms_rs?: number | null

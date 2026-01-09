@@ -61,6 +61,12 @@ function WizardContent() {
         scee_saldo_expirar_30d_kwh: data.scee_saldo_expirar_30d_kwh,
         scee_saldo_expirar_60d_kwh: data.scee_saldo_expirar_60d_kwh,
         scee_rateio_percent: data.scee_rateio_percent,
+        // Energia Simultânea vs Créditos Assinatura
+        energia_simultanea_kwh: data.energia_simultanea_kwh,
+        energia_simultanea_rs: data.energia_simultanea_rs,
+        credito_assinatura_kwh: data.credito_assinatura_kwh,
+        credito_assinatura_rs: data.credito_assinatura_rs,
+        desconto_assinatura_percent: data.desconto_assinatura_percent,
         // Itens Fatura
         bandeira_te_p_rs: data.bandeira_te_p_rs,
         bandeira_te_fp_rs: data.bandeira_te_fp_rs,

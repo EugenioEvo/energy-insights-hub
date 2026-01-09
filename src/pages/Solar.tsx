@@ -3,13 +3,14 @@ import { KPICard } from '@/components/dashboard/KPICard';
 import { GenerationChart } from '@/components/charts/GenerationChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { useEnergy } from '@/contexts/EnergyContext';
-import { formatNumber, formatPercent } from '@/data/mockData';
-import { Sun, Battery, Plug, Activity } from 'lucide-react';
+import { formatNumber, formatPercent, formatCurrency } from '@/data/mockData';
+import { Sun, Battery, Plug, Activity, Zap, Receipt } from 'lucide-react';
 
 export default function Solar() {
-  const { geracoes, mesAtual } = useEnergy();
+  const { geracoes, faturas, mesAtual } = useEnergy();
 
   const geracaoMesAtualDB = geracoes.find(g => g.mes_ref === mesAtual);
+  const faturaMesAtualDB = faturas.find(f => f.mes_ref === mesAtual);
 
   // Convert to typed object for easier access
   const geracaoMesAtual = geracaoMesAtualDB ? {
@@ -21,6 +22,13 @@ export default function Solar() {
     perdasEstimadasKwh: Number(geracaoMesAtualDB.perdas_estimadas_kwh),
     mesRef: geracaoMesAtualDB.mes_ref,
   } : null;
+
+  // Energia simultânea e créditos de assinatura
+  const energiaSimultaneaKwh = Number(faturaMesAtualDB?.energia_simultanea_kwh || 0);
+  const energiaSimultaneaRs = Number(faturaMesAtualDB?.energia_simultanea_rs || 0);
+  const creditoAssinaturaKwh = Number(faturaMesAtualDB?.credito_assinatura_kwh || 0);
+  const creditoAssinaturaRs = Number(faturaMesAtualDB?.credito_assinatura_rs || 0);
+  const descontoAssinaturaPercent = Number(faturaMesAtualDB?.desconto_assinatura_percent || 0);
 
   // Calculate expected generation (average of last 3 months as baseline)
   const geracoesOrdenadas = [...geracoes].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
@@ -112,6 +120,65 @@ export default function Solar() {
             variant={(geracaoMesAtual?.disponibilidadePercent || 0) >= 95 ? 'success' : 'warning'}
           />
         </div>
+
+        {/* Energia Simultânea vs Créditos Assinatura */}
+        {(energiaSimultaneaKwh > 0 || creditoAssinaturaKwh > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-card rounded-xl border border-primary/30 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Zap className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Energia Simultânea</h3>
+                  <p className="text-xs text-muted-foreground">Geração própria consumida em tempo real</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm text-muted-foreground">Energia</span>
+                  <p className="text-2xl font-bold">{formatNumber(energiaSimultaneaKwh)} <span className="text-sm font-normal">kWh</span></p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Economia</span>
+                  <p className="text-2xl font-bold text-success">{formatCurrency(energiaSimultaneaRs)}</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 bg-success/10 p-2 rounded">
+                💡 100% de economia - energia consumida no momento da geração
+              </p>
+            </div>
+
+            <div className="bg-card rounded-xl border border-chart-optimized/30 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-chart-optimized/10 rounded-lg">
+                  <Receipt className="h-5 w-5 text-chart-optimized" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Créditos de Assinatura</h3>
+                  <p className="text-xs text-muted-foreground">Créditos recebidos de usina remota</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <span className="text-sm text-muted-foreground">Créditos</span>
+                  <p className="text-xl font-bold">{formatNumber(creditoAssinaturaKwh)} <span className="text-sm font-normal">kWh</span></p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Valor</span>
+                  <p className="text-xl font-bold text-chart-optimized">{formatCurrency(creditoAssinaturaRs)}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Desconto</span>
+                  <p className="text-xl font-bold">{descontoAssinaturaPercent}%</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 bg-chart-optimized/10 p-2 rounded">
+                📋 Créditos transferidos via contrato de assinatura
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
