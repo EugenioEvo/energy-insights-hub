@@ -7,7 +7,6 @@ import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { SubscriptionChart } from '@/components/charts/SubscriptionChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { SavingsTrendChart } from '@/components/charts/SavingsTrendChart';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { useExportPDF } from '@/hooks/useExportPDF';
@@ -155,7 +154,7 @@ export default function ExecutiveDashboard() {
     alocada: Number(assinatura.energia_alocada_kwh),
   })).reverse();
 
-  // Savings trend data (economia mensal e acumulada)
+  // Savings trend data
   const savingsTrendData = faturas.slice(0, 6).map((fatura, index, arr) => {
     const geracao = geracoes.find(g => g.mes_ref === fatura.mes_ref);
     const assinatura = assinaturas.find(a => a.mes_ref === fatura.mes_ref);
@@ -163,7 +162,6 @@ export default function ExecutiveDashboard() {
       ? calcularKPIsMensais(convertFatura(fatura), convertGeracao(geracao), convertAssinatura(assinatura))
       : null;
     
-    // Calculate accumulated savings up to this point
     let economiaAcumulada = 0;
     for (let i = arr.length - 1; i >= index; i--) {
       const f = arr[i];
@@ -235,12 +233,13 @@ export default function ExecutiveDashboard() {
 
   return (
     <DashboardLayout title="Visão Executiva" subtitle="Resumo consolidado: Fatura, Solar e Assinatura">
-      <div id="dashboard-content" className="space-y-6">
-        {/* Status Geral + KPIs Principais */}
-        <div className="flex items-center justify-between">
+      <div id="dashboard-content" className="space-y-8">
+        
+        {/* ===== HEADER: Status Geral ===== */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Status Geral</h2>
-            <p className="text-muted-foreground">Mês de referência: {mesAtual}</p>
+            <p className="text-muted-foreground">Mês de referência: {mesFormatado}</p>
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -265,196 +264,204 @@ export default function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* KPIs Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            title="Economia do Mês"
-            value={formatCurrency(kpis.economiaDoMes)}
-            subtitle="Comparado ao cenário base"
-            trend={{
-              value: 12.5,
-              label: 'vs mês anterior',
-              isPositive: true,
-            }}
-            icon={<DollarSign className="h-6 w-6" />}
-            variant="success"
-          />
+        {/* ===== SEÇÃO 1: KPIs Principais ===== */}
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <KPICard
+              title="Economia do Mês"
+              value={formatCurrency(kpis.economiaDoMes)}
+              subtitle="Comparado ao cenário base"
+              trend={{
+                value: 12.5,
+                label: 'vs mês anterior',
+                isPositive: true,
+              }}
+              icon={<DollarSign className="h-6 w-6" />}
+              variant="success"
+            />
+            <KPICard
+              title="Economia Acumulada"
+              value={formatCurrency(kpis.economiaAcumulada)}
+              subtitle="Últimos 6 meses"
+              icon={<TrendingUp className="h-6 w-6" />}
+              variant="success"
+            />
+            <KPICard
+              title="Custo Médio kWh"
+              value={`R$ ${kpis.custoKwhAntes.toFixed(3)}`}
+              subtitle={`Após otimização: R$ ${kpis.custoKwhDepois.toFixed(3)}`}
+              trend={{
+                value: -((kpis.custoKwhAntes - kpis.custoKwhDepois) / kpis.custoKwhAntes * 100),
+                label: 'redução',
+                isPositive: true,
+              }}
+              icon={<Zap className="h-6 w-6" />}
+            />
+            <KPICard
+              title="Fatura do Mês"
+              value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+              subtitle="Valor total da distribuidora"
+              trend={faturaMesAnteriorDB ? {
+                value: variacao,
+                label: 'vs anterior',
+                isPositive: variacao < 0,
+              } : undefined}
+              icon={<Activity className="h-6 w-6" />}
+              variant={variacao > 10 ? 'warning' : 'default'}
+            />
+          </div>
+        </section>
 
-          <KPICard
-            title="Economia Acumulada"
-            value={formatCurrency(kpis.economiaAcumulada)}
-            subtitle="Últimos 6 meses"
-            icon={<TrendingUp className="h-6 w-6" />}
-            variant="success"
-          />
-
-          <KPICard
-            title="Custo Médio kWh"
-            value={`R$ ${kpis.custoKwhAntes.toFixed(3)}`}
-            subtitle={`Após otimização: R$ ${kpis.custoKwhDepois.toFixed(3)}`}
-            trend={{
-              value: -((kpis.custoKwhAntes - kpis.custoKwhDepois) / kpis.custoKwhAntes * 100),
-              label: 'redução',
-              isPositive: true,
-            }}
-            icon={<Zap className="h-6 w-6" />}
-          />
-
-          <KPICard
-            title="Fatura do Mês"
-            value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
-            subtitle="Valor total da distribuidora"
-            trend={faturaMesAnteriorDB ? {
-              value: variacao,
-              label: 'vs anterior',
-              isPositive: variacao < 0,
-            } : undefined}
-            icon={<Activity className="h-6 w-6" />}
-            variant={variacao > 10 ? 'warning' : 'default'}
-          />
-        </div>
-
-        {/* Gráfico de Tendência de Economia */}
-        <SavingsTrendChart 
-          data={savingsTrendData} 
-          title="Tendência de Economia Acumulada"
-        />
-
-        {/* Alertas */}
+        {/* ===== SEÇÃO 2: Alertas (se houver) ===== */}
         {kpis.alertas.length > 0 && (
-          <div>
-            <h3 className="section-title">Alertas e Recomendações</h3>
+          <section>
+            <h3 className="section-title flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Alertas e Recomendações
+            </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {kpis.alertas.slice(0, 4).map((alerta, index) => (
                 <AlertCard key={index} alerta={alerta} />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Tabs de Detalhamento */}
-        <Tabs defaultValue="fatura" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="fatura" className="flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
-              Fatura
-            </TabsTrigger>
-            <TabsTrigger value="solar" className="flex items-center gap-2">
-              <Sun className="h-4 w-4" />
-              Solar
-            </TabsTrigger>
-            <TabsTrigger value="assinatura" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Assinatura
-            </TabsTrigger>
-          </TabsList>
+        {/* ===== SEÇÃO 3: Gráficos Principais ===== */}
+        <section>
+          <h3 className="section-title">Evolução e Comparativos</h3>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <SavingsTrendChart 
+              data={savingsTrendData} 
+              title="Tendência de Economia"
+            />
+            <ComparisonChart
+              data={comparisonData}
+              title="Custo: Original vs Otimizado"
+            />
+          </div>
+        </section>
 
-          {/* TAB FATURA */}
-          <TabsContent value="fatura" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KPICard
-                title="Valor da Fatura"
-                value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
-                subtitle={`+ Assinatura: ${formatCurrency(assinaturaMesAtual?.valorAssinatura || 0)}`}
-                icon={<Receipt className="h-6 w-6" />}
-              />
-              <KPICard
-                title="Economia Mensal"
-                value={formatCurrency(kpisMensais?.economiaMensalRs || 0)}
-                subtitle={`${kpisMensais?.economiaMensalPercent.toFixed(1) || 0}% de economia`}
-                icon={<TrendingDown className="h-6 w-6" />}
-                variant="success"
-              />
-              <KPICard
-                title="Total Multas"
-                value={formatCurrency(totalMultas)}
-                subtitle={totalMultas > 0 ? "Demanda + UFER" : "Sem multas no mês"}
-                icon={<AlertTriangle className="h-6 w-6" />}
-                variant={totalMultas > 0 ? 'danger' : 'success'}
-              />
-              <KPICard
-                title="Consumo Ponta"
-                value={`${formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh`}
-                subtitle={`${((faturaMesAtual?.pontaKwh || 0) / (faturaMesAtual?.consumoTotalKwh || 1) * 100).toFixed(1)}% do total`}
-                icon={<Zap className="h-6 w-6" />}
-              />
-            </div>
+        {/* ===== SEÇÃO 4: Fatura - Detalhamento ===== */}
+        <section>
+          <h3 className="section-title flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-primary" />
+            Fatura do Mês
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+            <KPICard
+              title="Valor da Fatura"
+              value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+              subtitle={`+ Assinatura: ${formatCurrency(assinaturaMesAtual?.valorAssinatura || 0)}`}
+              icon={<Receipt className="h-6 w-6" />}
+            />
+            <KPICard
+              title="Economia Mensal"
+              value={formatCurrency(kpisMensais?.economiaMensalRs || 0)}
+              subtitle={`${kpisMensais?.economiaMensalPercent.toFixed(1) || 0}% de economia`}
+              icon={<TrendingDown className="h-6 w-6" />}
+              variant="success"
+            />
+            <KPICard
+              title="Total Multas"
+              value={formatCurrency(totalMultas)}
+              subtitle={totalMultas > 0 ? "Demanda + UFER" : "Sem multas no mês"}
+              icon={<AlertTriangle className="h-6 w-6" />}
+              variant={totalMultas > 0 ? 'danger' : 'success'}
+            />
+            <KPICard
+              title="Consumo Total"
+              value={`${formatNumber(faturaMesAtual?.consumoTotalKwh || 0)} kWh`}
+              subtitle={`Ponta: ${formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh`}
+              icon={<Zap className="h-6 w-6" />}
+            />
+          </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DonutChart
-                data={[
-                  { name: 'Energia (TE + TUSD)', value: (faturaMesAtual?.valorTe || 0) + (faturaMesAtual?.valorTusd || 0), color: 'hsl(var(--primary))' },
-                  { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
-                  { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
-                  { name: 'Encargos', value: iluminacaoPublica + (faturaMesAtual?.outrosEncargos || 0), color: 'hsl(var(--muted-foreground))' },
-                ].filter(item => item.value > 0)}
-                title="Composição da Fatura"
-                centerLabel="Total"
-                centerValue={formatCurrency(faturaMesAtual?.valorTotal || 0)}
-              />
-              <ComparisonChart
-                data={comparisonData}
-                title="Comparativo: Original vs Otimizado"
-              />
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <DonutChart
+              data={[
+                { name: 'Energia (TE + TUSD)', value: (faturaMesAtual?.valorTe || 0) + (faturaMesAtual?.valorTusd || 0), color: 'hsl(var(--primary))' },
+                { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
+                { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
+                { name: 'Encargos', value: iluminacaoPublica + (faturaMesAtual?.outrosEncargos || 0), color: 'hsl(var(--muted-foreground))' },
+              ].filter(item => item.value > 0)}
+              title="Composição da Fatura"
+              centerLabel="Total"
+              centerValue={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+            />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="section-title">Energia - Ponta e Fora Ponta</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Consumo Ponta</span>
-                    <span className="font-medium">{formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Consumo Fora Ponta</span>
-                    <span className="font-medium">{formatNumber(faturaMesAtual?.foraPontaKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Consumo Total</span>
-                    <span className="font-medium">{formatNumber(faturaMesAtual?.consumoTotalKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Bandeira Tarifária</span>
-                    <span className={`font-medium capitalize ${
-                      faturaMesAtual?.bandeiras === 'verde' ? 'text-success' :
-                      faturaMesAtual?.bandeiras === 'amarela' ? 'text-warning' : 'text-destructive'
-                    }`}>{faturaMesAtual?.bandeiras || '-'}</span>
-                  </div>
+            {/* Detalhes Energia e Demanda */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h4 className="font-semibold text-foreground mb-4">Energia</h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Consumo Ponta</span>
+                  <span className="font-medium">{formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh</span>
                 </div>
-              </div>
-
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="section-title">Demanda</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Demanda Contratada</span>
-                    <span className="font-medium">{faturaMesAtual?.demandaContratadaKw || 0} kW</span>
-                  </div>
-                  <div className={`flex justify-between items-center py-2 border-b ${
-                    (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
-                      ? 'border-destructive/30 bg-destructive/5 -mx-6 px-6' : 'border-border'
-                  }`}>
-                    <span className="text-muted-foreground">Demanda Medida</span>
-                    <span className={`font-medium ${
-                      (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0) ? 'text-destructive' : ''
-                    }`}>{faturaMesAtual?.demandaMedidaKw || 0} kW</span>
-                  </div>
-                  <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
-                    <span className="font-semibold">Custo por kWh</span>
-                    <span className="font-bold text-lg">R$ {kpisMensais?.custoKwhBase.toFixed(4) || '0.0000'}</span>
-                  </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Consumo Fora Ponta</span>
+                  <span className="font-medium">{formatNumber(faturaMesAtual?.foraPontaKwh || 0)} kWh</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Bandeira Tarifária</span>
+                  <span className={`font-medium capitalize ${
+                    faturaMesAtual?.bandeiras === 'verde' ? 'text-success' :
+                    faturaMesAtual?.bandeiras === 'amarela' ? 'text-warning' : 'text-destructive'
+                  }`}>{faturaMesAtual?.bandeiras || '-'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-accent/10 -mx-4 px-4 rounded-lg mt-2">
+                  <span className="font-semibold">Custo por kWh</span>
+                  <span className="font-bold">R$ {kpisMensais?.custoKwhBase.toFixed(4) || '0.0000'}</span>
                 </div>
               </div>
             </div>
-          </TabsContent>
 
-          {/* TAB SOLAR */}
-          <TabsContent value="solar" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h4 className="font-semibold text-foreground mb-4">Demanda</h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Demanda Contratada</span>
+                  <span className="font-medium">{faturaMesAtual?.demandaContratadaKw || 0} kW</span>
+                </div>
+                <div className={`flex justify-between items-center py-2 border-b ${
+                  (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
+                    ? 'border-destructive/30 bg-destructive/5 -mx-4 px-4' : 'border-border'
+                }`}>
+                  <span className="text-muted-foreground">Demanda Medida</span>
+                  <span className={`font-medium ${
+                    (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0) ? 'text-destructive' : ''
+                  }`}>{faturaMesAtual?.demandaMedidaKw || 0} kW</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Multa Demanda</span>
+                  <span className={`font-medium ${multaDemanda > 0 ? 'text-destructive' : ''}`}>
+                    {formatCurrency(multaDemanda)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Multa Ultrapassagem</span>
+                  <span className={`font-medium ${multaUltrapassagem > 0 ? 'text-destructive' : ''}`}>
+                    {formatCurrency(multaUltrapassagem)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== SEÇÃO 5: Solar ===== */}
+        {geracaoMesAtual && (
+          <section>
+            <h3 className="section-title flex items-center gap-2">
+              <Sun className="h-5 w-5 text-accent" />
+              Geração Solar
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               <KPICard
                 title="Geração Total"
-                value={`${formatNumber(geracaoMesAtual?.geracaoTotalKwh || 0)} kWh`}
+                value={`${formatNumber(geracaoMesAtual.geracaoTotalKwh)} kWh`}
                 subtitle={`Esperado: ${formatNumber(mediaEsperada)} kWh`}
                 trend={{
                   value: performancePercent - 100,
@@ -466,22 +473,22 @@ export default function ExecutiveDashboard() {
               />
               <KPICard
                 title="Autoconsumo"
-                value={`${formatNumber(geracaoMesAtual?.autoconsumoKwh || 0)} kWh`}
-                subtitle={`${((geracaoMesAtual?.autoconsumoKwh || 0) / (geracaoMesAtual?.geracaoTotalKwh || 1) * 100).toFixed(1)}% da geração`}
+                value={`${formatNumber(geracaoMesAtual.autoconsumoKwh)} kWh`}
+                subtitle={`${((geracaoMesAtual.autoconsumoKwh) / (geracaoMesAtual.geracaoTotalKwh || 1) * 100).toFixed(1)}% da geração`}
                 icon={<Battery className="h-6 w-6" />}
               />
               <KPICard
                 title="Injeção na Rede"
-                value={`${formatNumber(geracaoMesAtual?.injecaoKwh || 0)} kWh`}
-                subtitle={`Compensado: ${formatNumber(geracaoMesAtual?.compensacaoKwh || 0)} kWh`}
+                value={`${formatNumber(geracaoMesAtual.injecaoKwh)} kWh`}
+                subtitle={`Compensado: ${formatNumber(geracaoMesAtual.compensacaoKwh)} kWh`}
                 icon={<Plug className="h-6 w-6" />}
               />
               <KPICard
                 title="Disponibilidade"
-                value={formatPercent(geracaoMesAtual?.disponibilidadePercent || 0)}
+                value={formatPercent(geracaoMesAtual.disponibilidadePercent)}
                 subtitle="Performance do sistema"
                 icon={<Activity className="h-6 w-6" />}
-                variant={(geracaoMesAtual?.disponibilidadePercent || 0) >= 95 ? 'success' : 'warning'}
+                variant={geracaoMesAtual.disponibilidadePercent >= 95 ? 'success' : 'warning'}
               />
             </div>
 
@@ -493,78 +500,31 @@ export default function ExecutiveDashboard() {
                 data={energyDistribution}
                 title="Distribuição da Energia"
                 centerLabel="Total"
-                centerValue={`${formatNumber((geracaoMesAtual?.geracaoTotalKwh || 0) / 1000, 1)}k`}
+                centerValue={`${formatNumber(geracaoMesAtual.geracaoTotalKwh / 1000, 1)}k`}
               />
             </div>
+          </section>
+        )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="section-title">Resumo de Performance</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Geração Total</span>
-                    <span className="font-medium">{formatNumber(geracaoMesAtual?.geracaoTotalKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Autoconsumo</span>
-                    <span className="font-medium">{formatNumber(geracaoMesAtual?.autoconsumoKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Energia Injetada</span>
-                    <span className="font-medium">{formatNumber(geracaoMesAtual?.injecaoKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Energia Compensada</span>
-                    <span className="font-medium text-success">{formatNumber(geracaoMesAtual?.compensacaoKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Perdas Estimadas</span>
-                    <span className="font-medium text-destructive">{formatNumber(geracaoMesAtual?.perdasEstimadasKwh || 0)} kWh</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="section-title">Análise</h3>
-                <div className="space-y-4">
-                  {performancePercent >= 100 ? (
-                    <div className="p-4 bg-success/10 rounded-lg border border-success/20">
-                      <p className="font-medium text-success">✓ Geração acima do esperado</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        A usina solar está operando {(performancePercent - 100).toFixed(1)}% acima da média histórica.
-                      </p>
-                    </div>
-                  ) : performancePercent >= 90 ? (
-                    <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                      <p className="font-medium text-primary">Geração dentro do esperado</p>
-                      <p className="text-sm text-muted-foreground mt-1">Performance dentro da variação normal de ±10%.</p>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
-                      <p className="font-medium text-warning">⚠ Geração abaixo do esperado</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Queda de {(100 - performancePercent).toFixed(1)}% em relação à média.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* TAB ASSINATURA */}
-          <TabsContent value="assinatura" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ===== SEÇÃO 6: Assinatura ===== */}
+        {assinaturaMesAtual && (
+          <section>
+            <h3 className="section-title flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Assinatura de Energia
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               <KPICard
                 title="Valor da Assinatura"
-                value={formatCurrency(assinaturaMesAtual?.valorAssinatura || 0)}
-                subtitle={`UC Remota: ${assinaturaMesAtual?.ucRemota || '-'}`}
+                value={formatCurrency(assinaturaMesAtual.valorAssinatura)}
+                subtitle={`UC Remota: ${assinaturaMesAtual.ucRemota}`}
                 icon={<FileText className="h-6 w-6" />}
               />
               <KPICard
                 title="Utilização"
                 value={formatPercent(utilizacao)}
-                subtitle={`${formatNumber(assinaturaMesAtual?.energiaAlocadaKwh || 0)} de ${formatNumber(assinaturaMesAtual?.energiaContratadaKwh || 0)} kWh`}
+                subtitle={`${formatNumber(assinaturaMesAtual.energiaAlocadaKwh)} de ${formatNumber(assinaturaMesAtual.energiaContratadaKwh)} kWh`}
                 icon={<Percent className="h-6 w-6" />}
                 variant={utilizacao >= 90 ? 'success' : utilizacao >= 70 ? 'warning' : 'danger'}
               />
@@ -589,41 +549,11 @@ export default function ExecutiveDashboard() {
               />
             </div>
 
-            <SubscriptionChart data={subscriptionData} title="Energia Contratada vs Alocada" />
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SubscriptionChart data={subscriptionData} title="Energia Contratada vs Alocada" />
+              
               <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="section-title">Detalhes do Contrato</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">UC Remota</span>
-                    <span className="font-medium">{assinaturaMesAtual?.ucRemota || '-'}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Energia Contratada</span>
-                    <span className="font-medium">{formatNumber(assinaturaMesAtual?.energiaContratadaKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Energia Alocada</span>
-                    <span className="font-medium">{formatNumber(assinaturaMesAtual?.energiaAlocadaKwh || 0)} kWh</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Energia Não Utilizada</span>
-                    <span className={`font-medium ${(kpisMensais?.perdaAssinatura || 0) > 0 ? 'text-warning' : ''}`}>
-                      {formatNumber(kpisMensais?.perdaAssinatura || 0)} kWh
-                    </span>
-                  </div>
-                  <div className={`flex justify-between items-center py-3 -mx-6 px-6 rounded-lg mt-4 ${
-                    utilizacao >= 90 ? 'bg-success/10' : 'bg-warning/10'
-                  }`}>
-                    <span className="font-semibold">Taxa de Utilização</span>
-                    <span className="font-bold text-lg">{formatPercent(utilizacao)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-xl border border-border p-6">
-                <h3 className="section-title">Análise</h3>
+                <h4 className="font-semibold text-foreground mb-4">Análise da Assinatura</h4>
                 <div className="space-y-4">
                   {diferencaEconomia >= 0 ? (
                     <div className="p-4 bg-success/10 rounded-lg border border-success/20">
@@ -640,20 +570,25 @@ export default function ExecutiveDashboard() {
                       </p>
                     </div>
                   )}
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="font-medium text-foreground">Custo da Energia por Assinatura</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Custo por kWh: 
-                      <span className="font-medium text-foreground ml-1">
-                        R$ {((assinaturaMesAtual?.valorAssinatura || 0) / (assinaturaMesAtual?.energiaContratadaKwh || 1)).toFixed(4)}
-                      </span>
-                    </p>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="text-center p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">Energia Contratada</p>
+                      <p className="font-bold text-lg">{formatNumber(assinaturaMesAtual.energiaContratadaKwh)} kWh</p>
+                    </div>
+                    <div className="text-center p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">Custo por kWh</p>
+                      <p className="font-bold text-lg">
+                        R$ {(assinaturaMesAtual.valorAssinatura / (assinaturaMesAtual.energiaContratadaKwh || 1)).toFixed(4)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </section>
+        )}
+
       </div>
     </DashboardLayout>
   );
