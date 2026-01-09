@@ -11,6 +11,7 @@ import Assinatura from "./pages/Assinatura";
 import LancarDados from "./pages/admin/LancarDados";
 import Clientes from "./pages/admin/Clientes";
 import GerenciarFaturas from "./pages/admin/GerenciarFaturas";
+import UsinasRemotas from "./pages/admin/UsinasRemotas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/admin/lancar" element={<LancarDados />} />
             <Route path="/admin/clientes" element={<Clientes />} />
             <Route path="/admin/faturas" element={<GerenciarFaturas />} />
+            <Route path="/admin/usinas" element={<UsinasRemotas />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

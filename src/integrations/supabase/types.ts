@@ -25,7 +25,9 @@ export type Database = {
           uc_id: string
           uc_remota: string
           updated_at: string
+          usina_id: string | null
           valor_assinatura: number
+          vinculo_id: string | null
         }
         Insert: {
           created_at?: string
@@ -37,7 +39,9 @@ export type Database = {
           uc_id: string
           uc_remota: string
           updated_at?: string
+          usina_id?: string | null
           valor_assinatura?: number
+          vinculo_id?: string | null
         }
         Update: {
           created_at?: string
@@ -49,7 +53,9 @@ export type Database = {
           uc_id?: string
           uc_remota?: string
           updated_at?: string
+          usina_id?: string | null
           valor_assinatura?: number
+          vinculo_id?: string | null
         }
         Relationships: [
           {
@@ -57,6 +63,90 @@ export type Database = {
             columns: ["uc_id"]
             isOneToOne: false
             referencedRelation: "unidades_consumidoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assinaturas_mensais_usina_id_fkey"
+            columns: ["usina_id"]
+            isOneToOne: false
+            referencedRelation: "usinas_remotas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assinaturas_mensais_vinculo_id_fkey"
+            columns: ["vinculo_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_usina_vinculo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cliente_usina_vinculo: {
+        Row: {
+          ativo: boolean
+          cliente_id: string
+          created_at: string
+          data_fim_contrato: string | null
+          data_inicio_contrato: string | null
+          desconto_garantido_percent: number
+          energia_contratada_kwh: number
+          id: string
+          numero_contrato: string | null
+          percentual_rateio: number
+          uc_beneficiaria_id: string
+          updated_at: string
+          usina_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          cliente_id: string
+          created_at?: string
+          data_fim_contrato?: string | null
+          data_inicio_contrato?: string | null
+          desconto_garantido_percent?: number
+          energia_contratada_kwh?: number
+          id?: string
+          numero_contrato?: string | null
+          percentual_rateio?: number
+          uc_beneficiaria_id: string
+          updated_at?: string
+          usina_id: string
+        }
+        Update: {
+          ativo?: boolean
+          cliente_id?: string
+          created_at?: string
+          data_fim_contrato?: string | null
+          data_inicio_contrato?: string | null
+          desconto_garantido_percent?: number
+          energia_contratada_kwh?: number
+          id?: string
+          numero_contrato?: string | null
+          percentual_rateio?: number
+          uc_beneficiaria_id?: string
+          updated_at?: string
+          usina_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_usina_vinculo_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_usina_vinculo_uc_beneficiaria_id_fkey"
+            columns: ["uc_beneficiaria_id"]
+            isOneToOne: false
+            referencedRelation: "unidades_consumidoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_usina_vinculo_usina_id_fkey"
+            columns: ["usina_id"]
+            isOneToOne: false
+            referencedRelation: "usinas_remotas"
             referencedColumns: ["id"]
           },
         ]
@@ -442,6 +532,54 @@ export type Database = {
           },
         ]
       }
+      usinas_remotas: {
+        Row: {
+          ativo: boolean
+          cnpj_titular: string
+          created_at: string
+          data_conexao: string | null
+          distribuidora: string
+          endereco: string | null
+          fonte: Database["public"]["Enums"]["fonte_energia"]
+          id: string
+          modalidade_gd: Database["public"]["Enums"]["modalidade_gd"]
+          nome: string
+          potencia_instalada_kw: number
+          uc_geradora: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj_titular: string
+          created_at?: string
+          data_conexao?: string | null
+          distribuidora: string
+          endereco?: string | null
+          fonte?: Database["public"]["Enums"]["fonte_energia"]
+          id?: string
+          modalidade_gd?: Database["public"]["Enums"]["modalidade_gd"]
+          nome: string
+          potencia_instalada_kw?: number
+          uc_geradora: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cnpj_titular?: string
+          created_at?: string
+          data_conexao?: string | null
+          distribuidora?: string
+          endereco?: string | null
+          fonte?: Database["public"]["Enums"]["fonte_energia"]
+          id?: string
+          modalidade_gd?: Database["public"]["Enums"]["modalidade_gd"]
+          nome?: string
+          potencia_instalada_kw?: number
+          uc_geradora?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -450,7 +588,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      fonte_energia: "solar" | "eolica" | "hidraulica" | "biomassa" | "outros"
+      modalidade_gd:
+        | "autoconsumo_remoto"
+        | "geracao_compartilhada"
+        | "consorcio"
+        | "cooperativa"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -577,6 +720,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      fonte_energia: ["solar", "eolica", "hidraulica", "biomassa", "outros"],
+      modalidade_gd: [
+        "autoconsumo_remoto",
+        "geracao_compartilhada",
+        "consorcio",
+        "cooperativa",
+      ],
+    },
   },
 } as const
