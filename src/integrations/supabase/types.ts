@@ -617,6 +617,117 @@ export type Database = {
         }
         Relationships: []
       }
+      tarifas_concessionaria: {
+        Row: {
+          ativo: boolean | null
+          bandeira_amarela_rs_kwh: number | null
+          bandeira_verde_rs_kwh: number | null
+          bandeira_vermelha1_rs_kwh: number | null
+          bandeira_vermelha2_rs_kwh: number | null
+          cofins_percent: number | null
+          concessionaria: string
+          created_at: string
+          demanda_fora_ponta_rs_kw: number | null
+          demanda_geracao_rs_kw: number | null
+          demanda_ponta_rs_kw: number | null
+          demanda_ultrapassagem_rs_kw: number | null
+          demanda_unica_rs_kw: number | null
+          grupo_tarifario: string
+          icms_percent: number | null
+          id: string
+          modalidade: string | null
+          pis_percent: number | null
+          resolucao_aneel: string | null
+          subgrupo: string | null
+          te_fora_ponta_rs_kwh: number | null
+          te_ponta_rs_kwh: number | null
+          te_reservado_rs_kwh: number | null
+          te_unica_rs_kwh: number | null
+          tusd_encargos_rs_kwh: number | null
+          tusd_fio_a_rs_kwh: number | null
+          tusd_fio_b_rs_kwh: number | null
+          tusd_fora_ponta_rs_kwh: number | null
+          tusd_ponta_rs_kwh: number | null
+          tusd_reservado_rs_kwh: number | null
+          tusd_unica_rs_kwh: number | null
+          updated_at: string
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          bandeira_amarela_rs_kwh?: number | null
+          bandeira_verde_rs_kwh?: number | null
+          bandeira_vermelha1_rs_kwh?: number | null
+          bandeira_vermelha2_rs_kwh?: number | null
+          cofins_percent?: number | null
+          concessionaria: string
+          created_at?: string
+          demanda_fora_ponta_rs_kw?: number | null
+          demanda_geracao_rs_kw?: number | null
+          demanda_ponta_rs_kw?: number | null
+          demanda_ultrapassagem_rs_kw?: number | null
+          demanda_unica_rs_kw?: number | null
+          grupo_tarifario: string
+          icms_percent?: number | null
+          id?: string
+          modalidade?: string | null
+          pis_percent?: number | null
+          resolucao_aneel?: string | null
+          subgrupo?: string | null
+          te_fora_ponta_rs_kwh?: number | null
+          te_ponta_rs_kwh?: number | null
+          te_reservado_rs_kwh?: number | null
+          te_unica_rs_kwh?: number | null
+          tusd_encargos_rs_kwh?: number | null
+          tusd_fio_a_rs_kwh?: number | null
+          tusd_fio_b_rs_kwh?: number | null
+          tusd_fora_ponta_rs_kwh?: number | null
+          tusd_ponta_rs_kwh?: number | null
+          tusd_reservado_rs_kwh?: number | null
+          tusd_unica_rs_kwh?: number | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Update: {
+          ativo?: boolean | null
+          bandeira_amarela_rs_kwh?: number | null
+          bandeira_verde_rs_kwh?: number | null
+          bandeira_vermelha1_rs_kwh?: number | null
+          bandeira_vermelha2_rs_kwh?: number | null
+          cofins_percent?: number | null
+          concessionaria?: string
+          created_at?: string
+          demanda_fora_ponta_rs_kw?: number | null
+          demanda_geracao_rs_kw?: number | null
+          demanda_ponta_rs_kw?: number | null
+          demanda_ultrapassagem_rs_kw?: number | null
+          demanda_unica_rs_kw?: number | null
+          grupo_tarifario?: string
+          icms_percent?: number | null
+          id?: string
+          modalidade?: string | null
+          pis_percent?: number | null
+          resolucao_aneel?: string | null
+          subgrupo?: string | null
+          te_fora_ponta_rs_kwh?: number | null
+          te_ponta_rs_kwh?: number | null
+          te_reservado_rs_kwh?: number | null
+          te_unica_rs_kwh?: number | null
+          tusd_encargos_rs_kwh?: number | null
+          tusd_fio_a_rs_kwh?: number | null
+          tusd_fio_b_rs_kwh?: number | null
+          tusd_fora_ponta_rs_kwh?: number | null
+          tusd_ponta_rs_kwh?: number | null
+          tusd_reservado_rs_kwh?: number | null
+          tusd_unica_rs_kwh?: number | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: []
+      }
       unidades_consumidoras: {
         Row: {
           classe_tarifaria: string | null
@@ -757,6 +868,56 @@ export type Database = {
       obter_percentual_fio_b: {
         Args: { ano_referencia: number }
         Returns: number
+      }
+      obter_tarifa_vigente: {
+        Args: {
+          p_concessionaria: string
+          p_data_referencia?: string
+          p_grupo_tarifario: string
+          p_modalidade?: string
+        }
+        Returns: {
+          ativo: boolean | null
+          bandeira_amarela_rs_kwh: number | null
+          bandeira_verde_rs_kwh: number | null
+          bandeira_vermelha1_rs_kwh: number | null
+          bandeira_vermelha2_rs_kwh: number | null
+          cofins_percent: number | null
+          concessionaria: string
+          created_at: string
+          demanda_fora_ponta_rs_kw: number | null
+          demanda_geracao_rs_kw: number | null
+          demanda_ponta_rs_kw: number | null
+          demanda_ultrapassagem_rs_kw: number | null
+          demanda_unica_rs_kw: number | null
+          grupo_tarifario: string
+          icms_percent: number | null
+          id: string
+          modalidade: string | null
+          pis_percent: number | null
+          resolucao_aneel: string | null
+          subgrupo: string | null
+          te_fora_ponta_rs_kwh: number | null
+          te_ponta_rs_kwh: number | null
+          te_reservado_rs_kwh: number | null
+          te_unica_rs_kwh: number | null
+          tusd_encargos_rs_kwh: number | null
+          tusd_fio_a_rs_kwh: number | null
+          tusd_fio_b_rs_kwh: number | null
+          tusd_fora_ponta_rs_kwh: number | null
+          tusd_ponta_rs_kwh: number | null
+          tusd_reservado_rs_kwh: number | null
+          tusd_unica_rs_kwh: number | null
+          updated_at: string
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tarifas_concessionaria"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
