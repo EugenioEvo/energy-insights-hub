@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export type ClassificacaoGD = 'gd1' | 'gd2';
+
 export interface UsinaRemota {
   id: string;
   nome: string;
@@ -13,11 +15,17 @@ export interface UsinaRemota {
   endereco: string | null;
   data_conexao: string | null;
   ativo: boolean;
+  // Campos Lei 14.300
+  data_protocolo_aneel: string | null;
+  classificacao_gd: ClassificacaoGD | null;
+  numero_processo_aneel: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type UsinaRemotaInsert = Omit<UsinaRemota, 'id' | 'created_at' | 'updated_at'>;
+export type UsinaRemotaInsert = Omit<UsinaRemota, 'id' | 'created_at' | 'updated_at' | 'classificacao_gd'> & {
+  classificacao_gd?: ClassificacaoGD | null;
+};
 export type UsinaRemotaUpdate = Partial<UsinaRemotaInsert>;
 
 export const useUsinasRemotas = () => {

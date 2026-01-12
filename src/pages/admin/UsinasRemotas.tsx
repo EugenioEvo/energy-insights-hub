@@ -26,7 +26,8 @@ import {
   useDeleteUsinaRemota,
   UsinaRemota 
 } from '@/hooks/useUsinasRemotas';
-import { Sun, Wind, Droplets, Leaf, Factory, Plus, Loader2, Pencil, Trash2, MapPin, Zap } from 'lucide-react';
+import { Sun, Wind, Droplets, Leaf, Factory, Plus, Loader2, Pencil, Trash2, MapPin, Zap, Shield, AlertTriangle } from 'lucide-react';
+import { classificarGD, formatarClassificacaoGD } from '@/lib/lei14300';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +76,9 @@ const emptyForm = {
   endereco: '',
   data_conexao: '',
   ativo: true,
+  // Campos Lei 14.300
+  data_protocolo_aneel: '',
+  numero_processo_aneel: '',
 };
 
 export default function UsinasRemotas() {
@@ -99,6 +103,10 @@ export default function UsinasRemotas() {
     }
 
     try {
+      const classificacao = form.data_protocolo_aneel 
+        ? classificarGD(form.data_protocolo_aneel) 
+        : 'gd2';
+        
       await createUsina.mutateAsync({
         nome: form.nome,
         uc_geradora: form.uc_geradora,
@@ -110,6 +118,9 @@ export default function UsinasRemotas() {
         endereco: form.endereco || null,
         data_conexao: form.data_conexao || null,
         ativo: form.ativo,
+        data_protocolo_aneel: form.data_protocolo_aneel || null,
+        classificacao_gd: classificacao,
+        numero_processo_aneel: form.numero_processo_aneel || null,
       });
       toast({ title: 'Sucesso', description: 'Usina cadastrada com sucesso!' });
       setForm(emptyForm);
@@ -132,6 +143,8 @@ export default function UsinasRemotas() {
       endereco: usina.endereco || '',
       data_conexao: usina.data_conexao || '',
       ativo: usina.ativo,
+      data_protocolo_aneel: usina.data_protocolo_aneel || '',
+      numero_processo_aneel: usina.numero_processo_aneel || '',
     });
     setEditDialogOpen(true);
   };
@@ -145,6 +158,10 @@ export default function UsinasRemotas() {
     }
 
     try {
+      const classificacao = editForm.data_protocolo_aneel 
+        ? classificarGD(editForm.data_protocolo_aneel) 
+        : 'gd2';
+        
       await updateUsina.mutateAsync({
         id: selectedUsina.id,
         nome: editForm.nome,
@@ -157,6 +174,9 @@ export default function UsinasRemotas() {
         endereco: editForm.endereco || null,
         data_conexao: editForm.data_conexao || null,
         ativo: editForm.ativo,
+        data_protocolo_aneel: editForm.data_protocolo_aneel || null,
+        classificacao_gd: classificacao,
+        numero_processo_aneel: editForm.numero_processo_aneel || null,
       });
       toast({ title: 'Sucesso', description: 'Usina atualizada com sucesso!' });
       setEditDialogOpen(false);
@@ -287,6 +307,53 @@ export default function UsinasRemotas() {
           onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
           placeholder="Rua, número, cidade - UF"
         />
+      </div>
+
+      {/* Seção Lei 14.300 */}
+      <div className="border-t pt-4 mt-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="h-4 w-4 text-primary" />
+          <Label className="text-sm font-medium">Lei 14.300 - Classificação GD</Label>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Data de Protocolo ANEEL</Label>
+            <Input
+              type="date"
+              value={formData.data_protocolo_aneel}
+              onChange={(e) => setFormData({ ...formData, data_protocolo_aneel: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Protocolo até 06/01/2023 = GD1 (direito adquirido)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Nº Processo Distribuidora</Label>
+            <Input
+              value={formData.numero_processo_aneel}
+              onChange={(e) => setFormData({ ...formData, numero_processo_aneel: e.target.value })}
+              placeholder="Número do processo"
+            />
+          </div>
+        </div>
+        {formData.data_protocolo_aneel && (
+          <div className={`mt-3 p-3 rounded-lg flex items-center gap-2 ${
+            classificarGD(formData.data_protocolo_aneel) === 'gd1' 
+              ? 'bg-green-500/10 text-green-700 dark:text-green-400' 
+              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+          }`}>
+            {classificarGD(formData.data_protocolo_aneel) === 'gd1' ? (
+              <Shield className="h-4 w-4" />
+            ) : (
+              <AlertTriangle className="h-4 w-4" />
+            )}
+            <span className="text-sm font-medium">
+              {classificarGD(formData.data_protocolo_aneel) === 'gd1' 
+                ? 'GD1 - Direito Adquirido (compensação integral até 2045)' 
+                : 'GD2 - Sujeito à transição (Fio B escalonado 2023-2029)'}
+            </span>
+          </div>
+        )}
       </div>
 
       <Button onClick={onSubmit} disabled={isLoading} className="w-full">
