@@ -91,8 +91,15 @@ export type Database = {
           desconto_garantido_percent: number
           energia_contratada_kwh: number
           id: string
+          modalidade_economia:
+            | Database["public"]["Enums"]["modalidade_economia"]
+            | null
           numero_contrato: string | null
           percentual_rateio: number
+          referencia_desconto:
+            | Database["public"]["Enums"]["referencia_desconto"]
+            | null
+          tarifa_ppa_rs_kwh: number | null
           uc_beneficiaria_id: string
           updated_at: string
           usina_id: string
@@ -106,8 +113,15 @@ export type Database = {
           desconto_garantido_percent?: number
           energia_contratada_kwh?: number
           id?: string
+          modalidade_economia?:
+            | Database["public"]["Enums"]["modalidade_economia"]
+            | null
           numero_contrato?: string | null
           percentual_rateio?: number
+          referencia_desconto?:
+            | Database["public"]["Enums"]["referencia_desconto"]
+            | null
+          tarifa_ppa_rs_kwh?: number | null
           uc_beneficiaria_id: string
           updated_at?: string
           usina_id: string
@@ -121,8 +135,15 @@ export type Database = {
           desconto_garantido_percent?: number
           energia_contratada_kwh?: number
           id?: string
+          modalidade_economia?:
+            | Database["public"]["Enums"]["modalidade_economia"]
+            | null
           numero_contrato?: string | null
           percentual_rateio?: number
+          referencia_desconto?:
+            | Database["public"]["Enums"]["referencia_desconto"]
+            | null
+          tarifa_ppa_rs_kwh?: number | null
           uc_beneficiaria_id?: string
           updated_at?: string
           usina_id?: string
@@ -604,11 +625,13 @@ export type Database = {
     }
     Enums: {
       fonte_energia: "solar" | "eolica" | "hidraulica" | "biomassa" | "outros"
+      modalidade_economia: "ppa_tarifa" | "desconto_fatura_global"
       modalidade_gd:
         | "autoconsumo_remoto"
         | "geracao_compartilhada"
         | "consorcio"
         | "cooperativa"
+      referencia_desconto: "valor_total" | "te_tusd" | "apenas_te"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -737,12 +760,14 @@ export const Constants = {
   public: {
     Enums: {
       fonte_energia: ["solar", "eolica", "hidraulica", "biomassa", "outros"],
+      modalidade_economia: ["ppa_tarifa", "desconto_fatura_global"],
       modalidade_gd: [
         "autoconsumo_remoto",
         "geracao_compartilhada",
         "consorcio",
         "cooperativa",
       ],
+      referencia_desconto: ["valor_total", "te_tusd", "apenas_te"],
     },
   },
 } as const

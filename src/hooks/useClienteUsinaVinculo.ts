@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+export type ModalidadeEconomia = Database['public']['Enums']['modalidade_economia'];
+export type ReferenciaDesconto = Database['public']['Enums']['referencia_desconto'];
 
 export interface ClienteUsinaVinculo {
   id: string;
@@ -15,6 +19,10 @@ export interface ClienteUsinaVinculo {
   ativo: boolean;
   created_at: string;
   updated_at: string;
+  // Campos de modalidade de economia
+  modalidade_economia: ModalidadeEconomia;
+  tarifa_ppa_rs_kwh: number;
+  referencia_desconto: ReferenciaDesconto;
 }
 
 export interface ClienteUsinaVinculoWithRelations extends ClienteUsinaVinculo {

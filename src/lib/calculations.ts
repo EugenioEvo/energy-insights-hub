@@ -1,4 +1,91 @@
 import { FaturaMensal, GeracaoMensal, AssinaturaMensal, Alerta, KPIs, DadosMensais } from '@/types/energy';
+import { ModalidadeEconomia, ReferenciaDesconto } from '@/hooks/useClienteUsinaVinculo';
+
+// ============================================
+// FUNÇÕES DE CÁLCULO POR MODALIDADE DE ECONOMIA
+// ============================================
+
+export interface DadosCalculoEconomia {
+  modalidade: ModalidadeEconomia;
+  tarifaPpaRsKwh: number;
+  descontoGarantidoPercent: number;
+  referenciaDesconto: ReferenciaDesconto;
+  kwhRecebidos: number;
+  tarifaConcessionariaRsKwh: number;
+  valorTotalFatura: number;
+  valorTeTusd: number;
+  valorTe: number;
+}
+
+/**
+ * Calcula a economia baseada na modalidade PPA (Power Purchase Agreement)
+ * Fórmula: (Tarifa Concessionária - Tarifa PPA) × kWh recebidos
+ */
+export function calcularEconomiaPPA(dados: DadosCalculoEconomia): number {
+  const diferencaTarifa = dados.tarifaConcessionariaRsKwh - dados.tarifaPpaRsKwh;
+  return diferencaTarifa * dados.kwhRecebidos;
+}
+
+/**
+ * Calcula a economia baseada na modalidade Desconto sobre Fatura Global
+ * Fórmula: Valor Base × % Desconto Garantido
+ * O valor base depende da referência de desconto escolhida
+ */
+export function calcularEconomiaDescontoFatura(dados: DadosCalculoEconomia): number {
+  let valorBase = 0;
+  
+  switch (dados.referenciaDesconto) {
+    case 'valor_total':
+      valorBase = dados.valorTotalFatura;
+      break;
+    case 'te_tusd':
+      valorBase = dados.valorTeTusd;
+      break;
+    case 'apenas_te':
+      valorBase = dados.valorTe;
+      break;
+    default:
+      valorBase = dados.valorTotalFatura;
+  }
+  
+  return valorBase * (dados.descontoGarantidoPercent / 100);
+}
+
+/**
+ * Calcula a economia de acordo com a modalidade configurada
+ */
+export function calcularEconomiaPorModalidade(dados: DadosCalculoEconomia): {
+  economia: number;
+  descricaoCalculo: string;
+} {
+  if (dados.modalidade === 'ppa_tarifa') {
+    const economia = calcularEconomiaPPA(dados);
+    return {
+      economia,
+      descricaoCalculo: `(R$ ${dados.tarifaConcessionariaRsKwh.toFixed(4)} - R$ ${dados.tarifaPpaRsKwh.toFixed(4)}) × ${dados.kwhRecebidos.toLocaleString()} kWh`,
+    };
+  } else {
+    const economia = calcularEconomiaDescontoFatura(dados);
+    const referenciaLabel = {
+      valor_total: 'Valor Total',
+      te_tusd: 'TE+TUSD',
+      apenas_te: 'Apenas TE',
+    }[dados.referenciaDesconto];
+    
+    let valorBase = dados.valorTotalFatura;
+    if (dados.referenciaDesconto === 'te_tusd') valorBase = dados.valorTeTusd;
+    if (dados.referenciaDesconto === 'apenas_te') valorBase = dados.valorTe;
+    
+    return {
+      economia,
+      descricaoCalculo: `R$ ${valorBase.toFixed(2)} (${referenciaLabel}) × ${dados.descontoGarantidoPercent}%`,
+    };
+  }
+}
+
+// ============================================
+// FUNÇÕES DE CÁLCULO LEGADAS
+// ============================================
 
 export function calcularKPIsMensais(
   fatura: FaturaMensal,
