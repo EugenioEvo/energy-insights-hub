@@ -22,9 +22,10 @@ import { useEnergy } from '@/contexts/EnergyContext';
 import { useCreateCliente, useUpdateCliente, Cliente } from '@/hooks/useClientes';
 import { useCreateUnidadeConsumidora, useUpdateUnidadeConsumidora, UnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useUsinasRemotas } from '@/hooks/useUsinasRemotas';
-import { useVinculosByCliente, useCreateVinculo, useDeleteVinculo, ClienteUsinaVinculoWithRelations } from '@/hooks/useClienteUsinaVinculo';
+import { useVinculosByCliente, useCreateVinculo, useDeleteVinculo, ClienteUsinaVinculoWithRelations, ModalidadeEconomia, ReferenciaDesconto } from '@/hooks/useClienteUsinaVinculo';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Plus, MapPin, Zap, Loader2, Pencil, Factory, Sun, Link2, Trash2 } from 'lucide-react';
+import { Building2, Plus, MapPin, Zap, Loader2, Pencil, Factory, Sun, Link2, Trash2, DollarSign, Percent } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +42,17 @@ const modalidadeLabels: Record<string, string> = {
   geracao_compartilhada: 'Geração Compartilhada',
   consorcio: 'Consórcio',
   cooperativa: 'Cooperativa',
+};
+
+const modalidadeEconomiaLabels: Record<ModalidadeEconomia, string> = {
+  ppa_tarifa: 'PPA - Tarifa Diferenciada',
+  desconto_fatura_global: 'Desconto sobre Fatura Global',
+};
+
+const referenciaDescontoLabels: Record<ReferenciaDesconto, string> = {
+  valor_total: 'Valor Total da Fatura',
+  te_tusd: 'TE + TUSD',
+  apenas_te: 'Apenas TE',
 };
 
 export default function Clientes() {
@@ -108,6 +120,9 @@ export default function Clientes() {
     desconto_garantido_percent: '',
     numero_contrato: '',
     data_inicio_contrato: '',
+    modalidade_economia: 'desconto_fatura_global' as ModalidadeEconomia,
+    tarifa_ppa_rs_kwh: '',
+    referencia_desconto: 'valor_total' as ReferenciaDesconto,
   });
 
   const handleCreateCliente = async () => {
@@ -258,6 +273,9 @@ export default function Clientes() {
         data_inicio_contrato: novoVinculo.data_inicio_contrato || null,
         data_fim_contrato: null,
         ativo: true,
+        modalidade_economia: novoVinculo.modalidade_economia,
+        tarifa_ppa_rs_kwh: parseFloat(novoVinculo.tarifa_ppa_rs_kwh) || 0,
+        referencia_desconto: novoVinculo.referencia_desconto,
       });
       toast({ title: 'Sucesso', description: 'Vínculo com usina criado com sucesso!' });
       setNovoVinculo({
@@ -268,6 +286,9 @@ export default function Clientes() {
         desconto_garantido_percent: '',
         numero_contrato: '',
         data_inicio_contrato: '',
+        modalidade_economia: 'desconto_fatura_global',
+        tarifa_ppa_rs_kwh: '',
+        referencia_desconto: 'valor_total',
       });
       setVinculoDialogOpen(false);
       refetchVinculos();
@@ -775,6 +796,93 @@ export default function Clientes() {
                                 placeholder="CONT-2024-001"
                               />
                             </div>
+                            
+                            {/* Modalidade de Economia */}
+                            <div className="border-t border-border pt-4 mt-4">
+                              <Label className="text-base font-semibold flex items-center gap-2">
+                                <DollarSign className="h-4 w-4" />
+                                Modalidade de Economia
+                              </Label>
+                              <p className="text-sm text-muted-foreground mb-4">
+                                Defina como a economia do cliente será calculada
+                              </p>
+                              
+                              <RadioGroup
+                                value={novoVinculo.modalidade_economia}
+                                onValueChange={(value: ModalidadeEconomia) => setNovoVinculo({ ...novoVinculo, modalidade_economia: value })}
+                                className="space-y-3"
+                              >
+                                <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                                  <RadioGroupItem value="ppa_tarifa" id="ppa_tarifa" className="mt-1" />
+                                  <div className="flex-1">
+                                    <Label htmlFor="ppa_tarifa" className="cursor-pointer font-medium">
+                                      PPA - Tarifa Diferenciada
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                      Economia = (Tarifa Concessionária - Tarifa PPA) × kWh recebidos
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                                  <RadioGroupItem value="desconto_fatura_global" id="desconto_fatura_global" className="mt-1" />
+                                  <div className="flex-1">
+                                    <Label htmlFor="desconto_fatura_global" className="cursor-pointer font-medium">
+                                      Desconto sobre Fatura Global
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                      Economia = Valor Base × % Desconto Garantido
+                                    </p>
+                                  </div>
+                                </div>
+                              </RadioGroup>
+
+                              {/* Campos condicionais por modalidade */}
+                              {novoVinculo.modalidade_economia === 'ppa_tarifa' && (
+                                <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
+                                  <div className="space-y-2">
+                                    <Label>Tarifa PPA (R$/kWh)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.0001"
+                                      value={novoVinculo.tarifa_ppa_rs_kwh}
+                                      onChange={(e) => setNovoVinculo({ ...novoVinculo, tarifa_ppa_rs_kwh: e.target.value })}
+                                      placeholder="0.45"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                      Valor que o cliente paga por kWh no contrato PPA
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {novoVinculo.modalidade_economia === 'desconto_fatura_global' && (
+                                <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
+                                  <div className="space-y-2">
+                                    <Label className="flex items-center gap-2">
+                                      <Percent className="h-4 w-4" />
+                                      Referência do Desconto
+                                    </Label>
+                                    <Select
+                                      value={novoVinculo.referencia_desconto}
+                                      onValueChange={(value: ReferenciaDesconto) => setNovoVinculo({ ...novoVinculo, referencia_desconto: value })}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="valor_total">Valor Total da Fatura</SelectItem>
+                                        <SelectItem value="te_tusd">TE + TUSD</SelectItem>
+                                        <SelectItem value="apenas_te">Apenas TE</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                      Base de cálculo sobre a qual o desconto será aplicado
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
                             <Button onClick={handleCreateVinculo} disabled={createVinculo.isPending} className="w-full">
                               {createVinculo.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                               Vincular Usina
@@ -803,10 +911,27 @@ export default function Clientes() {
                                 <Sun className="h-5 w-5 text-primary" />
                               </div>
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-medium">{vinculo.usinas_remotas.nome}</p>
                                   <Badge variant="outline" className="text-xs">
                                     {modalidadeLabels[vinculo.usinas_remotas.modalidade_gd] || vinculo.usinas_remotas.modalidade_gd}
+                                  </Badge>
+                                  {/* Badge de Modalidade de Economia */}
+                                  <Badge 
+                                    variant={vinculo.modalidade_economia === 'ppa_tarifa' ? 'default' : 'secondary'}
+                                    className="text-xs gap-1"
+                                  >
+                                    {vinculo.modalidade_economia === 'ppa_tarifa' ? (
+                                      <>
+                                        <DollarSign className="h-3 w-3" />
+                                        PPA: R$ {vinculo.tarifa_ppa_rs_kwh.toFixed(4)}/kWh
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Percent className="h-3 w-3" />
+                                        {vinculo.desconto_garantido_percent}% sobre {referenciaDescontoLabels[vinculo.referencia_desconto]}
+                                      </>
+                                    )}
                                   </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
@@ -822,8 +947,10 @@ export default function Clientes() {
                                     <p className="text-sm font-medium">{vinculo.energia_contratada_kwh.toLocaleString()} kWh</p>
                                   </div>
                                   <div>
-                                    <p className="text-xs text-muted-foreground">Desconto</p>
-                                    <p className="text-sm font-medium">{vinculo.desconto_garantido_percent}%</p>
+                                    <p className="text-xs text-muted-foreground">Modalidade</p>
+                                    <p className="text-sm font-medium">
+                                      {modalidadeEconomiaLabels[vinculo.modalidade_economia]}
+                                    </p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-muted-foreground">Contrato</p>
