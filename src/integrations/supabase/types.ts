@@ -212,6 +212,7 @@ export type Database = {
           base_icms_rs: number | null
           base_pis_cofins_rs: number | null
           cip_rs: number | null
+          classificacao_gd_aplicada: string | null
           cofins_aliquota_percent: number | null
           cofins_rs: number | null
           consumo_reservado_kwh: number | null
@@ -229,6 +230,8 @@ export type Database = {
           demanda_ultrapassagem_kw: number | null
           desconto_assinatura_percent: number | null
           dias_faturados: number | null
+          economia_compensacao_rs: number | null
+          economia_simultaneidade_rs: number | null
           energia_fora_ponta_rs: number
           energia_ponta_rs: number
           energia_simultanea_kwh: number | null
@@ -253,6 +256,7 @@ export type Database = {
           nao_compensado_tusd_hr_rs: number | null
           nao_compensado_tusd_p_rs: number | null
           outros_encargos: number
+          percentual_fio_b_aplicado: number | null
           pis_aliquota_percent: number | null
           pis_rs: number | null
           ponta_kwh: number
@@ -274,12 +278,16 @@ export type Database = {
           scee_saldo_kwh_hr: number | null
           scee_saldo_kwh_p: number | null
           status: string
+          tusd_encargos_rs: number | null
+          tusd_fio_a_rs: number | null
+          tusd_fio_b_rs: number | null
           uc_id: string
           ufer_fp_kvarh: number | null
           ufer_fp_rs: number | null
           updated_at: string
           valor_demanda_rs: number | null
           valor_demanda_ultrapassagem_rs: number | null
+          valor_nao_compensavel_rs: number | null
           valor_te: number
           valor_total: number
           valor_tusd: number
@@ -294,6 +302,7 @@ export type Database = {
           base_icms_rs?: number | null
           base_pis_cofins_rs?: number | null
           cip_rs?: number | null
+          classificacao_gd_aplicada?: string | null
           cofins_aliquota_percent?: number | null
           cofins_rs?: number | null
           consumo_reservado_kwh?: number | null
@@ -311,6 +320,8 @@ export type Database = {
           demanda_ultrapassagem_kw?: number | null
           desconto_assinatura_percent?: number | null
           dias_faturados?: number | null
+          economia_compensacao_rs?: number | null
+          economia_simultaneidade_rs?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
           energia_simultanea_kwh?: number | null
@@ -335,6 +346,7 @@ export type Database = {
           nao_compensado_tusd_hr_rs?: number | null
           nao_compensado_tusd_p_rs?: number | null
           outros_encargos?: number
+          percentual_fio_b_aplicado?: number | null
           pis_aliquota_percent?: number | null
           pis_rs?: number | null
           ponta_kwh?: number
@@ -356,12 +368,16 @@ export type Database = {
           scee_saldo_kwh_hr?: number | null
           scee_saldo_kwh_p?: number | null
           status?: string
+          tusd_encargos_rs?: number | null
+          tusd_fio_a_rs?: number | null
+          tusd_fio_b_rs?: number | null
           uc_id: string
           ufer_fp_kvarh?: number | null
           ufer_fp_rs?: number | null
           updated_at?: string
           valor_demanda_rs?: number | null
           valor_demanda_ultrapassagem_rs?: number | null
+          valor_nao_compensavel_rs?: number | null
           valor_te?: number
           valor_total?: number
           valor_tusd?: number
@@ -376,6 +392,7 @@ export type Database = {
           base_icms_rs?: number | null
           base_pis_cofins_rs?: number | null
           cip_rs?: number | null
+          classificacao_gd_aplicada?: string | null
           cofins_aliquota_percent?: number | null
           cofins_rs?: number | null
           consumo_reservado_kwh?: number | null
@@ -393,6 +410,8 @@ export type Database = {
           demanda_ultrapassagem_kw?: number | null
           desconto_assinatura_percent?: number | null
           dias_faturados?: number | null
+          economia_compensacao_rs?: number | null
+          economia_simultaneidade_rs?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
           energia_simultanea_kwh?: number | null
@@ -417,6 +436,7 @@ export type Database = {
           nao_compensado_tusd_hr_rs?: number | null
           nao_compensado_tusd_p_rs?: number | null
           outros_encargos?: number
+          percentual_fio_b_aplicado?: number | null
           pis_aliquota_percent?: number | null
           pis_rs?: number | null
           ponta_kwh?: number
@@ -438,12 +458,16 @@ export type Database = {
           scee_saldo_kwh_hr?: number | null
           scee_saldo_kwh_p?: number | null
           status?: string
+          tusd_encargos_rs?: number | null
+          tusd_fio_a_rs?: number | null
+          tusd_fio_b_rs?: number | null
           uc_id?: string
           ufer_fp_kvarh?: number | null
           ufer_fp_rs?: number | null
           updated_at?: string
           valor_demanda_rs?: number | null
           valor_demanda_ultrapassagem_rs?: number | null
+          valor_nao_compensavel_rs?: number | null
           valor_te?: number
           valor_total?: number
           valor_tusd?: number
@@ -509,19 +533,57 @@ export type Database = {
           },
         ]
       }
+      lei_14300_transicao: {
+        Row: {
+          ano: number
+          created_at: string | null
+          descricao: string | null
+          id: string
+          percentual_encargos: number | null
+          percentual_fio_b: number
+          updated_at: string | null
+          vigente: boolean | null
+        }
+        Insert: {
+          ano: number
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          percentual_encargos?: number | null
+          percentual_fio_b: number
+          updated_at?: string | null
+          vigente?: boolean | null
+        }
+        Update: {
+          ano?: number
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          percentual_encargos?: number | null
+          percentual_fio_b?: number
+          updated_at?: string | null
+          vigente?: boolean | null
+        }
+        Relationships: []
+      }
       unidades_consumidoras: {
         Row: {
           classe_tarifaria: string | null
           cliente_id: string
           concessionaria: string
           created_at: string
+          custo_disponibilidade_kwh: number | null
+          data_protocolo_gd: string | null
           demanda_contratada: number
           demanda_geracao_kw: number | null
           distribuidora: string
           endereco: string
+          grupo_tarifario: string | null
           id: string
           modalidade_tarifaria: string
           numero: string
+          subgrupo: string | null
+          tem_geracao_propria: boolean | null
           tensao_kv: number | null
           tipo_fornecimento: string | null
           updated_at: string
@@ -531,13 +593,18 @@ export type Database = {
           cliente_id: string
           concessionaria?: string
           created_at?: string
+          custo_disponibilidade_kwh?: number | null
+          data_protocolo_gd?: string | null
           demanda_contratada?: number
           demanda_geracao_kw?: number | null
           distribuidora: string
           endereco: string
+          grupo_tarifario?: string | null
           id?: string
           modalidade_tarifaria: string
           numero: string
+          subgrupo?: string | null
+          tem_geracao_propria?: boolean | null
           tensao_kv?: number | null
           tipo_fornecimento?: string | null
           updated_at?: string
@@ -547,13 +614,18 @@ export type Database = {
           cliente_id?: string
           concessionaria?: string
           created_at?: string
+          custo_disponibilidade_kwh?: number | null
+          data_protocolo_gd?: string | null
           demanda_contratada?: number
           demanda_geracao_kw?: number | null
           distribuidora?: string
           endereco?: string
+          grupo_tarifario?: string | null
           id?: string
           modalidade_tarifaria?: string
           numero?: string
+          subgrupo?: string | null
+          tem_geracao_propria?: boolean | null
           tensao_kv?: number | null
           tipo_fornecimento?: string | null
           updated_at?: string
@@ -571,45 +643,54 @@ export type Database = {
       usinas_remotas: {
         Row: {
           ativo: boolean
+          classificacao_gd: string | null
           cnpj_titular: string
           created_at: string
           data_conexao: string | null
+          data_protocolo_aneel: string | null
           distribuidora: string
           endereco: string | null
           fonte: Database["public"]["Enums"]["fonte_energia"]
           id: string
           modalidade_gd: Database["public"]["Enums"]["modalidade_gd"]
           nome: string
+          numero_processo_aneel: string | null
           potencia_instalada_kw: number
           uc_geradora: string
           updated_at: string
         }
         Insert: {
           ativo?: boolean
+          classificacao_gd?: string | null
           cnpj_titular: string
           created_at?: string
           data_conexao?: string | null
+          data_protocolo_aneel?: string | null
           distribuidora: string
           endereco?: string | null
           fonte?: Database["public"]["Enums"]["fonte_energia"]
           id?: string
           modalidade_gd?: Database["public"]["Enums"]["modalidade_gd"]
           nome: string
+          numero_processo_aneel?: string | null
           potencia_instalada_kw?: number
           uc_geradora: string
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          classificacao_gd?: string | null
           cnpj_titular?: string
           created_at?: string
           data_conexao?: string | null
+          data_protocolo_aneel?: string | null
           distribuidora?: string
           endereco?: string | null
           fonte?: Database["public"]["Enums"]["fonte_energia"]
           id?: string
           modalidade_gd?: Database["public"]["Enums"]["modalidade_gd"]
           nome?: string
+          numero_processo_aneel?: string | null
           potencia_instalada_kw?: number
           uc_geradora?: string
           updated_at?: string
@@ -621,9 +702,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      classificar_gd: { Args: { data_protocolo: string }; Returns: string }
+      obter_percentual_fio_b: {
+        Args: { ano_referencia: number }
+        Returns: number
+      }
     }
     Enums: {
+      classificacao_gd: "gd1" | "gd2"
       fonte_energia: "solar" | "eolica" | "hidraulica" | "biomassa" | "outros"
       modalidade_economia: "ppa_tarifa" | "desconto_fatura_global"
       modalidade_gd:
@@ -759,6 +845,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      classificacao_gd: ["gd1", "gd2"],
       fonte_energia: ["solar", "eolica", "hidraulica", "biomassa", "outros"],
       modalidade_economia: ["ppa_tarifa", "desconto_fatura_global"],
       modalidade_gd: [
