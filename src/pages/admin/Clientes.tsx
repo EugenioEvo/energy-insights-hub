@@ -22,7 +22,7 @@ import { useEnergy } from '@/contexts/EnergyContext';
 import { useCreateCliente, useUpdateCliente, Cliente } from '@/hooks/useClientes';
 import { useCreateUnidadeConsumidora, useUpdateUnidadeConsumidora, UnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useUsinasRemotas } from '@/hooks/useUsinasRemotas';
-import { useVinculosByCliente, useCreateVinculo, useDeleteVinculo, ClienteUsinaVinculoWithRelations, ModalidadeEconomia, ReferenciaDesconto } from '@/hooks/useClienteUsinaVinculo';
+import { useVinculosByCliente, useCreateVinculo, useUpdateVinculo, useDeleteVinculo, ClienteUsinaVinculoWithRelations, ModalidadeEconomia, ReferenciaDesconto } from '@/hooks/useClienteUsinaVinculo';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Plus, MapPin, Zap, Loader2, Pencil, Factory, Sun, Link2, Trash2, DollarSign, Percent } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -64,6 +64,7 @@ export default function Clientes() {
   const { data: usinas = [] } = useUsinasRemotas();
   const { data: vinculos = [], refetch: refetchVinculos } = useVinculosByCliente(clienteId);
   const createVinculo = useCreateVinculo();
+  const updateVinculo = useUpdateVinculo();
   const deleteVinculo = useDeleteVinculo();
   const { toast } = useToast();
 
@@ -72,8 +73,26 @@ export default function Clientes() {
   const [ucDialogOpen, setUcDialogOpen] = useState(false);
   const [editUCDialogOpen, setEditUCDialogOpen] = useState(false);
   const [vinculoDialogOpen, setVinculoDialogOpen] = useState(false);
+  const [editVinculoDialogOpen, setEditVinculoDialogOpen] = useState(false);
   const [deleteVinculoDialogOpen, setDeleteVinculoDialogOpen] = useState(false);
   const [selectedVinculo, setSelectedVinculo] = useState<ClienteUsinaVinculoWithRelations | null>(null);
+
+  // Edit Vinculo form
+  const [editVinculo, setEditVinculo] = useState<{
+    id: string;
+    usina_id: string;
+    uc_beneficiaria_id: string;
+    percentual_rateio: string;
+    energia_contratada_kwh: string;
+    desconto_garantido_percent: string;
+    numero_contrato: string;
+    data_inicio_contrato: string;
+    data_fim_contrato: string;
+    ativo: boolean;
+    modalidade_economia: ModalidadeEconomia;
+    tarifa_ppa_rs_kwh: string;
+    referencia_desconto: ReferenciaDesconto;
+  } | null>(null);
 
   // New cliente form
   const [novoCliente, setNovoCliente] = useState({
@@ -294,6 +313,53 @@ export default function Clientes() {
       refetchVinculos();
     } catch (error) {
       toast({ title: 'Erro', description: 'Falha ao criar vínculo. Verifique se já não existe.', variant: 'destructive' });
+    }
+  };
+
+  const handleEditVinculo = (vinculo: ClienteUsinaVinculoWithRelations) => {
+    setEditVinculo({
+      id: vinculo.id,
+      usina_id: vinculo.usina_id,
+      uc_beneficiaria_id: vinculo.uc_beneficiaria_id,
+      percentual_rateio: String(vinculo.percentual_rateio),
+      energia_contratada_kwh: String(vinculo.energia_contratada_kwh),
+      desconto_garantido_percent: String(vinculo.desconto_garantido_percent),
+      numero_contrato: vinculo.numero_contrato || '',
+      data_inicio_contrato: vinculo.data_inicio_contrato || '',
+      data_fim_contrato: vinculo.data_fim_contrato || '',
+      ativo: vinculo.ativo,
+      modalidade_economia: vinculo.modalidade_economia,
+      tarifa_ppa_rs_kwh: String(vinculo.tarifa_ppa_rs_kwh),
+      referencia_desconto: vinculo.referencia_desconto,
+    });
+    setEditVinculoDialogOpen(true);
+  };
+
+  const handleUpdateVinculo = async () => {
+    if (!editVinculo) return;
+
+    try {
+      await updateVinculo.mutateAsync({
+        id: editVinculo.id,
+        usina_id: editVinculo.usina_id,
+        uc_beneficiaria_id: editVinculo.uc_beneficiaria_id,
+        percentual_rateio: parseFloat(editVinculo.percentual_rateio) || 0,
+        energia_contratada_kwh: parseFloat(editVinculo.energia_contratada_kwh) || 0,
+        desconto_garantido_percent: parseFloat(editVinculo.desconto_garantido_percent) || 0,
+        numero_contrato: editVinculo.numero_contrato || null,
+        data_inicio_contrato: editVinculo.data_inicio_contrato || null,
+        data_fim_contrato: editVinculo.data_fim_contrato || null,
+        ativo: editVinculo.ativo,
+        modalidade_economia: editVinculo.modalidade_economia,
+        tarifa_ppa_rs_kwh: parseFloat(editVinculo.tarifa_ppa_rs_kwh) || 0,
+        referencia_desconto: editVinculo.referencia_desconto,
+      });
+      toast({ title: 'Sucesso', description: 'Vínculo atualizado com sucesso!' });
+      setEditVinculoDialogOpen(false);
+      setEditVinculo(null);
+      refetchVinculos();
+    } catch (error) {
+      toast({ title: 'Erro', description: 'Falha ao atualizar vínculo', variant: 'destructive' });
     }
   };
 
@@ -964,17 +1030,29 @@ export default function Clientes() {
                                   </div>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedVinculo(vinculo);
-                                  setDeleteVinculoDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditVinculo(vinculo);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedVinculo(vinculo);
+                                    setDeleteVinculoDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -986,6 +1064,219 @@ export default function Clientes() {
             </div>
           ))
         )}
+
+        {/* Edit Vinculo Dialog */}
+        <Dialog open={editVinculoDialogOpen} onOpenChange={setEditVinculoDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Vínculo</DialogTitle>
+            </DialogHeader>
+            {editVinculo && (
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Usina Geradora *</Label>
+                  <Select 
+                    value={editVinculo.usina_id} 
+                    onValueChange={(value) => setEditVinculo({ ...editVinculo, usina_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a usina" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {usinas.filter(u => u.ativo).map((usina) => (
+                        <SelectItem key={usina.id} value={usina.id}>
+                          {usina.nome} ({usina.uc_geradora})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>UC Beneficiária *</Label>
+                  <Select 
+                    value={editVinculo.uc_beneficiaria_id} 
+                    onValueChange={(value) => setEditVinculo({ ...editVinculo, uc_beneficiaria_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a UC" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unidadesConsumidoras.map((uc) => (
+                        <SelectItem key={uc.id} value={uc.id}>
+                          {uc.numero} - {uc.endereco}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>% Rateio</Label>
+                    <Input
+                      type="number"
+                      value={editVinculo.percentual_rateio}
+                      onChange={(e) => setEditVinculo({ ...editVinculo, percentual_rateio: e.target.value })}
+                      placeholder="10"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Energia Contratada (kWh)</Label>
+                    <Input
+                      type="number"
+                      value={editVinculo.energia_contratada_kwh}
+                      onChange={(e) => setEditVinculo({ ...editVinculo, energia_contratada_kwh: e.target.value })}
+                      placeholder="5000"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Desconto Garantido (%)</Label>
+                    <Input
+                      type="number"
+                      value={editVinculo.desconto_garantido_percent}
+                      onChange={(e) => setEditVinculo({ ...editVinculo, desconto_garantido_percent: e.target.value })}
+                      placeholder="15"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Início Contrato</Label>
+                    <Input
+                      type="date"
+                      value={editVinculo.data_inicio_contrato}
+                      onChange={(e) => setEditVinculo({ ...editVinculo, data_inicio_contrato: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Fim Contrato</Label>
+                    <Input
+                      type="date"
+                      value={editVinculo.data_fim_contrato}
+                      onChange={(e) => setEditVinculo({ ...editVinculo, data_fim_contrato: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Número do Contrato</Label>
+                    <Input
+                      value={editVinculo.numero_contrato}
+                      onChange={(e) => setEditVinculo({ ...editVinculo, numero_contrato: e.target.value })}
+                      placeholder="CONT-2024-001"
+                    />
+                  </div>
+                </div>
+
+                {/* Status do vínculo */}
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                  <input
+                    type="checkbox"
+                    id="vinculo-ativo"
+                    checked={editVinculo.ativo}
+                    onChange={(e) => setEditVinculo({ ...editVinculo, ativo: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="vinculo-ativo" className="cursor-pointer">
+                    Vínculo Ativo
+                  </Label>
+                </div>
+                
+                {/* Modalidade de Economia */}
+                <div className="border-t border-border pt-4 mt-4">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Modalidade de Economia
+                  </Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Defina como a economia do cliente será calculada
+                  </p>
+                  
+                  <RadioGroup
+                    value={editVinculo.modalidade_economia}
+                    onValueChange={(value: ModalidadeEconomia) => setEditVinculo({ ...editVinculo, modalidade_economia: value })}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="ppa_tarifa" id="edit_ppa_tarifa" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="edit_ppa_tarifa" className="cursor-pointer font-medium">
+                          PPA - Tarifa Diferenciada
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Economia = (Tarifa Concessionária - Tarifa PPA) × kWh recebidos
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                      <RadioGroupItem value="desconto_fatura_global" id="edit_desconto_fatura_global" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="edit_desconto_fatura_global" className="cursor-pointer font-medium">
+                          Desconto sobre Fatura Global
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Economia = Valor Base × % Desconto Garantido
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+
+                  {/* Campos condicionais por modalidade */}
+                  {editVinculo.modalidade_economia === 'ppa_tarifa' && (
+                    <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
+                      <div className="space-y-2">
+                        <Label>Tarifa PPA (R$/kWh)</Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          value={editVinculo.tarifa_ppa_rs_kwh}
+                          onChange={(e) => setEditVinculo({ ...editVinculo, tarifa_ppa_rs_kwh: e.target.value })}
+                          placeholder="0.45"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Valor que o cliente paga por kWh no contrato PPA
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {editVinculo.modalidade_economia === 'desconto_fatura_global' && (
+                    <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Percent className="h-4 w-4" />
+                          Referência do Desconto
+                        </Label>
+                        <Select
+                          value={editVinculo.referencia_desconto}
+                          onValueChange={(value: ReferenciaDesconto) => setEditVinculo({ ...editVinculo, referencia_desconto: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="valor_total">Valor Total da Fatura</SelectItem>
+                            <SelectItem value="te_tusd">TE + TUSD</SelectItem>
+                            <SelectItem value="apenas_te">Apenas TE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Base de cálculo sobre a qual o desconto será aplicado
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <Button onClick={handleUpdateVinculo} disabled={updateVinculo.isPending} className="w-full">
+                  {updateVinculo.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Vinculo Confirmation */}
         <AlertDialog open={deleteVinculoDialogOpen} onOpenChange={setDeleteVinculoDialogOpen}>
