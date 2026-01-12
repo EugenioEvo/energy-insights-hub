@@ -28,6 +28,7 @@ import {
 } from '@/hooks/useUsinasRemotas';
 import { Sun, Wind, Droplets, Leaf, Factory, Plus, Loader2, Pencil, Trash2, MapPin, Zap, Shield, AlertTriangle } from 'lucide-react';
 import { classificarGD, formatarClassificacaoGD } from '@/lib/lei14300';
+import { LancamentosMensais } from '@/components/usina/LancamentosMensais';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -485,6 +486,10 @@ export default function UsinasRemotas() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+                  {/* Lançamentos Mensais inline */}
+                  <div className="mt-4 border-t pt-4">
+                    <LancamentosMensais usina={usina} />
                   </div>
                 </div>
               );

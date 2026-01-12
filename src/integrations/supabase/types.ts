@@ -802,6 +802,132 @@ export type Database = {
           },
         ]
       }
+      usina_geracao_mensal: {
+        Row: {
+          created_at: string | null
+          disponibilidade_percent: number | null
+          fator_capacidade_percent: number | null
+          geracao_fora_ponta_kwh: number | null
+          geracao_ponta_kwh: number | null
+          geracao_reservado_kwh: number | null
+          geracao_total_kwh: number
+          id: string
+          mes_ref: string
+          observacoes: string | null
+          updated_at: string | null
+          usina_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          disponibilidade_percent?: number | null
+          fator_capacidade_percent?: number | null
+          geracao_fora_ponta_kwh?: number | null
+          geracao_ponta_kwh?: number | null
+          geracao_reservado_kwh?: number | null
+          geracao_total_kwh?: number
+          id?: string
+          mes_ref: string
+          observacoes?: string | null
+          updated_at?: string | null
+          usina_id: string
+        }
+        Update: {
+          created_at?: string | null
+          disponibilidade_percent?: number | null
+          fator_capacidade_percent?: number | null
+          geracao_fora_ponta_kwh?: number | null
+          geracao_ponta_kwh?: number | null
+          geracao_reservado_kwh?: number | null
+          geracao_total_kwh?: number
+          id?: string
+          mes_ref?: string
+          observacoes?: string | null
+          updated_at?: string | null
+          usina_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usina_geracao_mensal_usina_id_fkey"
+            columns: ["usina_id"]
+            isOneToOne: false
+            referencedRelation: "usinas_remotas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usina_rateio_mensal: {
+        Row: {
+          created_at: string | null
+          energia_alocada_kwh: number
+          energia_fora_ponta_kwh: number | null
+          energia_ponta_kwh: number | null
+          energia_reservado_kwh: number | null
+          geracao_id: string
+          id: string
+          percentual_aplicado: number
+          status: string | null
+          uc_beneficiaria_id: string
+          updated_at: string | null
+          valor_compensado_estimado_rs: number | null
+          valor_fatura_usina_rs: number | null
+          vinculo_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          energia_alocada_kwh?: number
+          energia_fora_ponta_kwh?: number | null
+          energia_ponta_kwh?: number | null
+          energia_reservado_kwh?: number | null
+          geracao_id: string
+          id?: string
+          percentual_aplicado?: number
+          status?: string | null
+          uc_beneficiaria_id: string
+          updated_at?: string | null
+          valor_compensado_estimado_rs?: number | null
+          valor_fatura_usina_rs?: number | null
+          vinculo_id: string
+        }
+        Update: {
+          created_at?: string | null
+          energia_alocada_kwh?: number
+          energia_fora_ponta_kwh?: number | null
+          energia_ponta_kwh?: number | null
+          energia_reservado_kwh?: number | null
+          geracao_id?: string
+          id?: string
+          percentual_aplicado?: number
+          status?: string | null
+          uc_beneficiaria_id?: string
+          updated_at?: string | null
+          valor_compensado_estimado_rs?: number | null
+          valor_fatura_usina_rs?: number | null
+          vinculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usina_rateio_mensal_geracao_id_fkey"
+            columns: ["geracao_id"]
+            isOneToOne: false
+            referencedRelation: "usina_geracao_mensal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usina_rateio_mensal_uc_beneficiaria_id_fkey"
+            columns: ["uc_beneficiaria_id"]
+            isOneToOne: false
+            referencedRelation: "unidades_consumidoras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usina_rateio_mensal_vinculo_id_fkey"
+            columns: ["vinculo_id"]
+            isOneToOne: false
+            referencedRelation: "cliente_usina_vinculo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usinas_remotas: {
         Row: {
           ativo: boolean
