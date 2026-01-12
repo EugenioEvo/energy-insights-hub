@@ -26,7 +26,7 @@ export interface ClienteUsinaVinculo {
 }
 
 export interface ClienteUsinaVinculoWithRelations extends ClienteUsinaVinculo {
-  usinas_remotas: {
+  usinas_remotas?: {
     id: string;
     nome: string;
     uc_geradora: string;
@@ -34,10 +34,15 @@ export interface ClienteUsinaVinculoWithRelations extends ClienteUsinaVinculo {
     fonte: string;
     potencia_instalada_kw: number;
   };
-  unidades_consumidoras: {
+  unidades_consumidoras?: {
     id: string;
     numero: string;
     endereco: string;
+  };
+  clientes?: {
+    id: string;
+    nome: string;
+    cnpj: string;
   };
 }
 
@@ -101,7 +106,7 @@ export const useVinculosByUsina = (usinaId: string | undefined) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as ClienteUsinaVinculoWithRelations[];
     },
     enabled: !!usinaId,
   });
