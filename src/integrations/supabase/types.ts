@@ -205,6 +205,11 @@ export type Database = {
       faturas_mensais: {
         Row: {
           alertas: Json | null
+          autoconsumo_fp_kwh: number | null
+          autoconsumo_hr_kwh: number | null
+          autoconsumo_ponta_kwh: number | null
+          autoconsumo_rs: number | null
+          autoconsumo_total_kwh: number | null
           bandeira_te_fp_rs: number | null
           bandeira_te_hr_rs: number | null
           bandeira_te_p_rs: number | null
@@ -215,11 +220,16 @@ export type Database = {
           classificacao_gd_aplicada: string | null
           cofins_aliquota_percent: number | null
           cofins_rs: number | null
+          consumo_final_kwh: number | null
           consumo_reservado_kwh: number | null
+          consumo_residual_kwh: number | null
           consumo_total_kwh: number
           created_at: string
           credito_assinatura_kwh: number | null
           credito_assinatura_rs: number | null
+          credito_remoto_compensado_rs: number | null
+          credito_remoto_kwh: number | null
+          custo_assinatura_rs: number | null
           data_apresentacao: string | null
           data_emissao: string | null
           demanda_contratada_kw: number
@@ -231,16 +241,23 @@ export type Database = {
           desconto_assinatura_percent: number | null
           dias_faturados: number | null
           economia_compensacao_rs: number | null
+          economia_liquida_rs: number | null
           economia_simultaneidade_rs: number | null
           energia_fora_ponta_rs: number
           energia_ponta_rs: number
           energia_simultanea_kwh: number | null
           energia_simultanea_rs: number | null
           fora_ponta_kwh: number
+          geracao_local_total_kwh: number | null
+          grupo_tarifario: string | null
           icms_aliquota_percent: number | null
           icms_rs: number | null
           id: string
           iluminacao_publica: number
+          injecao_fp_kwh: number | null
+          injecao_hr_kwh: number | null
+          injecao_ponta_kwh: number | null
+          injecao_total_kwh: number | null
           leitura_anterior: string | null
           leitura_atual: string | null
           mes_ref: string
@@ -295,6 +312,11 @@ export type Database = {
         }
         Insert: {
           alertas?: Json | null
+          autoconsumo_fp_kwh?: number | null
+          autoconsumo_hr_kwh?: number | null
+          autoconsumo_ponta_kwh?: number | null
+          autoconsumo_rs?: number | null
+          autoconsumo_total_kwh?: number | null
           bandeira_te_fp_rs?: number | null
           bandeira_te_hr_rs?: number | null
           bandeira_te_p_rs?: number | null
@@ -305,11 +327,16 @@ export type Database = {
           classificacao_gd_aplicada?: string | null
           cofins_aliquota_percent?: number | null
           cofins_rs?: number | null
+          consumo_final_kwh?: number | null
           consumo_reservado_kwh?: number | null
+          consumo_residual_kwh?: number | null
           consumo_total_kwh?: number
           created_at?: string
           credito_assinatura_kwh?: number | null
           credito_assinatura_rs?: number | null
+          credito_remoto_compensado_rs?: number | null
+          credito_remoto_kwh?: number | null
+          custo_assinatura_rs?: number | null
           data_apresentacao?: string | null
           data_emissao?: string | null
           demanda_contratada_kw?: number
@@ -321,16 +348,23 @@ export type Database = {
           desconto_assinatura_percent?: number | null
           dias_faturados?: number | null
           economia_compensacao_rs?: number | null
+          economia_liquida_rs?: number | null
           economia_simultaneidade_rs?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
           energia_simultanea_kwh?: number | null
           energia_simultanea_rs?: number | null
           fora_ponta_kwh?: number
+          geracao_local_total_kwh?: number | null
+          grupo_tarifario?: string | null
           icms_aliquota_percent?: number | null
           icms_rs?: number | null
           id?: string
           iluminacao_publica?: number
+          injecao_fp_kwh?: number | null
+          injecao_hr_kwh?: number | null
+          injecao_ponta_kwh?: number | null
+          injecao_total_kwh?: number | null
           leitura_anterior?: string | null
           leitura_atual?: string | null
           mes_ref: string
@@ -385,6 +419,11 @@ export type Database = {
         }
         Update: {
           alertas?: Json | null
+          autoconsumo_fp_kwh?: number | null
+          autoconsumo_hr_kwh?: number | null
+          autoconsumo_ponta_kwh?: number | null
+          autoconsumo_rs?: number | null
+          autoconsumo_total_kwh?: number | null
           bandeira_te_fp_rs?: number | null
           bandeira_te_hr_rs?: number | null
           bandeira_te_p_rs?: number | null
@@ -395,11 +434,16 @@ export type Database = {
           classificacao_gd_aplicada?: string | null
           cofins_aliquota_percent?: number | null
           cofins_rs?: number | null
+          consumo_final_kwh?: number | null
           consumo_reservado_kwh?: number | null
+          consumo_residual_kwh?: number | null
           consumo_total_kwh?: number
           created_at?: string
           credito_assinatura_kwh?: number | null
           credito_assinatura_rs?: number | null
+          credito_remoto_compensado_rs?: number | null
+          credito_remoto_kwh?: number | null
+          custo_assinatura_rs?: number | null
           data_apresentacao?: string | null
           data_emissao?: string | null
           demanda_contratada_kw?: number
@@ -411,16 +455,23 @@ export type Database = {
           desconto_assinatura_percent?: number | null
           dias_faturados?: number | null
           economia_compensacao_rs?: number | null
+          economia_liquida_rs?: number | null
           economia_simultaneidade_rs?: number | null
           energia_fora_ponta_rs?: number
           energia_ponta_rs?: number
           energia_simultanea_kwh?: number | null
           energia_simultanea_rs?: number | null
           fora_ponta_kwh?: number
+          geracao_local_total_kwh?: number | null
+          grupo_tarifario?: string | null
           icms_aliquota_percent?: number | null
           icms_rs?: number | null
           id?: string
           iluminacao_publica?: number
+          injecao_fp_kwh?: number | null
+          injecao_hr_kwh?: number | null
+          injecao_ponta_kwh?: number | null
+          injecao_total_kwh?: number | null
           leitura_anterior?: string | null
           leitura_atual?: string | null
           mes_ref?: string
@@ -711,6 +762,7 @@ export type Database = {
     Enums: {
       classificacao_gd: "gd1" | "gd2"
       fonte_energia: "solar" | "eolica" | "hidraulica" | "biomassa" | "outros"
+      grupo_tarifario: "A" | "B"
       modalidade_economia: "ppa_tarifa" | "desconto_fatura_global"
       modalidade_gd:
         | "autoconsumo_remoto"
@@ -847,6 +899,7 @@ export const Constants = {
     Enums: {
       classificacao_gd: ["gd1", "gd2"],
       fonte_energia: ["solar", "eolica", "hidraulica", "biomassa", "outros"],
+      grupo_tarifario: ["A", "B"],
       modalidade_economia: ["ppa_tarifa", "desconto_fatura_global"],
       modalidade_gd: [
         "autoconsumo_remoto",

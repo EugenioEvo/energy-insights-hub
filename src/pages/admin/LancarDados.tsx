@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { WizardProvider, useWizard, initialWizardData } from '@/components/wizard/WizardContext';
+import { Badge } from '@/components/ui/badge';
+import { WizardProvider, useWizard } from '@/components/wizard/WizardContext';
 import { WizardStepper } from '@/components/wizard/WizardStepper';
 import { Step0ContextoUC } from '@/components/wizard/steps/Step0ContextoUC';
 import { Step1Cabecalho } from '@/components/wizard/steps/Step1Cabecalho';
 import { Step2Consumo } from '@/components/wizard/steps/Step2Consumo';
 import { Step3Demanda } from '@/components/wizard/steps/Step3Demanda';
-import { Step4SCEE } from '@/components/wizard/steps/Step4SCEE';
+import { Step4GeracaoLocal } from '@/components/wizard/steps/Step4GeracaoLocal';
+import { Step5CreditosRemotos } from '@/components/wizard/steps/Step5CreditosRemotos';
 import { Step5ItensFatura } from '@/components/wizard/steps/Step5ItensFatura';
 import { Step6Tributos } from '@/components/wizard/steps/Step6Tributos';
 import { Step7Conferencia } from '@/components/wizard/steps/Step7Conferencia';
+import { Step2ConsumoSimples } from '@/components/wizard/steps/grupoB/Step2ConsumoSimples';
 import { useToast } from '@/hooks/use-toast';
 import { useUpsertFatura } from '@/hooks/useFaturas';
 import { ChevronLeft, ChevronRight, Save, FileCheck, Loader2 } from 'lucide-react';
 
 function WizardContent() {
-  const { currentStep, nextStep, prevStep, canProceed, data, resetWizard } = useWizard();
+  const { currentStep, nextStep, prevStep, canProceed, data, resetWizard, totalSteps, currentStepId, isGrupoA } = useWizard();
   const { toast } = useToast();
   const upsertFatura = useUpsertFatura();
   const [saving, setSaving] = useState(false);
@@ -29,12 +32,13 @@ function WizardContent() {
         mes_ref: data.mes_ref,
         status: fechar ? 'fechado' : 'rascunho',
         bandeiras: 'verde',
+        grupo_tarifario: data.grupo_tarifario,
         // Consumo
         consumo_total_kwh: data.consumo_total_kwh,
         ponta_kwh: data.consumo_ponta_kwh,
         fora_ponta_kwh: data.consumo_fora_ponta_kwh,
         consumo_reservado_kwh: data.consumo_reservado_kwh,
-        // Demanda
+        // Demanda (apenas Grupo A)
         demanda_contratada_kw: data.demanda_contratada_kw,
         demanda_medida_kw: data.demanda_medida_kw,
         demanda_ultrapassagem_kw: data.demanda_ultrapassagem_kw,
@@ -49,24 +53,35 @@ function WizardContent() {
         proxima_leitura: data.proxima_leitura || null,
         vencimento: data.vencimento || null,
         valor_total: data.valor_total_pagar,
-        // SCEE
-        scee_geracao_ciclo_ponta_kwh: data.scee_geracao_ciclo_ponta_kwh,
-        scee_geracao_ciclo_fp_kwh: data.scee_geracao_ciclo_fp_kwh,
-        scee_geracao_ciclo_hr_kwh: data.scee_geracao_ciclo_hr_kwh,
-        scee_credito_recebido_kwh: data.scee_credito_recebido_kwh,
-        scee_excedente_recebido_kwh: data.scee_excedente_recebido_kwh,
+        // Geração Local
+        geracao_local_total_kwh: data.geracao_local_total_kwh,
+        autoconsumo_ponta_kwh: data.autoconsumo_ponta_kwh,
+        autoconsumo_fp_kwh: data.autoconsumo_fp_kwh,
+        autoconsumo_hr_kwh: data.autoconsumo_hr_kwh,
+        autoconsumo_total_kwh: data.autoconsumo_total_kwh,
+        autoconsumo_rs: data.autoconsumo_rs,
+        injecao_ponta_kwh: data.injecao_ponta_kwh,
+        injecao_fp_kwh: data.injecao_fp_kwh,
+        injecao_hr_kwh: data.injecao_hr_kwh,
+        injecao_total_kwh: data.injecao_total_kwh,
+        // Créditos Remotos
+        credito_remoto_kwh: data.credito_remoto_kwh,
+        credito_remoto_compensado_rs: data.credito_remoto_compensado_rs,
+        custo_assinatura_rs: data.custo_assinatura_rs,
+        economia_liquida_rs: data.economia_liquida_rs,
+        consumo_residual_kwh: data.consumo_residual_kwh,
+        consumo_final_kwh: data.consumo_final_kwh,
+        // SCEE/Saldos
         scee_saldo_kwh_p: data.scee_saldo_kwh_p,
         scee_saldo_kwh_fp: data.scee_saldo_kwh_fp,
         scee_saldo_kwh_hr: data.scee_saldo_kwh_hr,
         scee_saldo_expirar_30d_kwh: data.scee_saldo_expirar_30d_kwh,
         scee_saldo_expirar_60d_kwh: data.scee_saldo_expirar_60d_kwh,
-        scee_rateio_percent: data.scee_rateio_percent,
-        // Energia Simultânea vs Créditos Assinatura
-        energia_simultanea_kwh: data.energia_simultanea_kwh,
-        energia_simultanea_rs: data.energia_simultanea_rs,
-        credito_assinatura_kwh: data.credito_assinatura_kwh,
-        credito_assinatura_rs: data.credito_assinatura_rs,
-        desconto_assinatura_percent: data.desconto_assinatura_percent,
+        // Legado (manter compatibilidade)
+        energia_simultanea_kwh: data.autoconsumo_total_kwh,
+        energia_simultanea_rs: data.autoconsumo_rs,
+        credito_assinatura_kwh: data.credito_remoto_kwh,
+        credito_assinatura_rs: data.credito_remoto_compensado_rs,
         // Itens Fatura
         bandeira_te_p_rs: data.bandeira_te_p_rs,
         bandeira_te_fp_rs: data.bandeira_te_fp_rs,
@@ -119,25 +134,49 @@ function WizardContent() {
     }
   };
 
-  const steps = [
-    <Step0ContextoUC key={0} />,
-    <Step1Cabecalho key={1} />,
-    <Step2Consumo key={2} />,
-    <Step3Demanda key={3} />,
-    <Step4SCEE key={4} />,
-    <Step5ItensFatura key={5} />,
-    <Step6Tributos key={6} />,
-    <Step7Conferencia key={7} />,
-  ];
+  // Renderizar step baseado no ID (dinâmico por grupo)
+  const renderStep = () => {
+    switch (currentStepId) {
+      case 'contexto':
+        return <Step0ContextoUC />;
+      case 'cabecalho':
+        return <Step1Cabecalho />;
+      case 'consumo':
+        return isGrupoA ? <Step2Consumo /> : <Step2ConsumoSimples />;
+      case 'demanda':
+        return <Step3Demanda />;
+      case 'geracao_local':
+        return <Step4GeracaoLocal />;
+      case 'creditos_remotos':
+        return <Step5CreditosRemotos />;
+      case 'itens_fatura':
+        return <Step5ItensFatura />;
+      case 'tributos':
+        return <Step6Tributos />;
+      case 'conferencia':
+        return <Step7Conferencia />;
+      default:
+        return <Step0ContextoUC />;
+    }
+  };
 
-  const isLastStep = currentStep === 7;
+  const isLastStep = currentStep === totalSteps - 1;
 
   return (
     <div className="max-w-5xl">
+      <div className="flex items-center justify-between mb-4">
+        <Badge variant={isGrupoA ? "default" : "secondary"} className="text-sm">
+          {isGrupoA ? 'Grupo A — Tarifa Binômia' : 'Grupo B — Tarifa Monômia'}
+        </Badge>
+        {data.uc_numero && (
+          <span className="text-sm text-muted-foreground">UC: {data.uc_numero}</span>
+        )}
+      </div>
+
       <WizardStepper />
       
       <div className="mb-6">
-        {steps[currentStep]}
+        {renderStep()}
       </div>
 
       <div className="flex justify-between items-center bg-card rounded-xl border border-border p-4">
@@ -184,7 +223,7 @@ export default function LancarDados() {
   return (
     <DashboardLayout 
       title="Lançar Dados" 
-      subtitle="Wizard de Lançamento Mensal — Fatura + SCEE + Demanda (Equatorial / Grupo A)"
+      subtitle="Wizard de Lançamento Mensal — Fatura de Energia com Geração Distribuída"
     >
       <WizardProvider>
         <WizardContent />

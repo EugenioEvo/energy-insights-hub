@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { Tables } from '@/integrations/supabase/types';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+
+export type GrupoTarifario = 'A' | 'B';
+
+export type AlertaWizard = {
+  tipo: string;
+  mensagem: string;
+  severidade: 'info' | 'warning' | 'error';
+};
 
 export type FaturaWizardData = {
   // Passo 0 - Contexto UC
@@ -14,6 +21,9 @@ export type FaturaWizardData = {
   demanda_geracao_kw: number;
   cnpj: string;
   razao_social: string;
+  grupo_tarifario: GrupoTarifario;
+  tem_geracao_local: boolean;
+  tem_usina_remota: boolean;
   
   // Passo 1 - Cabeçalho
   mes_ref: string;
@@ -26,19 +36,41 @@ export type FaturaWizardData = {
   vencimento: string;
   valor_total_pagar: number;
   
-  // Passo 2 - Consumo
+  // Passo 2 - Consumo (Grupo A: por posto / Grupo B: total)
   consumo_ponta_kwh: number;
   consumo_fora_ponta_kwh: number;
   consumo_reservado_kwh: number;
   consumo_total_kwh: number;
   
-  // Passo 3 - Demanda
+  // Passo 3 - Demanda (apenas Grupo A)
   demanda_medida_kw: number;
   demanda_ultrapassagem_kw: number;
   valor_demanda_rs: number;
   valor_demanda_ultrapassagem_rs: number;
   
-  // Passo 4 - SCEE/GD
+  // Passo 4 - Geração Local (Usina junto à carga)
+  geracao_local_total_kwh: number;
+  autoconsumo_ponta_kwh: number;
+  autoconsumo_fp_kwh: number;
+  autoconsumo_hr_kwh: number;
+  autoconsumo_total_kwh: number;
+  autoconsumo_rs: number;
+  injecao_ponta_kwh: number;
+  injecao_fp_kwh: number;
+  injecao_hr_kwh: number;
+  injecao_total_kwh: number;
+  
+  // Passo 5 - Créditos Remotos (Usina assinada)
+  credito_remoto_kwh: number;
+  credito_remoto_compensado_rs: number;
+  custo_assinatura_rs: number;
+  economia_liquida_rs: number;
+  
+  // Fluxo de compensação
+  consumo_residual_kwh: number;
+  consumo_final_kwh: number;
+  
+  // Saldos de créditos (próprios + remotos)
   scee_geracao_ciclo_ponta_kwh: number;
   scee_geracao_ciclo_fp_kwh: number;
   scee_geracao_ciclo_hr_kwh: number;
@@ -51,14 +83,14 @@ export type FaturaWizardData = {
   scee_saldo_expirar_60d_kwh: number;
   scee_rateio_percent: number;
   
-  // Energia Simultânea vs Créditos de Assinatura
+  // Campos legados (manter compatibilidade)
   energia_simultanea_kwh: number;
   energia_simultanea_rs: number;
   credito_assinatura_kwh: number;
   credito_assinatura_rs: number;
   desconto_assinatura_percent: number;
   
-  // Passo 5 - Itens de Fatura
+  // Passo 6 - Itens de Fatura (decomposição TE/TUSD)
   bandeira_te_p_rs: number;
   bandeira_te_fp_rs: number;
   bandeira_te_hr_rs: number;
@@ -76,7 +108,7 @@ export type FaturaWizardData = {
   ufer_fp_rs: number;
   cip_rs: number;
   
-  // Passo 6 - Tributos
+  // Passo 7 - Tributos
   base_pis_cofins_rs: number;
   pis_aliquota_percent: number;
   pis_rs: number;
@@ -88,11 +120,12 @@ export type FaturaWizardData = {
   
   // Status
   status: 'rascunho' | 'fechado';
-  alertas: Array<{ tipo: string; mensagem: string; severidade: 'info' | 'warning' | 'error' }>;
+  alertas: AlertaWizard[];
   recomendacoes: string[];
 };
 
 export const initialWizardData: FaturaWizardData = {
+  // Contexto
   uc_id: '',
   uc_numero: '',
   concessionaria: 'Equatorial Goiás',
@@ -104,6 +137,11 @@ export const initialWizardData: FaturaWizardData = {
   demanda_geracao_kw: 0,
   cnpj: '',
   razao_social: '',
+  grupo_tarifario: 'A',
+  tem_geracao_local: false,
+  tem_usina_remota: false,
+  
+  // Cabeçalho
   mes_ref: '',
   data_emissao: '',
   data_apresentacao: '',
@@ -113,14 +151,42 @@ export const initialWizardData: FaturaWizardData = {
   proxima_leitura: '',
   vencimento: '',
   valor_total_pagar: 0,
+  
+  // Consumo
   consumo_ponta_kwh: 0,
   consumo_fora_ponta_kwh: 0,
   consumo_reservado_kwh: 0,
   consumo_total_kwh: 0,
+  
+  // Demanda
   demanda_medida_kw: 0,
   demanda_ultrapassagem_kw: 0,
   valor_demanda_rs: 0,
   valor_demanda_ultrapassagem_rs: 0,
+  
+  // Geração Local
+  geracao_local_total_kwh: 0,
+  autoconsumo_ponta_kwh: 0,
+  autoconsumo_fp_kwh: 0,
+  autoconsumo_hr_kwh: 0,
+  autoconsumo_total_kwh: 0,
+  autoconsumo_rs: 0,
+  injecao_ponta_kwh: 0,
+  injecao_fp_kwh: 0,
+  injecao_hr_kwh: 0,
+  injecao_total_kwh: 0,
+  
+  // Créditos Remotos
+  credito_remoto_kwh: 0,
+  credito_remoto_compensado_rs: 0,
+  custo_assinatura_rs: 0,
+  economia_liquida_rs: 0,
+  
+  // Fluxo
+  consumo_residual_kwh: 0,
+  consumo_final_kwh: 0,
+  
+  // SCEE/Saldos
   scee_geracao_ciclo_ponta_kwh: 0,
   scee_geracao_ciclo_fp_kwh: 0,
   scee_geracao_ciclo_hr_kwh: 0,
@@ -132,11 +198,15 @@ export const initialWizardData: FaturaWizardData = {
   scee_saldo_expirar_30d_kwh: 0,
   scee_saldo_expirar_60d_kwh: 0,
   scee_rateio_percent: 0,
+  
+  // Legado
   energia_simultanea_kwh: 0,
   energia_simultanea_rs: 0,
   credito_assinatura_kwh: 0,
   credito_assinatura_rs: 0,
   desconto_assinatura_percent: 0,
+  
+  // Itens Fatura
   bandeira_te_p_rs: 0,
   bandeira_te_fp_rs: 0,
   bandeira_te_hr_rs: 0,
@@ -153,6 +223,8 @@ export const initialWizardData: FaturaWizardData = {
   ufer_fp_kvarh: 0,
   ufer_fp_rs: 0,
   cip_rs: 0,
+  
+  // Tributos
   base_pis_cofins_rs: 0,
   pis_aliquota_percent: 0,
   pis_rs: 0,
@@ -161,10 +233,41 @@ export const initialWizardData: FaturaWizardData = {
   base_icms_rs: 0,
   icms_aliquota_percent: 0,
   icms_rs: 0,
+  
+  // Status
   status: 'rascunho',
   alertas: [],
   recomendacoes: [],
 };
+
+// Definição de passos por grupo tarifário
+export type StepDefinition = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+export const STEPS_GRUPO_A: StepDefinition[] = [
+  { id: 'contexto', name: 'Contexto UC', description: 'Seleção e configuração da unidade consumidora' },
+  { id: 'cabecalho', name: 'Cabeçalho', description: 'Dados gerais da fatura' },
+  { id: 'consumo', name: 'Consumo', description: 'Consumo por posto horário' },
+  { id: 'demanda', name: 'Demanda', description: 'Demanda contratada e medida' },
+  { id: 'geracao_local', name: 'Geração Local', description: 'Autoconsumo e injeção da usina própria' },
+  { id: 'creditos_remotos', name: 'Créditos Remotos', description: 'Créditos da usina assinada' },
+  { id: 'itens_fatura', name: 'Itens Fatura', description: 'Decomposição TE/TUSD' },
+  { id: 'tributos', name: 'Tributos', description: 'PIS, COFINS, ICMS' },
+  { id: 'conferencia', name: 'Conferência', description: 'Validação e fechamento' },
+];
+
+export const STEPS_GRUPO_B: StepDefinition[] = [
+  { id: 'contexto', name: 'Contexto UC', description: 'Seleção e configuração da unidade consumidora' },
+  { id: 'cabecalho', name: 'Cabeçalho', description: 'Dados gerais da fatura' },
+  { id: 'consumo', name: 'Consumo', description: 'Consumo total' },
+  { id: 'geracao_local', name: 'Geração Local', description: 'Autoconsumo e injeção' },
+  { id: 'creditos_remotos', name: 'Créditos Remotos', description: 'Créditos da usina assinada' },
+  { id: 'tributos', name: 'Tributos', description: 'Tributos simplificados' },
+  { id: 'conferencia', name: 'Conferência', description: 'Validação e fechamento' },
+];
 
 interface WizardContextType {
   currentStep: number;
@@ -177,6 +280,10 @@ interface WizardContextType {
   canProceed: boolean;
   setCanProceed: (can: boolean) => void;
   totalSteps: number;
+  steps: StepDefinition[];
+  currentStepId: string;
+  isGrupoA: boolean;
+  isGrupoB: boolean;
 }
 
 const WizardContext = createContext<WizardContextType | undefined>(undefined);
@@ -185,7 +292,16 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<FaturaWizardData>(initialWizardData);
   const [canProceed, setCanProceed] = useState(false);
-  const totalSteps = 8;
+
+  const isGrupoA = data.grupo_tarifario === 'A';
+  const isGrupoB = data.grupo_tarifario === 'B';
+  
+  const steps = useMemo(() => {
+    return isGrupoA ? STEPS_GRUPO_A : STEPS_GRUPO_B;
+  }, [isGrupoA]);
+
+  const totalSteps = steps.length;
+  const currentStepId = steps[currentStep]?.id || 'contexto';
 
   const updateData = useCallback((updates: Partial<FaturaWizardData>) => {
     setData(prev => ({ ...prev, ...updates }));
@@ -223,6 +339,10 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
         canProceed,
         setCanProceed,
         totalSteps,
+        steps,
+        currentStepId,
+        isGrupoA,
+        isGrupoB,
       }}
     >
       {children}
