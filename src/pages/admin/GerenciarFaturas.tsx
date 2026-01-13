@@ -111,8 +111,19 @@ export default function GerenciarFaturas() {
   };
 
   const handleEdit = (fatura: FaturaMensal) => {
-    // Navigate to wizard with fatura data
-    navigate('/admin/lancar', { state: { editFatura: fatura } });
+    // Enriquecer fatura com dados da UC e cliente para o wizard
+    const uc = ucs?.find(u => u.id === fatura.uc_id);
+    const cliente = uc ? clientes?.find(c => c.id === uc.cliente_id) : undefined;
+    
+    const faturaEnriquecida = {
+      ...fatura,
+      unidades_consumidoras: uc ? {
+        ...uc,
+        clientes: cliente
+      } : undefined
+    };
+    
+    navigate('/admin/lancar', { state: { editFatura: faturaEnriquecida } });
   };
 
   return (
