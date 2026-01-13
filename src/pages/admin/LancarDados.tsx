@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { WizardProvider, useWizard } from '@/components/wizard/WizardContext';
+import { WizardProvider, useWizard, mapFaturaToWizardData } from '@/components/wizard/WizardContext';
+import type { Tables } from '@/integrations/supabase/types';
 import { WizardStepper } from '@/components/wizard/WizardStepper';
 import { Step0ContextoUC } from '@/components/wizard/steps/Step0ContextoUC';
 import { Step1Cabecalho } from '@/components/wizard/steps/Step1Cabecalho';
@@ -19,7 +21,7 @@ import { useUpsertFatura } from '@/hooks/useFaturas';
 import { ChevronLeft, ChevronRight, Save, FileCheck, Loader2 } from 'lucide-react';
 
 function WizardContent() {
-  const { currentStep, nextStep, prevStep, canProceed, data, resetWizard, totalSteps, currentStepId, isGrupoA } = useWizard();
+  const { currentStep, nextStep, prevStep, canProceed, data, resetWizard, totalSteps, currentStepId, isGrupoA, isEditing } = useWizard();
   const { toast } = useToast();
   const upsertFatura = useUpsertFatura();
   const [saving, setSaving] = useState(false);
@@ -165,9 +167,16 @@ function WizardContent() {
   return (
     <div className="max-w-5xl">
       <div className="flex items-center justify-between mb-4">
-        <Badge variant={isGrupoA ? "default" : "secondary"} className="text-sm">
-          {isGrupoA ? 'Grupo A — Tarifa Binômia' : 'Grupo B — Tarifa Monômia'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={isGrupoA ? "default" : "secondary"} className="text-sm">
+            {isGrupoA ? 'Grupo A — Tarifa Binômia' : 'Grupo B — Tarifa Monômia'}
+          </Badge>
+          {isEditing && (
+            <Badge variant="outline" className="text-sm border-amber-500 text-amber-600">
+              Editando Rascunho
+            </Badge>
+          )}
+        </div>
         {data.uc_numero && (
           <span className="text-sm text-muted-foreground">UC: {data.uc_numero}</span>
         )}
@@ -219,13 +228,31 @@ function WizardContent() {
   );
 }
 
+interface LocationState {
+  editFatura?: Tables<'faturas_mensais'> & {
+    unidades_consumidoras?: Tables<'unidades_consumidoras'> & {
+      clientes?: Tables<'clientes'>;
+    };
+  };
+}
+
 export default function LancarDados() {
+  const location = useLocation();
+  const state = location.state as LocationState | undefined;
+  
+  const initialFatura = useMemo(() => {
+    if (state?.editFatura) {
+      return mapFaturaToWizardData(state.editFatura, state.editFatura.unidades_consumidoras);
+    }
+    return undefined;
+  }, [state?.editFatura]);
+
   return (
     <DashboardLayout 
-      title="Lançar Dados" 
+      title={initialFatura ? "Editar Fatura" : "Lançar Dados"}
       subtitle="Wizard de Lançamento Mensal — Fatura de Energia com Geração Distribuída"
     >
-      <WizardProvider>
+      <WizardProvider initialFatura={initialFatura}>
         <WizardContent />
       </WizardProvider>
     </DashboardLayout>
