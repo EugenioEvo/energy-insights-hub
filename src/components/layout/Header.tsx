@@ -1,6 +1,7 @@
-import { Bell, Download, Calendar } from 'lucide-react';
+import { Bell, Download, Calendar, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEnergy } from '@/contexts/EnergyContext';
+import { useExportPDF } from '@/hooks/useExportPDF';
 import {
   Select,
   SelectContent,
@@ -17,10 +18,25 @@ interface HeaderProps {
 
 export function Header({ title, subtitle }: HeaderProps) {
   const { mesAtual, setMesAtual, faturas, kpis } = useEnergy();
+  const { exportToPDF, isExporting } = useExportPDF();
   
   const mesesDisponiveis = [...new Set(faturas.map(f => f.mes_ref))].sort().reverse();
-
   const alertCount = kpis.alertas.filter(a => a.severidade !== 'info').length;
+
+  const mesFormatado = (() => {
+    if (!mesAtual) return '';
+    const [year, month] = mesAtual.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  })();
+
+  const handleExportPDF = async () => {
+    await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`, {
+      companyName: 'Evolight Energia',
+      reportTitle: 'Relatório Executivo de Energia',
+      mesRef: mesFormatado,
+    });
+  };
 
   return (
     <header className="sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -53,9 +69,24 @@ export function Header({ title, subtitle }: HeaderProps) {
           )}
 
           {/* Export Button */}
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="h-4 w-4" />
-            Exportar PDF
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            onClick={handleExportPDF}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Exportando...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Exportar PDF
+              </>
+            )}
           </Button>
 
           {/* Notifications */}
