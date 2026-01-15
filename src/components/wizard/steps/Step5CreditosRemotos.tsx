@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -31,11 +31,47 @@ export function Step5CreditosRemotos() {
     if (rateioRemoto && !data.credito_remoto_kwh) {
       updateData({
         credito_remoto_kwh: rateioRemoto.energia_alocada_kwh,
-        // Se tiver valor da fatura da usina no rateio, usar como custo
+        credito_remoto_ponta_kwh: rateioRemoto.energia_ponta_kwh || 0,
+        credito_remoto_fp_kwh: rateioRemoto.energia_fora_ponta_kwh || 0,
+        credito_remoto_hr_kwh: rateioRemoto.energia_reservado_kwh || 0,
         custo_assinatura_rs: rateioRemoto.valor_fatura_usina_rs || data.custo_assinatura_rs,
       });
     }
   }, [rateioRemoto]);
+
+  // Auto-distribuir energia por posto quando total é informado (Grupo A)
+  const distribuirEnergiaPorPosto = useCallback((totalKwh: number) => {
+    if (!isGrupoA || totalKwh <= 0) return;
+    
+    // Se já tem valores por posto, não sobrescrever
+    const temValoresPosto = (data.credito_remoto_ponta_kwh || 0) > 0 || 
+                            (data.credito_remoto_fp_kwh || 0) > 0 || 
+                            (data.credito_remoto_hr_kwh || 0) > 0;
+    if (temValoresPosto) return;
+
+    // Calcular proporção baseada no consumo da UC
+    const consumoTotal = data.consumo_ponta_kwh + data.consumo_fora_ponta_kwh + data.consumo_reservado_kwh;
+    
+    if (consumoTotal > 0) {
+      // Distribuir proporcionalmente ao consumo
+      const propPonta = data.consumo_ponta_kwh / consumoTotal;
+      const propFP = data.consumo_fora_ponta_kwh / consumoTotal;
+      const propHR = data.consumo_reservado_kwh / consumoTotal;
+      
+      updateData({
+        credito_remoto_ponta_kwh: Math.round(totalKwh * propPonta * 100) / 100,
+        credito_remoto_fp_kwh: Math.round(totalKwh * propFP * 100) / 100,
+        credito_remoto_hr_kwh: Math.round(totalKwh * propHR * 100) / 100,
+      });
+    } else {
+      // Padrão: 10% Ponta, 85% FP, 5% HR (perfil típico solar)
+      updateData({
+        credito_remoto_ponta_kwh: Math.round(totalKwh * 0.10 * 100) / 100,
+        credito_remoto_fp_kwh: Math.round(totalKwh * 0.85 * 100) / 100,
+        credito_remoto_hr_kwh: Math.round(totalKwh * 0.05 * 100) / 100,
+      });
+    }
+  }, [isGrupoA, data.consumo_ponta_kwh, data.consumo_fora_ponta_kwh, data.consumo_reservado_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, updateData]);
 
   // Calcular valor compensado baseado na tarifa (TUSD para GD)
   const valorCompensadoCalculado = useMemo(() => {
@@ -229,13 +265,35 @@ export function Step5CreditosRemotos() {
           {isGrupoA ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Energia Total Alocada (kWh)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Energia Total Alocada (kWh)</Label>
+                  <button
+                    type="button"
+                    onClick={() => distribuirEnergiaPorPosto(data.credito_remoto_kwh)}
+                    className="text-xs text-blue-600 hover:text-blue-700 underline"
+                    disabled={!data.credito_remoto_kwh}
+                  >
+                    Distribuir por posto
+                  </button>
+                </div>
                 <Input
                   type="number"
                   value={data.credito_remoto_kwh || ''}
-                  onChange={(e) => updateData({ credito_remoto_kwh: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const valor = parseFloat(e.target.value) || 0;
+                    updateData({ credito_remoto_kwh: valor });
+                  }}
+                  onBlur={() => {
+                    // Auto-distribuir ao sair do campo se não tem valores por posto
+                    if (data.credito_remoto_kwh > 0) {
+                      distribuirEnergiaPorPosto(data.credito_remoto_kwh);
+                    }
+                  }}
                   placeholder="Total de créditos recebidos"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Ao informar o total, os valores por posto serão distribuídos proporcionalmente ao consumo.
+                </p>
               </div>
               
               <div className="grid grid-cols-3 gap-3">
