@@ -26,6 +26,10 @@ export function Step5ItensFatura() {
     te_p: false,
     te_fp: false,
     te_hr: false,
+    scee_consumo_fp_tusd: false,
+    scee_parcela_te_fp: false,
+    scee_injecao_fp_te: false,
+    scee_injecao_fp_tusd: false,
   });
 
   // Calcular consumo não compensado (consumo - autoconsumo - créditos remotos)
@@ -59,6 +63,17 @@ export function Step5ItensFatura() {
         break;
     }
     
+    // Calcular energia compensada (créditos usados neste ciclo)
+    const energiaCompensadaFP = data.scee_credito_recebido_kwh || data.credito_assinatura_kwh || 0;
+    
+    // SCEE - valores baseados na energia compensada
+    const scee_consumo_fp_tusd = energiaCompensadaFP * (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+    const scee_parcela_te_fp = energiaCompensadaFP * (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0);
+    // Créditos de injeção são negativos (abatimentos)
+    const injecaoTotal = (data.injecao_fp_kwh || 0) + (data.scee_geracao_ciclo_fp_kwh || 0);
+    const scee_injecao_fp_te = -(injecaoTotal * (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0));
+    const scee_injecao_fp_tusd = -(injecaoTotal * (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0));
+    
     if (isGrupoA) {
       return {
         // Bandeiras - aplica sobre consumo total de cada posto
@@ -75,6 +90,12 @@ export function Step5ItensFatura() {
         te_p: consumoNaoCompensado.ponta * (tarifa.te_ponta_rs_kwh || 0),
         te_fp: consumoNaoCompensado.fp * (tarifa.te_fora_ponta_rs_kwh || 0),
         te_hr: consumoNaoCompensado.hr * (tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || 0),
+        
+        // SCEE
+        scee_consumo_fp_tusd,
+        scee_parcela_te_fp,
+        scee_injecao_fp_te,
+        scee_injecao_fp_tusd,
       };
     } else {
       // Grupo B - tarifa única
@@ -89,6 +110,11 @@ export function Step5ItensFatura() {
         te_p: 0,
         te_fp: consumoNaoCompensado.total * (tarifa.te_unica_rs_kwh || 0),
         te_hr: 0,
+        // SCEE
+        scee_consumo_fp_tusd,
+        scee_parcela_te_fp,
+        scee_injecao_fp_te,
+        scee_injecao_fp_tusd,
       };
     }
   }, [tarifa, data, consumoNaoCompensado, isGrupoA]);
@@ -142,6 +168,24 @@ export function Step5ItensFatura() {
       newAutoFilled.te_hr = true;
     }
     
+    // SCEE
+    if (data.scee_consumo_fp_tusd_rs === 0 && valoresCalculados.scee_consumo_fp_tusd > 0) {
+      updates.scee_consumo_fp_tusd_rs = parseFloat(valoresCalculados.scee_consumo_fp_tusd.toFixed(2));
+      newAutoFilled.scee_consumo_fp_tusd = true;
+    }
+    if (data.scee_parcela_te_fp_rs === 0 && valoresCalculados.scee_parcela_te_fp > 0) {
+      updates.scee_parcela_te_fp_rs = parseFloat(valoresCalculados.scee_parcela_te_fp.toFixed(2));
+      newAutoFilled.scee_parcela_te_fp = true;
+    }
+    if (data.scee_injecao_fp_te_rs === 0 && valoresCalculados.scee_injecao_fp_te < 0) {
+      updates.scee_injecao_fp_te_rs = parseFloat(valoresCalculados.scee_injecao_fp_te.toFixed(2));
+      newAutoFilled.scee_injecao_fp_te = true;
+    }
+    if (data.scee_injecao_fp_tusd_rs === 0 && valoresCalculados.scee_injecao_fp_tusd < 0) {
+      updates.scee_injecao_fp_tusd_rs = parseFloat(valoresCalculados.scee_injecao_fp_tusd.toFixed(2));
+      newAutoFilled.scee_injecao_fp_tusd = true;
+    }
+    
     if (Object.keys(updates).length > 0) {
       updateData(updates);
       setAutoFilled(newAutoFilled);
@@ -162,6 +206,10 @@ export function Step5ItensFatura() {
       nao_compensado_te_p_rs: parseFloat(valoresCalculados.te_p.toFixed(2)),
       nao_compensado_te_fp_rs: parseFloat(valoresCalculados.te_fp.toFixed(2)),
       nao_compensado_te_hr_rs: parseFloat(valoresCalculados.te_hr.toFixed(2)),
+      scee_consumo_fp_tusd_rs: parseFloat(valoresCalculados.scee_consumo_fp_tusd.toFixed(2)),
+      scee_parcela_te_fp_rs: parseFloat(valoresCalculados.scee_parcela_te_fp.toFixed(2)),
+      scee_injecao_fp_te_rs: parseFloat(valoresCalculados.scee_injecao_fp_te.toFixed(2)),
+      scee_injecao_fp_tusd_rs: parseFloat(valoresCalculados.scee_injecao_fp_tusd.toFixed(2)),
     });
     
     setAutoFilled({
@@ -174,6 +222,10 @@ export function Step5ItensFatura() {
       te_p: true,
       te_fp: true,
       te_hr: true,
+      scee_consumo_fp_tusd: true,
+      scee_parcela_te_fp: true,
+      scee_injecao_fp_te: true,
+      scee_injecao_fp_tusd: true,
     });
   }, [valoresCalculados, updateData]);
 
@@ -541,45 +593,101 @@ export function Step5ItensFatura() {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>SCEE Consumo FP TUSD</Label>
+              <div className="flex items-center">
+                <Label>SCEE Consumo FP TUSD</Label>
+                <AutoBadge show={autoFilled.scee_consumo_fp_tusd} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.scee_consumo_fp_tusd_rs || ''} 
-                onChange={(e) => updateData({ scee_consumo_fp_tusd_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ scee_consumo_fp_tusd_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, scee_consumo_fp_tusd: false }));
+                }}
                 placeholder="905.38"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.scee_consumo_fp_tusd)} 
+                  <span className="text-muted-foreground/70 ml-1">
+                    ({(data.scee_credito_recebido_kwh || data.credito_assinatura_kwh || 0).toFixed(0)} kWh × TUSD FP)
+                  </span>
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>SCEE Parcela TE FP</Label>
+              <div className="flex items-center">
+                <Label>SCEE Parcela TE FP</Label>
+                <AutoBadge show={autoFilled.scee_parcela_te_fp} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.scee_parcela_te_fp_rs || ''} 
-                onChange={(e) => updateData({ scee_parcela_te_fp_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ scee_parcela_te_fp_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, scee_parcela_te_fp: false }));
+                }}
                 placeholder="203.67"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.scee_parcela_te_fp)}
+                  <span className="text-muted-foreground/70 ml-1">
+                    ({(data.scee_credito_recebido_kwh || data.credito_assinatura_kwh || 0).toFixed(0)} kWh × TE FP)
+                  </span>
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>SCEE Injeção FP TE (crédito)</Label>
+              <div className="flex items-center">
+                <Label>SCEE Injeção FP TE (crédito)</Label>
+                <AutoBadge show={autoFilled.scee_injecao_fp_te} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.scee_injecao_fp_te_rs || ''} 
-                onChange={(e) => updateData({ scee_injecao_fp_te_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ scee_injecao_fp_te_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, scee_injecao_fp_te: false }));
+                }}
                 placeholder="-203.67"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.scee_injecao_fp_te)}
+                  <span className="text-muted-foreground/70 ml-1">
+                    (Injeção: {((data.injecao_fp_kwh || 0) + (data.scee_geracao_ciclo_fp_kwh || 0)).toFixed(0)} kWh)
+                  </span>
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Valores negativos para créditos</p>
             </div>
             <div className="space-y-2">
-              <Label>SCEE Injeção FP TUSD (crédito)</Label>
+              <div className="flex items-center">
+                <Label>SCEE Injeção FP TUSD (crédito)</Label>
+                <AutoBadge show={autoFilled.scee_injecao_fp_tusd} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.scee_injecao_fp_tusd_rs || ''} 
-                onChange={(e) => updateData({ scee_injecao_fp_tusd_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ scee_injecao_fp_tusd_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, scee_injecao_fp_tusd: false }));
+                }}
                 placeholder="-905.38"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.scee_injecao_fp_tusd)}
+                  <span className="text-muted-foreground/70 ml-1">
+                    (Injeção: {((data.injecao_fp_kwh || 0) + (data.scee_geracao_ciclo_fp_kwh || 0)).toFixed(0)} kWh)
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
