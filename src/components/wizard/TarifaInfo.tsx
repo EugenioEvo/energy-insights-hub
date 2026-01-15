@@ -2,10 +2,12 @@ import { useTarifas, useTarifasDisponiveis, TarifaConcessionaria } from '@/hooks
 import { useWizard } from './WizardContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Info, AlertTriangle, CheckCircle, Database } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Info, AlertTriangle, CheckCircle, Database, MousePointerClick } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from 'sonner';
 
 interface TarifaInfoProps {
   showDetails?: boolean;
@@ -18,6 +20,27 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
   modalidade?: string | null;
 }) {
   const { data: tarifasDisponiveis, isLoading } = useTarifasDisponiveis(concessionaria);
+  const { updateData } = useWizard();
+
+  const handleSelectTarifa = (tarifa: { 
+    grupo_tarifario: string; 
+    modalidade: string | null;
+    subgrupo: string | null;
+  }) => {
+    const updates: Record<string, unknown> = {
+      grupo_tarifario: tarifa.grupo_tarifario as 'A' | 'B',
+    };
+    
+    if (tarifa.modalidade) {
+      updates.modalidade = tarifa.modalidade;
+    }
+    
+    updateData(updates);
+    
+    toast.success('Tarifa aplicada!', {
+      description: `Grupo ${tarifa.grupo_tarifario}${tarifa.modalidade ? ` - ${tarifa.modalidade}` : ''} selecionado.`,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -43,9 +66,9 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
 
   return (
     <div className="mt-3 space-y-2">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Database className="h-4 w-4" />
-        <span>Tarifas disponíveis para esta concessionária:</span>
+      <div className="flex items-center gap-2 text-sm">
+        <MousePointerClick className="h-4 w-4 text-primary" />
+        <span className="text-muted-foreground">Clique em uma tarifa para aplicá-la:</span>
       </div>
       <Card className="border-muted">
         <ScrollArea className="max-h-48">
@@ -57,6 +80,7 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
                 <TableHead className="text-xs">Modalidade</TableHead>
                 <TableHead className="text-xs">Resolução</TableHead>
                 <TableHead className="text-xs">Vigência</TableHead>
+                <TableHead className="text-xs w-20">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -68,7 +92,8 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
                 return (
                   <TableRow 
                     key={t.id} 
-                    className={isMatch ? "bg-green-500/10" : ""}
+                    className={`cursor-pointer hover:bg-accent/50 transition-colors ${isMatch ? "bg-green-500/10" : ""}`}
+                    onClick={() => handleSelectTarifa(t)}
                   >
                     <TableCell className="py-1">
                       <Badge variant={t.grupo_tarifario === grupoTarifario ? "default" : "outline"} className="text-xs">
@@ -81,6 +106,19 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
                     <TableCell className="py-1 text-xs">
                       {new Date(t.vigencia_inicio).toLocaleDateString('pt-BR')}
                     </TableCell>
+                    <TableCell className="py-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 text-xs px-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectTarifa(t);
+                        }}
+                      >
+                        Aplicar
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -89,8 +127,7 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
         </ScrollArea>
       </Card>
       <p className="text-xs text-muted-foreground">
-        💡 Dica: Verifique se o Grupo Tarifário ({grupoTarifario}) 
-        {modalidade && ` e Modalidade (${modalidade})`} da UC correspondem às tarifas cadastradas.
+        💡 Ao selecionar, o Grupo Tarifário e Modalidade da fatura serão atualizados automaticamente.
       </p>
     </div>
   );
