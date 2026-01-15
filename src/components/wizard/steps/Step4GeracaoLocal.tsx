@@ -262,7 +262,70 @@ export function Step4GeracaoLocal() {
           </p>
         </div>
 
-        {/* Autoconsumo */}
+        {/* 1. Injeção (Excedente na Rede) - Informar primeiro */}
+        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                <ArrowRight className="h-4 w-4" />
+                Injeção (Excedente na Rede)
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Energia gerada não consumida — gera créditos próprios
+              </p>
+            </div>
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400">
+              {totais.pctInjecao}% da geração
+            </Badge>
+          </div>
+
+          {isGrupoA ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Ponta (kWh)</Label>
+                <Input
+                  type="number"
+                  value={data.injecao_ponta_kwh || ''}
+                  onChange={(e) => updateData({ injecao_ponta_kwh: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Fora Ponta (kWh)</Label>
+                <Input
+                  type="number"
+                  value={data.injecao_fp_kwh || ''}
+                  onChange={(e) => updateData({ injecao_fp_kwh: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Reservado (kWh)</Label>
+                <Input
+                  type="number"
+                  value={data.injecao_hr_kwh || ''}
+                  onChange={(e) => updateData({ injecao_hr_kwh: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Injeção Total (kWh)</Label>
+              <Input
+                type="number"
+                value={data.injecao_total_kwh || ''}
+                onChange={(e) => updateData({ injecao_total_kwh: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between p-3 bg-background rounded">
+            <span className="text-sm font-medium">Total Injeção:</span>
+            <span className="text-lg font-bold text-blue-700 dark:text-blue-400">
+              {totais.injecaoTotal.toLocaleString('pt-BR')} kWh
+            </span>
+          </div>
+        </div>
+
+        {/* 2. Autoconsumo (Resultado = Geração - Injeção) */}
         <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -392,69 +455,6 @@ export function Step4GeracaoLocal() {
                 ).toFixed(4)}/kWh + impostos
               </p>
             )}
-          </div>
-        </div>
-
-        {/* Injeção */}
-        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                <ArrowRight className="h-4 w-4" />
-                Injeção (Excedente na Rede)
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Energia gerada não consumida — gera créditos próprios
-              </p>
-            </div>
-            <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400">
-              {totais.pctInjecao}% da geração
-            </Badge>
-          </div>
-
-          {isGrupoA ? (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Ponta (kWh)</Label>
-                <Input
-                  type="number"
-                  value={data.injecao_ponta_kwh || ''}
-                  onChange={(e) => updateData({ injecao_ponta_kwh: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fora Ponta (kWh)</Label>
-                <Input
-                  type="number"
-                  value={data.injecao_fp_kwh || ''}
-                  onChange={(e) => updateData({ injecao_fp_kwh: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Reservado (kWh)</Label>
-                <Input
-                  type="number"
-                  value={data.injecao_hr_kwh || ''}
-                  onChange={(e) => updateData({ injecao_hr_kwh: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label>Injeção Total (kWh)</Label>
-              <Input
-                type="number"
-                value={data.injecao_total_kwh || ''}
-                onChange={(e) => updateData({ injecao_total_kwh: parseFloat(e.target.value) || 0 })}
-              />
-            </div>
-          )}
-
-          <div className="flex items-center justify-between p-3 bg-background rounded">
-            <span className="text-sm font-medium">Total Injeção:</span>
-            <span className="text-lg font-bold text-blue-700 dark:text-blue-400">
-              {totais.injecaoTotal.toLocaleString('pt-BR')} kWh
-            </span>
           </div>
         </div>
 
