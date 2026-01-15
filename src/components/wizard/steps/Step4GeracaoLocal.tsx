@@ -7,6 +7,7 @@ import { useWizard } from '../WizardContext';
 import { Sun, Zap, ArrowRight, Info, Calculator } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useTarifas } from '@/hooks/useTarifas';
+import { calcularTotaisGeracaoLocal } from '@/lib/energyBalanceCalculations';
 
 export function Step4GeracaoLocal() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
@@ -18,37 +19,9 @@ export function Step4GeracaoLocal() {
     data.modalidade || null
   );
 
-  // Calcular totais automaticamente
+  // Calcular totais usando função centralizada
   const totais = useMemo(() => {
-    const autoconsumoTotal = isGrupoA
-      ? data.autoconsumo_ponta_kwh + data.autoconsumo_fp_kwh + data.autoconsumo_hr_kwh
-      : data.autoconsumo_total_kwh;
-    
-    const injecaoTotal = isGrupoA
-      ? data.injecao_ponta_kwh + data.injecao_fp_kwh + data.injecao_hr_kwh
-      : data.injecao_total_kwh;
-    
-    const geracaoCalculada = autoconsumoTotal + injecaoTotal;
-    
-    // Consumo residual = consumo total - autoconsumo
-    const consumoResidual = Math.max(0, data.consumo_total_kwh - autoconsumoTotal);
-    
-    // Percentuais
-    const pctAutoconsumo = geracaoCalculada > 0 
-      ? (autoconsumoTotal / geracaoCalculada * 100).toFixed(1) 
-      : '0';
-    const pctInjecao = geracaoCalculada > 0 
-      ? (injecaoTotal / geracaoCalculada * 100).toFixed(1) 
-      : '0';
-
-    return {
-      autoconsumoTotal,
-      injecaoTotal,
-      geracaoCalculada,
-      consumoResidual,
-      pctAutoconsumo,
-      pctInjecao,
-    };
+    return calcularTotaisGeracaoLocal(data, isGrupoA);
   }, [data, isGrupoA]);
 
   // Função auxiliar para obter valor da bandeira
