@@ -51,58 +51,119 @@ export function Step4GeracaoLocal() {
     };
   }, [data, isGrupoA]);
 
-  // Calcular valor de autoconsumo baseado na tarifa (TE + TUSD)
+  // Função auxiliar para obter valor da bandeira
+  const obterValorBandeira = (tarifaData: typeof tarifa, bandeira: string): number => {
+    if (!tarifaData) return 0;
+    switch (bandeira?.toLowerCase()) {
+      case 'verde': return tarifaData.bandeira_verde_rs_kwh || 0;
+      case 'amarela': return tarifaData.bandeira_amarela_rs_kwh || 0;
+      case 'vermelha1': return tarifaData.bandeira_vermelha1_rs_kwh || 0;
+      case 'vermelha2': return tarifaData.bandeira_vermelha2_rs_kwh || 0;
+      default: return 0;
+    }
+  };
+
+  // Calcular autoconsumo FP automaticamente: Geração Total - Injeção FP
+  // Solar gera apenas durante o dia (horário Fora Ponta)
+  const autoconsumoFPCalculado = useMemo(() => {
+    if (data.geracao_local_total_kwh <= 0) return null;
+    const injecaoFP = data.injecao_fp_kwh || 0;
+    return Math.max(0, data.geracao_local_total_kwh - injecaoFP);
+  }, [data.geracao_local_total_kwh, data.injecao_fp_kwh]);
+
+  // Calcular valor de autoconsumo com precificação completa (behind the meter)
+  // Inclui: TE + TUSD + Encargos + Bandeira + Impostos
   const valorAutoconsumoCalculado = useMemo(() => {
     if (!tarifa || totais.autoconsumoTotal <= 0) return null;
 
     if (isGrupoA) {
-      // Grupo A: soma por posto horário usando TE + TUSD
-      const valorPonta = data.autoconsumo_ponta_kwh * 
-        ((tarifa.te_ponta_rs_kwh || 0) + (tarifa.tusd_ponta_rs_kwh || 0));
-      const valorFP = data.autoconsumo_fp_kwh * 
-        ((tarifa.te_fora_ponta_rs_kwh || 0) + (tarifa.tusd_fora_ponta_rs_kwh || 0));
-      const valorHR = data.autoconsumo_hr_kwh * 
-        ((tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || 0) + 
-         (tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0));
+      // Grupo A: apenas FP (solar gera durante o dia)
+      const teFP = tarifa.te_fora_ponta_rs_kwh || 0;
+      const tusdFP = tarifa.tusd_fora_ponta_rs_kwh || 0;
+      const encargos = tarifa.tusd_encargos_rs_kwh || 0;
+      const bandeiraValor = obterValorBandeira(tarifa, data.bandeira);
       
-      return valorPonta + valorFP + valorHR;
+      // Tarifa base por kWh (TE + TUSD + Encargos + Bandeira)
+      const tarifaBase = teFP + tusdFP + encargos + bandeiraValor;
+      const valorBase = data.autoconsumo_fp_kwh * tarifaBase;
+      
+      // Aplicar impostos (método "por dentro")
+      const icms = (tarifa.icms_percent || 0) / 100;
+      const pis = (tarifa.pis_percent || 0) / 100;
+      const cofins = (tarifa.cofins_percent || 0) / 100;
+      const fatorImpostos = 1 - icms - pis - cofins;
+      
+      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     } else {
-      // Grupo B: tarifa única (TE + TUSD)
+      // Grupo B: tarifa única com impostos
       const teUnica = tarifa.te_unica_rs_kwh || 0;
       const tusdUnica = tarifa.tusd_unica_rs_kwh || 0;
-      return totais.autoconsumoTotal * (teUnica + tusdUnica);
+      const encargos = tarifa.tusd_encargos_rs_kwh || 0;
+      const bandeiraValor = obterValorBandeira(tarifa, data.bandeira);
+      
+      const tarifaBase = teUnica + tusdUnica + encargos + bandeiraValor;
+      const valorBase = totais.autoconsumoTotal * tarifaBase;
+      
+      const icms = (tarifa.icms_percent || 0) / 100;
+      const pis = (tarifa.pis_percent || 0) / 100;
+      const cofins = (tarifa.cofins_percent || 0) / 100;
+      const fatorImpostos = 1 - icms - pis - cofins;
+      
+      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     }
-  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, isGrupoA]);
+  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_fp_kwh, data.bandeira, isGrupoA]);
+
+  // Detalhamento do cálculo para exibição
+  const detalhamentoCalculo = useMemo(() => {
+    if (!tarifa || !isGrupoA) return null;
+    
+    const teFP = tarifa.te_fora_ponta_rs_kwh || 0;
+    const tusdFP = tarifa.tusd_fora_ponta_rs_kwh || 0;
+    const encargos = tarifa.tusd_encargos_rs_kwh || 0;
+    const bandeiraValor = obterValorBandeira(tarifa, data.bandeira);
+    const icms = tarifa.icms_percent || 0;
+    const pis = tarifa.pis_percent || 0;
+    const cofins = tarifa.cofins_percent || 0;
+    
+    return {
+      teFP,
+      tusdFP,
+      encargos,
+      bandeira: bandeiraValor,
+      impostos: { icms, pis, cofins },
+      tarifaTotal: teFP + tusdFP + encargos + bandeiraValor
+    };
+  }, [tarifa, data.bandeira, isGrupoA]);
 
   // Auto-atualizar valor do autoconsumo quando calculado
   useEffect(() => {
-    if (valorAutoconsumoCalculado !== null && valorAutoconsumoCalculado > 0 && !data.autoconsumo_rs) {
+    if (valorAutoconsumoCalculado !== null && valorAutoconsumoCalculado > 0) {
       updateData({ autoconsumo_rs: Math.round(valorAutoconsumoCalculado * 100) / 100 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valorAutoconsumoCalculado]);
 
-  // Calcular autoconsumo automaticamente: Geração Total - Injeção
+  // Auto-preencher autoconsumo FP: Geração Total - Injeção FP (solar = apenas FP)
   useEffect(() => {
     if (data.geracao_local_total_kwh > 0) {
       if (isGrupoA) {
-        // Para Grupo A, calcular autoconsumo total e distribuir proporcionalmente se não preenchido
-        const injecaoAtual = data.injecao_ponta_kwh + data.injecao_fp_kwh + data.injecao_hr_kwh;
-        const autoconsumoCalculado = Math.max(0, data.geracao_local_total_kwh - injecaoAtual);
+        // Solar gera apenas durante o dia (FP) - usar apenas injeção FP
+        const injecaoFP = data.injecao_fp_kwh || 0;
+        const autoconsumoFP = Math.max(0, data.geracao_local_total_kwh - injecaoFP);
         
-        // Se usuário não preencheu autoconsumo manualmente, preencher automaticamente
-        const autoconsumoAtual = data.autoconsumo_ponta_kwh + data.autoconsumo_fp_kwh + data.autoconsumo_hr_kwh;
-        if (autoconsumoAtual === 0 && autoconsumoCalculado > 0) {
-          // Distribuir 100% em fora ponta por padrão (pode ajustar manualmente)
-          updateData({ autoconsumo_fp_kwh: autoconsumoCalculado });
-        }
+        // Preencher automaticamente: Ponta=0, FP=calculado, HR=0
+        updateData({ 
+          autoconsumo_fp_kwh: autoconsumoFP,
+          autoconsumo_ponta_kwh: 0,  // Solar não gera em ponta
+          autoconsumo_hr_kwh: 0      // Solar não gera em reservado
+        });
       } else {
         // Grupo B: cálculo direto
         const autoconsumoCalculado = Math.max(0, data.geracao_local_total_kwh - data.injecao_total_kwh);
         updateData({ autoconsumo_total_kwh: autoconsumoCalculado });
       }
     }
-  }, [data.geracao_local_total_kwh, data.injecao_total_kwh, data.injecao_ponta_kwh, data.injecao_fp_kwh, data.injecao_hr_kwh, isGrupoA, updateData]);
+  }, [data.geracao_local_total_kwh, data.injecao_total_kwh, data.injecao_fp_kwh, isGrupoA, updateData]);
 
   // Atualizar totais no contexto
   useEffect(() => {
@@ -196,31 +257,58 @@ export function Step4GeracaoLocal() {
           </div>
 
           {isGrupoA ? (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Ponta (kWh)</Label>
-                <Input
-                  type="number"
-                  value={data.autoconsumo_ponta_kwh || ''}
-                  onChange={(e) => updateData({ autoconsumo_ponta_kwh: parseFloat(e.target.value) || 0 })}
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Ponta (kWh)</Label>
+                  <Input
+                    type="number"
+                    value={data.autoconsumo_ponta_kwh || 0}
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                    title="Solar não gera em horário de ponta (noite)"
+                  />
+                  <p className="text-xs text-muted-foreground">Solar = 0 (noite)</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label>Fora Ponta (kWh)</Label>
+                    {autoconsumoFPCalculado !== null && (
+                      <Badge variant="outline" className="text-xs gap-1 bg-green-500/10 text-green-700">
+                        <Calculator className="h-3 w-3" />
+                        Auto
+                      </Badge>
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    value={data.autoconsumo_fp_kwh || ''}
+                    onChange={(e) => updateData({ autoconsumo_fp_kwh: parseFloat(e.target.value) || 0 })}
+                  />
+                  <p className="text-xs text-muted-foreground">Geração − Injeção FP</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Reservado (kWh)</Label>
+                  <Input
+                    type="number"
+                    value={data.autoconsumo_hr_kwh || 0}
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
+                    title="Solar não gera em horário reservado"
+                  />
+                  <p className="text-xs text-muted-foreground">Solar = 0</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Fora Ponta (kWh)</Label>
-                <Input
-                  type="number"
-                  value={data.autoconsumo_fp_kwh || ''}
-                  onChange={(e) => updateData({ autoconsumo_fp_kwh: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Reservado (kWh)</Label>
-                <Input
-                  type="number"
-                  value={data.autoconsumo_hr_kwh || ''}
-                  onChange={(e) => updateData({ autoconsumo_hr_kwh: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
+              
+              {/* Explicação do cálculo */}
+              {autoconsumoFPCalculado !== null && data.geracao_local_total_kwh > 0 && (
+                <div className="p-2 bg-green-500/5 rounded text-xs text-muted-foreground">
+                  <span className="font-medium">Cálculo:</span>{' '}
+                  {data.geracao_local_total_kwh.toLocaleString('pt-BR')} kWh (geração) − {' '}
+                  {(data.injecao_fp_kwh || 0).toLocaleString('pt-BR')} kWh (injeção FP) = {' '}
+                  <span className="font-bold text-green-700">{autoconsumoFPCalculado.toLocaleString('pt-BR')} kWh</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -257,13 +345,28 @@ export function Step4GeracaoLocal() {
               onChange={(e) => updateData({ autoconsumo_rs: parseFloat(e.target.value) || 0 })}
               placeholder="Economia pelo autoconsumo"
             />
-            {tarifa && (
+            {tarifa && detalhamentoCalculo && isGrupoA && (
+              <div className="p-2 bg-muted/50 rounded text-xs space-y-1">
+                <p className="font-medium text-foreground">Behind the Meter - Economia 100%:</p>
+                <div className="grid grid-cols-2 gap-x-4 text-muted-foreground">
+                  <span>TE (FP): R$ {detalhamentoCalculo.teFP.toFixed(4)}/kWh</span>
+                  <span>TUSD (FP): R$ {detalhamentoCalculo.tusdFP.toFixed(4)}/kWh</span>
+                  <span>Encargos: R$ {detalhamentoCalculo.encargos.toFixed(4)}/kWh</span>
+                  <span>Bandeira: R$ {detalhamentoCalculo.bandeira.toFixed(4)}/kWh</span>
+                </div>
+                <p className="pt-1 border-t mt-1">
+                  Impostos: ICMS {detalhamentoCalculo.impostos.icms}% + PIS {detalhamentoCalculo.impostos.pis}% + COFINS {detalhamentoCalculo.impostos.cofins}%
+                </p>
+                <p className="font-medium text-foreground">
+                  Total: R$ {detalhamentoCalculo.tarifaTotal.toFixed(4)}/kWh + impostos
+                </p>
+              </div>
+            )}
+            {tarifa && !isGrupoA && (
               <p className="text-xs text-muted-foreground">
-                Tarifa TE+TUSD: R$ {(
-                  isGrupoA 
-                    ? (tarifa.te_fora_ponta_rs_kwh || 0) + (tarifa.tusd_fora_ponta_rs_kwh || 0)
-                    : (tarifa.te_unica_rs_kwh || 0) + (tarifa.tusd_unica_rs_kwh || 0)
-                ).toFixed(4)}/kWh {isGrupoA ? '(FP)' : ''}
+                Tarifa TE+TUSD+Encargos: R$ {(
+                  (tarifa.te_unica_rs_kwh || 0) + (tarifa.tusd_unica_rs_kwh || 0) + (tarifa.tusd_encargos_rs_kwh || 0)
+                ).toFixed(4)}/kWh + impostos
               </p>
             )}
           </div>
