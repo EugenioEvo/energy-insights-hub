@@ -65,12 +65,13 @@ export function Step2Consumo() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" />
-            Passo 2 — Consumo Faturado
+            Passo 2 — Consumo Registrado da Rede
           </CardTitle>
           <CardDescription>
-            Energia ativa por posto tarifário (kWh Ponta / Fora Ponta / Reservado)
+            Energia ativa medida pela concessionária, por posto tarifário (kWh). 
+            Este é o consumo que veio da rede elétrica — não inclui o autoconsumo simultâneo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
