@@ -1,13 +1,99 @@
-import { useTarifas, TarifaConcessionaria } from '@/hooks/useTarifas';
+import { useTarifas, useTarifasDisponiveis, TarifaConcessionaria } from '@/hooks/useTarifas';
 import { useWizard } from './WizardContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Info, AlertTriangle, CheckCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Info, AlertTriangle, CheckCircle, Database } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TarifaInfoProps {
   showDetails?: boolean;
   compact?: boolean;
+}
+
+function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: { 
+  concessionaria: string; 
+  grupoTarifario: 'A' | 'B'; 
+  modalidade?: string | null;
+}) {
+  const { data: tarifasDisponiveis, isLoading } = useTarifasDisponiveis(concessionaria);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm mt-2">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Buscando tarifas disponíveis...</span>
+      </div>
+    );
+  }
+
+  if (!tarifasDisponiveis || tarifasDisponiveis.length === 0) {
+    return (
+      <Alert variant="destructive" className="mt-3">
+        <Database className="h-4 w-4" />
+        <AlertTitle>Nenhuma tarifa cadastrada</AlertTitle>
+        <AlertDescription>
+          Não há tarifas cadastradas para a concessionária "{concessionaria}".
+          Acesse a página de Tarifas para cadastrar as tarifas necessárias.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Database className="h-4 w-4" />
+        <span>Tarifas disponíveis para esta concessionária:</span>
+      </div>
+      <Card className="border-muted">
+        <ScrollArea className="max-h-48">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Grupo</TableHead>
+                <TableHead className="text-xs">Subgrupo</TableHead>
+                <TableHead className="text-xs">Modalidade</TableHead>
+                <TableHead className="text-xs">Resolução</TableHead>
+                <TableHead className="text-xs">Vigência</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tarifasDisponiveis.map((t) => {
+                const isMatch = t.grupo_tarifario === grupoTarifario && 
+                  (grupoTarifario === 'B' || 
+                    (t.modalidade?.toLowerCase() === modalidade?.toLowerCase()));
+                
+                return (
+                  <TableRow 
+                    key={t.id} 
+                    className={isMatch ? "bg-green-500/10" : ""}
+                  >
+                    <TableCell className="py-1">
+                      <Badge variant={t.grupo_tarifario === grupoTarifario ? "default" : "outline"} className="text-xs">
+                        {t.grupo_tarifario}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-1 text-xs">{t.subgrupo || '—'}</TableCell>
+                    <TableCell className="py-1 text-xs">{t.modalidade || '—'}</TableCell>
+                    <TableCell className="py-1 text-xs font-mono">{t.resolucao_aneel || '—'}</TableCell>
+                    <TableCell className="py-1 text-xs">
+                      {new Date(t.vigencia_inicio).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        💡 Dica: Verifique se o Grupo Tarifário ({grupoTarifario}) 
+        {modalidade && ` e Modalidade (${modalidade})`} da UC correspondem às tarifas cadastradas.
+      </p>
+    </div>
+  );
 }
 
 export function TarifaInfo({ showDetails = false, compact = false }: TarifaInfoProps) {
@@ -38,13 +124,21 @@ export function TarifaInfo({ showDetails = false, compact = false }: TarifaInfoP
 
   if (error || !tarifa) {
     return (
-      <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
-        <AlertTriangle className="h-4 w-4 text-amber-500" />
-        <AlertDescription className="text-amber-700 dark:text-amber-300">
-          Tarifas não encontradas para {data.concessionaria} (Grupo {data.grupo_tarifario}).
-          Os valores devem ser informados manualmente.
-        </AlertDescription>
-      </Alert>
+      <div className="space-y-2">
+        <Alert variant="default" className="border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-700 dark:text-amber-300">
+            Tarifas não encontradas para <strong>{data.concessionaria}</strong> (Grupo {data.grupo_tarifario}
+            {isGrupoA && data.modalidade && `, ${data.modalidade}`}).
+            Os valores devem ser informados manualmente.
+          </AlertDescription>
+        </Alert>
+        <TarifasFallback 
+          concessionaria={data.concessionaria || ''} 
+          grupoTarifario={data.grupo_tarifario || 'B'}
+          modalidade={isGrupoA ? data.modalidade : null}
+        />
+      </div>
     );
   }
 
