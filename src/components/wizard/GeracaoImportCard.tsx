@@ -26,6 +26,7 @@ interface GeracaoPreviewData {
   geracao_ponta_kwh?: number;
   geracao_fora_ponta_kwh?: number;
   geracao_reservado_kwh?: number;
+  linhas_processadas?: number;
 }
 
 export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
@@ -107,181 +108,109 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
     
     const data: GeracaoPreviewData = {};
 
-    // Mapear colunas conhecidas (normalizado sem acentos e lowercase)
-    const columnMappings: Record<string, keyof GeracaoPreviewData> = {
-      // Mês referência
-      'mes_ref': 'mes_ref',
-      'mes': 'mes_ref',
-      'mesref': 'mes_ref',
-      'referencia': 'mes_ref',
-      'month': 'mes_ref',
-      'date': 'mes_ref',
-      'data': 'mes_ref',
-      'periodo': 'mes_ref',
-      // Geração total
-      'geracao_total_kwh': 'geracao_total_kwh',
-      'geracao_total': 'geracao_total_kwh',
-      'geracaototal': 'geracao_total_kwh',
-      'total_kwh': 'geracao_total_kwh',
-      'totalkwh': 'geracao_total_kwh',
-      'total': 'geracao_total_kwh',
-      'geracao_kwh': 'geracao_total_kwh',
-      'geracaokwh': 'geracao_total_kwh',
-      'geracao': 'geracao_total_kwh',
-      'energy': 'geracao_total_kwh',
-      'energia': 'geracao_total_kwh',
-      'energia_kwh': 'geracao_total_kwh',
-      'energiakwh': 'geracao_total_kwh',
-      'yield': 'geracao_total_kwh',
-      'production': 'geracao_total_kwh',
-      'producao': 'geracao_total_kwh',
-      'produced': 'geracao_total_kwh',
-      'e_total': 'geracao_total_kwh',
-      'etotal': 'geracao_total_kwh',
-      'e-total': 'geracao_total_kwh',
-      'kwh': 'geracao_total_kwh',
-      'valor': 'geracao_total_kwh',
-      // Ponta
-      'geracao_ponta_kwh': 'geracao_ponta_kwh',
-      'ponta_kwh': 'geracao_ponta_kwh',
-      'pontakwh': 'geracao_ponta_kwh',
-      'ponta': 'geracao_ponta_kwh',
-      'peak': 'geracao_ponta_kwh',
-      // Fora ponta
-      'geracao_fora_ponta_kwh': 'geracao_fora_ponta_kwh',
-      'fora_ponta_kwh': 'geracao_fora_ponta_kwh',
-      'forapontakwh': 'geracao_fora_ponta_kwh',
-      'fora_ponta': 'geracao_fora_ponta_kwh',
-      'foraponta': 'geracao_fora_ponta_kwh',
-      'fp_kwh': 'geracao_fora_ponta_kwh',
-      'fpkwh': 'geracao_fora_ponta_kwh',
-      'offpeak': 'geracao_fora_ponta_kwh',
-      'off_peak': 'geracao_fora_ponta_kwh',
-      // Reservado
-      'geracao_reservado_kwh': 'geracao_reservado_kwh',
-      'reservado_kwh': 'geracao_reservado_kwh',
-      'reservadokwh': 'geracao_reservado_kwh',
-      'reservado': 'geracao_reservado_kwh',
-      'hr_kwh': 'geracao_reservado_kwh',
-      'hrkwh': 'geracao_reservado_kwh',
-    };
-
-    // Normalizar texto para comparação
+    // Normalizar texto para comparação (remove acentos e caracteres especiais)
     const normalize = (text: string) => 
       text.toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]/g, '');
 
+    // Keywords para detectar coluna de geração/energia
+    const energyKeywords = [
+      'geracao', 'geracaototal', 'geracaodia', 'total', 'totalkwh', 'kwh',
+      'energy', 'energia', 'energiadia', 'yield', 'production', 'producao',
+      'produced', 'etotal', 'eday', 'daily', 'dailyyield', 'dailyenergy', 'valor'
+    ];
+
+    // Keywords para detectar coluna de data
+    const dateKeywords = [
+      'data', 'date', 'dia', 'day', 'datetime', 'timestamp', 'mes', 'month', 'periodo'
+    ];
+
     // Tentar parsear como CSV com header
     const headers = firstLine.split(separator).map(h => h.replace(/['"]/g, '').trim());
     console.log('Headers detectados:', headers);
 
-    // Verificar se primeira linha parece ser header
+    // Verificar se primeira linha parece ser header (contém texto não numérico)
     const isFirstLineHeader = headers.some(h => {
       const normalized = normalize(h);
-      return Object.keys(columnMappings).some(key => normalized.includes(key) || key.includes(normalized));
+      return energyKeywords.some(k => normalized.includes(k)) || 
+             dateKeywords.some(k => normalized.includes(k)) ||
+             isNaN(parseFloat(h.replace(',', '.')));
     });
 
-    if (isFirstLineHeader && lines.length >= 2) {
-      // CSV com header - processar cada linha de dados
-      const allDataLines = lines.slice(1);
-      let totalGeracao = 0;
-      let totalPonta = 0;
-      let totalForaPonta = 0;
-      let totalReservado = 0;
-      let rowCount = 0;
+    console.log('Primeira linha é header:', isFirstLineHeader);
 
-      // Mapear índices das colunas
-      const columnIndexes: Record<keyof GeracaoPreviewData, number> = {} as any;
+    // Encontrar índice da coluna de energia
+    let energyColumnIndex = -1;
+    let dateColumnIndex = -1;
+
+    if (isFirstLineHeader) {
       headers.forEach((header, index) => {
-        const normalizedHeader = normalize(header);
-        for (const [key, mappedField] of Object.entries(columnMappings)) {
-          if (normalizedHeader === key || normalizedHeader.includes(key) || key.includes(normalizedHeader)) {
-            columnIndexes[mappedField] = index;
+        const normalized = normalize(header);
+        
+        // Procurar coluna de energia
+        if (energyColumnIndex === -1 && energyKeywords.some(k => normalized.includes(k) || k.includes(normalized))) {
+          energyColumnIndex = index;
+        }
+        
+        // Procurar coluna de data
+        if (dateColumnIndex === -1 && dateKeywords.some(k => normalized.includes(k) || k.includes(normalized))) {
+          dateColumnIndex = index;
+        }
+      });
+    }
+
+    console.log('Índice coluna energia:', energyColumnIndex, 'Índice coluna data:', dateColumnIndex);
+
+    // Se não encontrou coluna de energia pelo header, tentar pela segunda coluna (formato comum: data, valor)
+    if (energyColumnIndex === -1 && headers.length >= 2) {
+      // Assumir que a última coluna numérica é a geração
+      energyColumnIndex = headers.length - 1;
+    }
+
+    // Processar linhas de dados
+    const dataLines = isFirstLineHeader ? lines.slice(1) : lines;
+    let totalGeracao = 0;
+    let rowCount = 0;
+
+    for (const line of dataLines) {
+      const values = line.split(separator).map(v => v.replace(/['"]/g, '').trim());
+      
+      if (values.length === 0) continue;
+
+      // Tentar pegar valor da coluna identificada
+      let valorLinha = 0;
+      
+      if (energyColumnIndex >= 0 && energyColumnIndex < values.length) {
+        const val = parseFloat(values[energyColumnIndex].replace(',', '.'));
+        if (!isNaN(val) && val >= 0) {
+          valorLinha = val;
+        }
+      }
+
+      // Se não encontrou na coluna esperada, procurar primeiro número válido
+      if (valorLinha === 0) {
+        for (let i = values.length - 1; i >= 0; i--) {
+          const val = parseFloat(values[i].replace(',', '.'));
+          // Ignorar valores que parecem ser datas (ex: 2024, 01, 15)
+          if (!isNaN(val) && val > 0 && val < 100000) {
+            valorLinha = val;
             break;
           }
         }
-      });
-
-      console.log('Índices mapeados:', columnIndexes);
-
-      // Processar linhas de dados
-      for (const line of allDataLines) {
-        const values = line.split(separator).map(v => v.replace(/['"]/g, '').trim());
-        
-        // Pegar geração total
-        if (columnIndexes.geracao_total_kwh !== undefined) {
-          const val = parseFloat(values[columnIndexes.geracao_total_kwh]?.replace(',', '.') || '0');
-          if (!isNaN(val) && val > 0) {
-            totalGeracao += val;
-            rowCount++;
-          }
-        }
-        
-        // Pegar ponta
-        if (columnIndexes.geracao_ponta_kwh !== undefined) {
-          const val = parseFloat(values[columnIndexes.geracao_ponta_kwh]?.replace(',', '.') || '0');
-          if (!isNaN(val)) totalPonta += val;
-        }
-        
-        // Pegar fora ponta
-        if (columnIndexes.geracao_fora_ponta_kwh !== undefined) {
-          const val = parseFloat(values[columnIndexes.geracao_fora_ponta_kwh]?.replace(',', '.') || '0');
-          if (!isNaN(val)) totalForaPonta += val;
-        }
-        
-        // Pegar reservado
-        if (columnIndexes.geracao_reservado_kwh !== undefined) {
-          const val = parseFloat(values[columnIndexes.geracao_reservado_kwh]?.replace(',', '.') || '0');
-          if (!isNaN(val)) totalReservado += val;
-        }
-        
-        // Se não encontrou coluna de total, tentar primeiro número encontrado
-        if (columnIndexes.geracao_total_kwh === undefined && rowCount === 0) {
-          for (const value of values) {
-            const val = parseFloat(value.replace(',', '.'));
-            if (!isNaN(val) && val > 10) { // Assumir que geração > 10 kWh
-              totalGeracao += val;
-              rowCount++;
-              break;
-            }
-          }
-        }
       }
 
-      if (totalGeracao > 0) data.geracao_total_kwh = totalGeracao;
-      if (totalPonta > 0) data.geracao_ponta_kwh = totalPonta;
-      if (totalForaPonta > 0) data.geracao_fora_ponta_kwh = totalForaPonta;
-      if (totalReservado > 0) data.geracao_reservado_kwh = totalReservado;
-
-      console.log('Dados extraídos (com header):', data, 'Linhas processadas:', rowCount);
-    } else {
-      // CSV sem header ou formato simples - tentar extrair números
-      let totalGeracao = 0;
-      
-      for (const line of lines) {
-        const values = line.split(separator).map(v => v.replace(/['"]/g, '').trim());
-        for (const value of values) {
-          const val = parseFloat(value.replace(',', '.'));
-          if (!isNaN(val) && val > 0) {
-            totalGeracao += val;
-          }
-        }
+      if (valorLinha > 0) {
+        totalGeracao += valorLinha;
+        rowCount++;
       }
-      
-      if (totalGeracao > 0) {
-        data.geracao_total_kwh = totalGeracao;
-      }
-      
-      console.log('Dados extraídos (sem header):', data);
     }
 
-    // Se não encontrou total mas tem ponta + fora ponta, calcular
-    if (!data.geracao_total_kwh && (data.geracao_ponta_kwh || data.geracao_fora_ponta_kwh)) {
-      data.geracao_total_kwh = 
-        (data.geracao_ponta_kwh || 0) + 
-        (data.geracao_fora_ponta_kwh || 0) + 
-        (data.geracao_reservado_kwh || 0);
+    console.log('Total geração calculado:', totalGeracao, 'Linhas processadas:', rowCount);
+
+    if (totalGeracao > 0) {
+      data.geracao_total_kwh = parseFloat(totalGeracao.toFixed(2));
+      data.linhas_processadas = rowCount;
     }
 
     return data;
@@ -306,6 +235,7 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
       try {
         parsedData = parseCSVLocally(content);
       } catch (localError) {
+        console.error('Erro no parse local:', localError);
         // Se falhar, tentar via edge function
         const { data, error } = await supabase.functions.invoke('parsear-fatura', {
           body: {
@@ -324,7 +254,7 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
       setProgress(100);
       
       if (!parsedData.geracao_total_kwh || parsedData.geracao_total_kwh === 0) {
-        throw new Error('Não foi possível extrair dados de geração do CSV. Verifique se o arquivo contém colunas como "geracao", "total", "kwh", "energy" ou "production".');
+        throw new Error('Não foi possível extrair dados de geração do CSV. Verifique se o arquivo contém uma coluna numérica com valores de geração.');
       }
       
       setUploadedFile(prev => prev ? { ...prev, status: 'success', data: parsedData } : null);
@@ -382,7 +312,7 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
       setPreviewData(null);
       toast({
         title: 'Geração importada!',
-        description: 'Os dados de geração foram preenchidos',
+        description: `${previewData.linhas_processadas || 1} registro(s) processado(s)`,
       });
     }
   };
@@ -400,7 +330,7 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
           Importar Geração (CSV)
         </CardTitle>
         <CardDescription className="text-xs">
-          Arraste o CSV de geração ou clique para selecionar. Aceita exportações de inversores.
+          Arraste o CSV de geração ou clique para selecionar. Soma automática de dados diários.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -427,7 +357,7 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
               Arraste o CSV de geração aqui
             </p>
             <Badge variant="outline" className="text-xs">
-              Fronius, Growatt, Solis...
+              Formato: Data, Geração (kWh)
             </Badge>
           </div>
         </div>
@@ -487,28 +417,16 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
               Dados Extraídos
             </h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              {previewData.mes_ref && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Mês:</span>
-                  <span className="font-medium">{previewData.mes_ref}</span>
+              {previewData.linhas_processadas && (
+                <div className="flex justify-between col-span-2">
+                  <span className="text-muted-foreground">Linhas processadas:</span>
+                  <span className="font-medium">{previewData.linhas_processadas} dias</span>
                 </div>
               )}
-              <div className="flex justify-between">
+              <div className="flex justify-between col-span-2">
                 <span className="text-muted-foreground">Geração Total:</span>
-                <span className="font-medium">{formatNumber(previewData.geracao_total_kwh)} kWh</span>
+                <span className="font-medium text-green-600">{formatNumber(previewData.geracao_total_kwh)} kWh</span>
               </div>
-              {previewData.geracao_ponta_kwh !== undefined && previewData.geracao_ponta_kwh > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ponta:</span>
-                  <span>{formatNumber(previewData.geracao_ponta_kwh)} kWh</span>
-                </div>
-              )}
-              {previewData.geracao_fora_ponta_kwh !== undefined && previewData.geracao_fora_ponta_kwh > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fora Ponta:</span>
-                  <span>{formatNumber(previewData.geracao_fora_ponta_kwh)} kWh</span>
-                </div>
-              )}
             </div>
             <Button onClick={handleConfirmImport} className="w-full mt-2" size="sm">
               <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -529,7 +447,7 @@ export function GeracaoImportCard({ onImport }: GeracaoImportCardProps) {
         <Alert className="bg-muted/50">
           <Info className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            O CSV deve ter colunas como: <code className="text-xs bg-muted px-1 rounded">geracao_total_kwh</code>, <code className="text-xs bg-muted px-1 rounded">ponta_kwh</code>, <code className="text-xs bg-muted px-1 rounded">fora_ponta_kwh</code>
+            CSV com colunas <code className="text-xs bg-muted px-1 rounded">data</code> e <code className="text-xs bg-muted px-1 rounded">geração</code>. Valores diários serão somados automaticamente.
           </AlertDescription>
         </Alert>
       </CardContent>
