@@ -1,15 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { useWizard, GrupoTarifario } from '../WizardContext';
+import { useWizard, GrupoTarifario, FaturaWizardData } from '../WizardContext';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
 import { useClientes } from '@/hooks/useClientes';
 import { Building2, AlertCircle, Zap, Sun, PlugZap } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FileImportCard } from '../FileImportCard';
 
 const concessionarias = [
   'Equatorial Goiás',
@@ -52,6 +53,27 @@ export function Step0ContextoUC() {
     const grupoAValid = !isGrupoA || data.demanda_contratada_kw > 0;
     setCanProceed(baseValid && grupoAValid);
   }, [data.uc_id, data.demanda_contratada_kw, isGrupoA, setCanProceed]);
+
+  // Handler para importação de dados via PDF/CSV
+  const handleImport = useCallback((importedData: Partial<FaturaWizardData>) => {
+    // Se importou número de UC, tentar encontrar a UC correspondente
+    if (importedData.uc_numero && unidades) {
+      const matchedUC = unidades.find(uc => 
+        uc.numero === importedData.uc_numero || 
+        uc.numero.replace(/\D/g, '') === importedData.uc_numero.replace(/\D/g, '')
+      );
+      if (matchedUC) {
+        importedData.uc_id = matchedUC.id;
+        const cliente = clientes?.find(c => c.id === matchedUC.cliente_id);
+        if (cliente) {
+          importedData.cnpj = cliente.cnpj;
+          importedData.razao_social = cliente.nome;
+        }
+      }
+    }
+    
+    updateData(importedData);
+  }, [unidades, clientes, updateData]);
 
   // Preencher dados da UC selecionada
   const handleUCSelect = (ucId: string) => {
@@ -112,17 +134,21 @@ export function Step0ContextoUC() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
-          Passo 0 — Contexto da UC
-        </CardTitle>
-        <CardDescription>
-          Selecione a unidade consumidora e configure o tipo de faturamento.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className="space-y-4">
+      {/* Card de Importação Automática */}
+      <FileImportCard onImport={handleImport} />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Passo 0 — Contexto da UC
+          </CardTitle>
+          <CardDescription>
+            Selecione a unidade consumidora e configure o tipo de faturamento, ou importe de um PDF acima.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
         {/* Seleção da UC */}
         <div className="space-y-2">
           <Label htmlFor="uc_select">Unidade Consumidora *</Label>
@@ -356,5 +382,6 @@ export function Step0ContextoUC() {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }

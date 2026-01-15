@@ -3,6 +3,9 @@ project_id = "mjcfkgmvrhkpoglhjckc"
 [functions.buscar-tarifas-equatorial]
 verify_jwt = false
 
+[functions.parsear-fatura]
+verify_jwt = false
+
 # Cron job: Busca tarifas toda segunda-feira às 6h (horário UTC)
 [[cron_jobs]]
 name = "buscar-tarifas-semanal"
