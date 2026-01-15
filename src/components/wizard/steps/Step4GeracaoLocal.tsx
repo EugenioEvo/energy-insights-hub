@@ -255,16 +255,17 @@ export function Step4GeracaoLocal() {
           </p>
         </div>
 
-        {/* 1. Injeção (Excedente na Rede) - Informar primeiro */}
+        {/* 1. Injeção = Créditos Próprios (sem indicação de UC = da própria UC) */}
         <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium flex items-center gap-2 text-blue-700 dark:text-blue-400">
                 <ArrowRight className="h-4 w-4" />
-                Injeção (Excedente na Rede)
+                Injeção = Créditos Próprios
               </h3>
               <p className="text-sm text-muted-foreground">
-                Energia gerada não consumida — gera créditos próprios
+                Excedente injetado na rede pela usina desta UC. 
+                <strong> Sem indicação de UC = créditos próprios.</strong>
               </p>
             </div>
             <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400">
@@ -311,7 +312,7 @@ export function Step4GeracaoLocal() {
           )}
 
           <div className="flex items-center justify-between p-3 bg-background rounded">
-            <span className="text-sm font-medium">Total Injeção:</span>
+            <span className="text-sm font-medium">Total Créditos Próprios (Injeção):</span>
             <span className="text-lg font-bold text-blue-700 dark:text-blue-400">
               {totais.injecaoTotal.toLocaleString('pt-BR')} kWh
             </span>
