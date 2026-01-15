@@ -537,32 +537,64 @@ export function Step5CreditosRemotos() {
 
         {/* Resumo Final */}
         <div className="p-4 bg-muted rounded-lg space-y-3">
-          <h3 className="font-medium">Fluxo de Compensação</h3>
+          <h3 className="font-medium">Fluxo de Compensação e Economia</h3>
           
+          {/* Fluxo de Energia (kWh) */}
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Consumo Total UC:</span>
-              <span className="font-medium">{data.consumo_total_kwh.toLocaleString('pt-BR')} kWh</span>
+            <div className="flex justify-between font-medium border-b pb-1">
+              <span>Energia (kWh)</span>
+              <span></span>
             </div>
             <div className="flex justify-between text-green-600">
-              <span>(−) Autoconsumo:</span>
+              <span>Autoconsumo (simultaneidade):</span>
               <span className="font-medium">{data.autoconsumo_total_kwh.toLocaleString('pt-BR')} kWh</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">(=) Consumo Residual:</span>
+              <span className="text-muted-foreground">(+) Consumo Residual (corpo fatura):</span>
               <span className="font-medium">{data.consumo_residual_kwh.toLocaleString('pt-BR')} kWh</span>
             </div>
-            <div className="flex justify-between text-blue-600">
-              <span>(−) Créditos Remotos:</span>
-              <span className="font-medium">{calculos.creditosUtilizados.toLocaleString('pt-BR')} kWh</span>
+            <div className="flex justify-between font-bold border-t pt-1">
+              <span>(=) Consumo Total UC:</span>
+              <span>{data.consumo_total_kwh.toLocaleString('pt-BR')} kWh</span>
             </div>
           </div>
 
-          <div className="border-t pt-3 flex justify-between items-center">
-            <span className="font-medium">Consumo Final (a pagar):</span>
-            <span className="text-xl font-bold text-primary">
-              {calculos.consumoFinal.toLocaleString('pt-BR')} kWh
-            </span>
+          {/* Compensação */}
+          <div className="space-y-2 text-sm pt-2">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Consumo Residual:</span>
+              <span className="font-medium">{data.consumo_residual_kwh.toLocaleString('pt-BR')} kWh</span>
+            </div>
+            <div className="flex justify-between text-blue-600">
+              <span>(−) Créditos Remotos Utilizados:</span>
+              <span className="font-medium">{calculos.creditosUtilizados.toLocaleString('pt-BR')} kWh</span>
+            </div>
+            <div className="flex justify-between font-bold border-t pt-1">
+              <span>(=) Consumo Final (a pagar):</span>
+              <span className="text-primary">{calculos.consumoFinal.toLocaleString('pt-BR')} kWh</span>
+            </div>
+          </div>
+
+          {/* Fluxo de Valores (R$) */}
+          <div className="space-y-2 text-sm pt-3 border-t">
+            <div className="flex justify-between font-medium pb-1">
+              <span>Economia Total (R$)</span>
+              <span></span>
+            </div>
+            <div className="flex justify-between text-green-600">
+              <span>Autoconsumo (economia 100%):</span>
+              <span className="font-medium">R$ {data.autoconsumo_rs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-blue-600">
+              <span>(+) Créditos Remotos Compensados:</span>
+              <span className="font-medium">R$ {data.credito_remoto_compensado_rs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between font-bold border-t pt-1 text-lg">
+              <span>(=) Valor Total Economia:</span>
+              <span className="text-green-600">
+                R$ {(data.autoconsumo_rs + data.credito_remoto_compensado_rs).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
         </div>
       </CardContent>
