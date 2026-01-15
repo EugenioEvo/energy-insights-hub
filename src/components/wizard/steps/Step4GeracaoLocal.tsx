@@ -82,6 +82,28 @@ export function Step4GeracaoLocal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valorAutoconsumoCalculado]);
 
+  // Calcular autoconsumo automaticamente: Geração Total - Injeção
+  useEffect(() => {
+    if (data.geracao_local_total_kwh > 0) {
+      if (isGrupoA) {
+        // Para Grupo A, calcular autoconsumo total e distribuir proporcionalmente se não preenchido
+        const injecaoAtual = data.injecao_ponta_kwh + data.injecao_fp_kwh + data.injecao_hr_kwh;
+        const autoconsumoCalculado = Math.max(0, data.geracao_local_total_kwh - injecaoAtual);
+        
+        // Se usuário não preencheu autoconsumo manualmente, preencher automaticamente
+        const autoconsumoAtual = data.autoconsumo_ponta_kwh + data.autoconsumo_fp_kwh + data.autoconsumo_hr_kwh;
+        if (autoconsumoAtual === 0 && autoconsumoCalculado > 0) {
+          // Distribuir 100% em fora ponta por padrão (pode ajustar manualmente)
+          updateData({ autoconsumo_fp_kwh: autoconsumoCalculado });
+        }
+      } else {
+        // Grupo B: cálculo direto
+        const autoconsumoCalculado = Math.max(0, data.geracao_local_total_kwh - data.injecao_total_kwh);
+        updateData({ autoconsumo_total_kwh: autoconsumoCalculado });
+      }
+    }
+  }, [data.geracao_local_total_kwh, data.injecao_total_kwh, data.injecao_ponta_kwh, data.injecao_fp_kwh, data.injecao_hr_kwh, isGrupoA, updateData]);
+
   // Atualizar totais no contexto
   useEffect(() => {
     if (isGrupoA) {
