@@ -94,9 +94,17 @@ export function Step4GeracaoLocal() {
   }, [data.geracao_local_total_kwh, data.injecao_fp_kwh]);
 
   // Calcular valor de autoconsumo com precificação completa (behind the meter)
-  // Inclui: TE + TUSD + Encargos + Bandeira + Impostos
+  // Prioriza tarifa líquida informada pelo usuário, senão calcula via componentes
   const valorAutoconsumoCalculado = useMemo(() => {
-    if (!tarifa || totais.autoconsumoTotal <= 0) return null;
+    if (totais.autoconsumoTotal <= 0) return null;
+
+    // Se o usuário informou a tarifa líquida FP diretamente, usar ela
+    if (data.tarifa_liquida_fp_rs_kwh && data.tarifa_liquida_fp_rs_kwh > 0) {
+      return data.autoconsumo_fp_kwh * data.tarifa_liquida_fp_rs_kwh;
+    }
+
+    // Senão, calcular via componentes da tarifa cadastrada
+    if (!tarifa) return null;
 
     if (isGrupoA) {
       // Grupo A: apenas FP (solar gera durante o dia)
@@ -114,8 +122,6 @@ export function Step4GeracaoLocal() {
       const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins) / 100;
       
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
-      
-      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     } else {
       // Grupo B: tarifa única com impostos
       const teUnica = tarifa.te_unica_rs_kwh || 0;
@@ -131,10 +137,8 @@ export function Step4GeracaoLocal() {
       const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins) / 100;
       
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
-      
-      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     }
-  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_fp_kwh, data.bandeira, isGrupoA]);
+  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_fp_kwh, data.bandeira, data.tarifa_liquida_fp_rs_kwh, isGrupoA]);
 
   // Detalhamento do cálculo para exibição
   const detalhamentoCalculo = useMemo(() => {
@@ -414,13 +418,34 @@ export function Step4GeracaoLocal() {
             </span>
           </div>
 
+          {/* Tarifa Líquida FP (input direto) */}
+          {isGrupoA && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label>Tarifa Líquida FP (R$/kWh)</Label>
+                <Badge variant="outline" className="text-xs">Opcional</Badge>
+              </div>
+              <Input
+                type="number"
+                step="0.0001"
+                value={data.tarifa_liquida_fp_rs_kwh || ''}
+                onChange={(e) => updateData({ tarifa_liquida_fp_rs_kwh: parseFloat(e.target.value) || 0 })}
+                placeholder="Ex: 0.47"
+              />
+              <p className="text-xs text-muted-foreground">
+                Informe o valor líquido FP da fatura (TE+TUSD+Encargos+Impostos). 
+                Se preenchido, será usado diretamente no cálculo.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Valor Economizado (R$)</Label>
               {valorAutoconsumoCalculado !== null && (
                 <Badge variant="outline" className="text-xs gap-1">
                   <Calculator className="h-3 w-3" />
-                  Calculado via tarifa
+                  {data.tarifa_liquida_fp_rs_kwh > 0 ? 'Via tarifa informada' : 'Calculado via tarifa'}
                 </Badge>
               )}
             </div>

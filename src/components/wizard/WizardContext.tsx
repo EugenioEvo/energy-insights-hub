@@ -57,6 +57,7 @@ export type FaturaWizardData = {
   autoconsumo_hr_kwh: number;
   autoconsumo_total_kwh: number;
   autoconsumo_rs: number;
+  tarifa_liquida_fp_rs_kwh: number; // Tarifa líquida FP (R$/kWh) para cálculo do autoconsumo
   injecao_ponta_kwh: number;
   injecao_fp_kwh: number;
   injecao_hr_kwh: number;
@@ -177,6 +178,7 @@ export const initialWizardData: FaturaWizardData = {
   autoconsumo_hr_kwh: 0,
   autoconsumo_total_kwh: 0,
   autoconsumo_rs: 0,
+  tarifa_liquida_fp_rs_kwh: 0,
   injecao_ponta_kwh: 0,
   injecao_fp_kwh: 0,
   injecao_hr_kwh: 0,
