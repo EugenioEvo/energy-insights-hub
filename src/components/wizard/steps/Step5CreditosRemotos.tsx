@@ -114,18 +114,20 @@ export function Step5CreditosRemotos() {
     }
   }, [vinculo, data.credito_remoto_kwh, data.credito_remoto_compensado_rs, valorCompensadoCalculado]);
 
-  // Auto-atualizar valor compensado quando calculado
+  // Auto-atualizar valor compensado quando calculado - apenas uma vez
   useEffect(() => {
-    if (valorCompensadoCalculado !== null && !data.credito_remoto_compensado_rs) {
+    if (valorCompensadoCalculado !== null && valorCompensadoCalculado > 0 && !data.credito_remoto_compensado_rs) {
       updateData({ credito_remoto_compensado_rs: valorCompensadoCalculado });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valorCompensadoCalculado]);
 
-  // Auto-atualizar custo da assinatura quando calculado
+  // Auto-atualizar custo da assinatura quando calculado - apenas uma vez
   useEffect(() => {
-    if (custoAssinaturaCalculado !== null && !data.custo_assinatura_rs) {
+    if (custoAssinaturaCalculado !== null && custoAssinaturaCalculado > 0 && !data.custo_assinatura_rs) {
       updateData({ custo_assinatura_rs: custoAssinaturaCalculado });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [custoAssinaturaCalculado]);
 
   // Cálculos de economia
@@ -145,13 +147,19 @@ export function Step5CreditosRemotos() {
     };
   }, [data]);
 
-  // Atualizar contexto
+  // Atualizar contexto - usar valores primitivos para evitar loop infinito
   useEffect(() => {
-    updateData({
-      economia_liquida_rs: calculos.economiaLiquida,
-      consumo_final_kwh: calculos.consumoFinal,
-    });
-  }, [calculos, updateData]);
+    const novaEconomia = calculos.economiaLiquida;
+    const novoConsumoFinal = calculos.consumoFinal;
+    
+    // Só atualizar se os valores realmente mudaram
+    if (data.economia_liquida_rs !== novaEconomia || data.consumo_final_kwh !== novoConsumoFinal) {
+      updateData({
+        economia_liquida_rs: novaEconomia,
+        consumo_final_kwh: novoConsumoFinal,
+      });
+    }
+  }, [calculos.economiaLiquida, calculos.consumoFinal]);
 
   // Validação
   useEffect(() => {
