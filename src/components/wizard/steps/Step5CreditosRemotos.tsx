@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useVinculoByUC } from '@/hooks/useClienteUsinaVinculo';
 import { useTarifas } from '@/hooks/useTarifas';
 import { useRateioByUCMes } from '@/hooks/useUsinaRateioMensal';
+import { calcularBalancoEnergetico, formatarKwh } from '@/lib/energyBalanceCalculations';
 
 export function Step5CreditosRemotos() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
@@ -166,35 +167,10 @@ export function Step5CreditosRemotos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [custoAssinaturaCalculado]);
 
-  // Cálculos de economia - melhorados para separar fluxo energético e financeiro
+  // Cálculos de economia usando função centralizada para balanço energético
   const calculos = useMemo(() => {
-    // === BALANÇO ENERGÉTICO ===
-    // Energia da Rede = o que veio da distribuidora (consumo_total_kwh)
-    const energiaDaRede = data.consumo_total_kwh || 0;
-    // Energia Simultânea = gerada e consumida no mesmo instante
-    const energiaSimultanea = data.autoconsumo_total_kwh || 0;
-    // Consumo Real = Energia da Rede + Energia Simultânea
-    const consumoRealUC = energiaDaRede + energiaSimultanea;
-    
-    // Geração e injeção (do Step4)
-    const geracaoLocal = data.geracao_local_total_kwh || 0;
-    const injecaoLocal = data.injecao_total_kwh || 0;
-    
-    // === COMPENSAÇÃO DE CRÉDITOS ===
-    // Créditos locais = saldo acumulado de créditos próprios (não injeção do mês!)
-    const saldoCreditosLocais = (data.scee_saldo_kwh_p || 0) + 
-                                 (data.scee_saldo_kwh_fp || 0) + 
-                                 (data.scee_saldo_kwh_hr || 0);
-    const creditosRemotosDisponiveis = data.credito_remoto_kwh || 0;
-    
-    // Base para compensação = Energia da Rede (o que precisa pagar)
-    const baseCompensacao = energiaDaRede;
-    
-    // Prioridade: usar créditos locais primeiro, depois remotos
-    const creditosLocaisUsados = Math.min(saldoCreditosLocais, baseCompensacao);
-    const consumoAposLocais = Math.max(0, baseCompensacao - creditosLocaisUsados);
-    const creditosRemotosUsados = Math.min(creditosRemotosDisponiveis, consumoAposLocais);
-    const consumoFinal = Math.max(0, consumoAposLocais - creditosRemotosUsados);
+    // Usar função centralizada para garantir consistência com Step4
+    const balanco = calcularBalancoEnergetico(data, isGrupoA);
     
     // === ECONOMIA FINANCEIRA ===
     // Economia do autoconsumo/simultaneidade (tarifa cheia evitada)
@@ -221,17 +197,8 @@ export function Step5CreditosRemotos() {
       : '0';
 
     return {
-      // Balanço energético
-      energiaDaRede,
-      energiaSimultanea,
-      consumoRealUC,
-      geracaoLocal,
-      injecaoLocal,
-      // Compensação
-      saldoCreditosLocais,
-      creditosLocaisUsados,
-      creditosRemotosUsados,
-      consumoFinal,
+      // Balanço energético (da função centralizada)
+      ...balanco,
       // Economia
       economiaAutoconsumo,
       economiaCreditosRemotos,
@@ -241,7 +208,7 @@ export function Step5CreditosRemotos() {
       economiaTotal,
       descontoEfetivo,
     };
-  }, [data]);
+  }, [data, isGrupoA]);
 
   // Atualizar contexto - usar valores primitivos para evitar loop infinito
   useEffect(() => {
