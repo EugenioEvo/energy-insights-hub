@@ -21,49 +21,8 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
 }) {
   const { data: tarifasDisponiveis, isLoading } = useTarifasDisponiveis(concessionaria);
   const { updateData } = useWizard();
-
-  const handleSelectTarifa = (tarifa: { 
-    grupo_tarifario: string; 
-    modalidade: string | null;
-    subgrupo: string | null;
-  }) => {
-    const updates: Record<string, unknown> = {
-      grupo_tarifario: tarifa.grupo_tarifario as 'A' | 'B',
-    };
-    
-    if (tarifa.modalidade) {
-      updates.modalidade = tarifa.modalidade;
-    }
-    
-    updateData(updates);
-    
-    toast.success('Tarifa aplicada!', {
-      description: `Grupo ${tarifa.grupo_tarifario}${tarifa.modalidade ? ` - ${tarifa.modalidade}` : ''} selecionado.`,
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-muted-foreground text-sm mt-2">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span>Buscando tarifas disponíveis...</span>
-      </div>
-    );
-  }
-
-  if (!tarifasDisponiveis || tarifasDisponiveis.length === 0) {
-    return (
-      <Alert variant="destructive" className="mt-3">
-        <Database className="h-4 w-4" />
-        <AlertTitle>Nenhuma tarifa cadastrada</AlertTitle>
-        <AlertDescription>
-          Não há tarifas cadastradas para a concessionária "{concessionaria}".
-          Acesse a página de Tarifas para cadastrar as tarifas necessárias.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
+  
+  // Todos os hooks devem estar no topo, antes de qualquer return condicional
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
@@ -88,6 +47,49 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
   const scrollBy = (amount: number) => {
     scrollRef.current?.scrollBy({ top: amount, behavior: 'smooth' });
   };
+
+  const handleSelectTarifa = (tarifa: { 
+    grupo_tarifario: string; 
+    modalidade: string | null;
+    subgrupo: string | null;
+  }) => {
+    const updates: Record<string, unknown> = {
+      grupo_tarifario: tarifa.grupo_tarifario as 'A' | 'B',
+    };
+    
+    if (tarifa.modalidade) {
+      updates.modalidade = tarifa.modalidade;
+    }
+    
+    updateData(updates);
+    
+    toast.success('Tarifa aplicada!', {
+      description: `Grupo ${tarifa.grupo_tarifario}${tarifa.modalidade ? ` - ${tarifa.modalidade}` : ''} selecionado.`,
+    });
+  };
+
+  // Early returns DEPOIS de todos os hooks
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm mt-2">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Buscando tarifas disponíveis...</span>
+      </div>
+    );
+  }
+
+  if (!tarifasDisponiveis || tarifasDisponiveis.length === 0) {
+    return (
+      <Alert variant="destructive" className="mt-3">
+        <Database className="h-4 w-4" />
+        <AlertTitle>Nenhuma tarifa cadastrada</AlertTitle>
+        <AlertDescription>
+          Não há tarifas cadastradas para a concessionária "{concessionaria}".
+          Acesse a página de Tarifas para cadastrar as tarifas necessárias.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
     <div className="mt-3 space-y-2">
