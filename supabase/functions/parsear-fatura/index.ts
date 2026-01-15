@@ -7,7 +7,7 @@ const corsHeaders = {
 
 // Prompt para extração de dados de faturas de energia
 const PROMPT_FATURA = `Você é um especialista em faturas de energia elétrica brasileiras.
-Analise o conteúdo da fatura e extraia TODOS os campos disponíveis em formato JSON.
+Analise o PDF da fatura e extraia TODOS os campos disponíveis em formato JSON.
 
 IMPORTANTE:
 - Extraia os valores numéricos SEM símbolos (R$, kWh, kW, %)
@@ -107,7 +107,6 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
 
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY não configurada');
@@ -117,68 +116,46 @@ serve(async (req) => {
       );
     }
 
-    let textContent = content;
+    let messages: any[];
     
-    // Se for PDF, usar Firecrawl para extrair texto
     if (type === 'pdf') {
-      if (!FIRECRAWL_API_KEY) {
-        console.error('FIRECRAWL_API_KEY não configurada');
-        return new Response(
-          JSON.stringify({ success: false, error: 'Firecrawl não configurado para processar PDFs' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Processando PDF com Firecrawl...');
+      // Para PDF, enviar como documento multimodal para o Gemini
+      console.log('Processando PDF com Gemini (multimodal)...');
       
-      // Criar data URL do PDF
-      const pdfDataUrl = `data:application/pdf;base64,${content}`;
+      messages = [
+        { role: 'system', content: PROMPT_FATURA },
+        { 
+          role: 'user', 
+          content: [
+            {
+              type: 'text',
+              text: `Analise este PDF de fatura de energia (arquivo: ${fileName || 'fatura.pdf'}) e extraia os dados conforme solicitado.`
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${content}`
+              }
+            }
+          ]
+        }
+      ];
+    } else {
+      // Para CSV, enviar como texto
+      console.log('Processando CSV...');
       
-      const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: pdfDataUrl,
-          formats: ['markdown'],
-          onlyMainContent: false,
-        }),
-      });
-
-      if (!firecrawlResponse.ok) {
-        const errorText = await firecrawlResponse.text();
-        console.error('Erro Firecrawl:', errorText);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Erro ao processar PDF' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const firecrawlData = await firecrawlResponse.json();
-      textContent = firecrawlData.data?.markdown || firecrawlData.markdown || '';
-      
-      if (!textContent) {
-        console.error('Firecrawl não extraiu texto do PDF');
-        return new Response(
-          JSON.stringify({ success: false, error: 'Não foi possível extrair texto do PDF' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      console.log(`PDF processado: ${textContent.length} caracteres extraídos`);
+      messages = [
+        { role: 'system', content: PROMPT_CSV_GERACAO },
+        { 
+          role: 'user', 
+          content: `Analise este CSV de geração solar (arquivo: ${fileName || 'geração.csv'}):\n\n${content}`
+        }
+      ];
     }
 
-    // Determinar prompt baseado no tipo
-    const prompt = type === 'csv' ? PROMPT_CSV_GERACAO : PROMPT_FATURA;
-    const userMessage = type === 'csv' 
-      ? `Analise este CSV de geração solar (arquivo: ${fileName || 'geração.csv'}):\n\n${textContent}`
-      : `Analise esta fatura de energia (arquivo: ${fileName || 'fatura.pdf'}):\n\n${textContent}`;
+    console.log('Enviando para Lovable AI...');
 
-    console.log(`Enviando para Lovable AI (${type})...`);
-
-    // Usar Lovable AI para interpretar o conteúdo
+    // Usar Lovable AI (Gemini) para interpretar o conteúdo
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -186,16 +163,16 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content: userMessage }
-        ],
+        model: 'google/gemini-2.5-flash', // Flash para melhor suporte multimodal
+        messages,
         temperature: 0.1, // Baixa temperatura para respostas mais precisas
       }),
     });
 
     if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('Erro AI:', aiResponse.status, errorText);
+      
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ success: false, error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
@@ -208,10 +185,9 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await aiResponse.text();
-      console.error('Erro AI:', aiResponse.status, errorText);
+      
       return new Response(
-        JSON.stringify({ success: false, error: 'Erro ao processar com IA' }),
+        JSON.stringify({ success: false, error: 'Erro ao processar com IA', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -227,7 +203,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Resposta da IA:', aiContent.substring(0, 500));
+    console.log('Resposta da IA recebida:', aiContent.substring(0, 300));
 
     // Tentar parsear JSON da resposta
     let parsedData;
@@ -251,7 +227,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Erro ao interpretar resposta da IA',
+          error: 'Erro ao interpretar resposta da IA. Tente novamente.',
           rawContent: aiContent 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -265,7 +241,6 @@ serve(async (req) => {
         success: true, 
         data: parsedData,
         type,
-        extractedText: type === 'pdf' ? textContent.substring(0, 1000) : null // Preview do texto extraído
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
