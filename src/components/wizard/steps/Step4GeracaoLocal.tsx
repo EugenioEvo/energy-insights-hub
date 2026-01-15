@@ -483,39 +483,6 @@ export function Step4GeracaoLocal() {
           </div>
         </div>
 
-        {/* Resumo */}
-        <div className="p-4 bg-muted rounded-lg space-y-3">
-          <h3 className="font-medium">Resumo da Geração Local</h3>
-          
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Consumo Total UC:</span>
-              <span className="font-medium">{data.consumo_total_kwh.toLocaleString('pt-BR')} kWh</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Geração Local:</span>
-              <span className="font-medium">{(data.geracao_local_total_kwh || totais.geracaoCalculada).toLocaleString('pt-BR')} kWh</span>
-            </div>
-            <div className="flex justify-between text-green-600">
-              <span>(–) Autoconsumo:</span>
-              <span className="font-medium">{totais.autoconsumoTotal.toLocaleString('pt-BR')} kWh</span>
-            </div>
-            <div className="flex justify-between text-blue-600">
-              <span>(→) Injeção:</span>
-              <span className="font-medium">{totais.injecaoTotal.toLocaleString('pt-BR')} kWh</span>
-            </div>
-          </div>
-
-          <div className="border-t pt-3 flex justify-between items-center">
-            <span className="font-medium">Consumo Residual (após autoconsumo):</span>
-            <span className="text-xl font-bold">{totais.consumoResidual.toLocaleString('pt-BR')} kWh</span>
-          </div>
-          
-          <p className="text-xs text-muted-foreground">
-            Este valor será abatido pelos créditos (próprios e remotos) no próximo passo.
-          </p>
-        </div>
-
         {/* Validação da consistência */}
         {data.geracao_local_total_kwh > 0 && 
          Math.abs(data.geracao_local_total_kwh - totais.geracaoCalculada) > 1 && (
