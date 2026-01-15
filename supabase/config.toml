@@ -1,1 +1,4 @@
 project_id = "mjcfkgmvrhkpoglhjckc"
+
+[functions.buscar-tarifas-equatorial]
+verify_jwt = false
