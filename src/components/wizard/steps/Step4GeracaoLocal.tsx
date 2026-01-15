@@ -94,28 +94,44 @@ export function Step4GeracaoLocal() {
   }, [data.geracao_local_total_kwh, data.injecao_fp_kwh]);
 
   // Calcular valor de autoconsumo com precificação completa (behind the meter)
-  // Prioriza tarifa líquida informada pelo usuário, senão calcula via componentes
+  // Soma todos os postos tarifários: Ponta, Fora Ponta e Horário Reservado
   const valorAutoconsumoCalculado = useMemo(() => {
     if (totais.autoconsumoTotal <= 0) return null;
 
-    // Se o usuário informou a tarifa líquida FP diretamente, usar ela
+    // Se o usuário informou a tarifa líquida FP diretamente, usar ela para todos os postos
     if (data.tarifa_liquida_fp_rs_kwh && data.tarifa_liquida_fp_rs_kwh > 0) {
-      return data.autoconsumo_fp_kwh * data.tarifa_liquida_fp_rs_kwh;
+      // Aplica a tarifa informada ao autoconsumo total
+      return totais.autoconsumoTotal * data.tarifa_liquida_fp_rs_kwh;
     }
 
     // Senão, calcular via componentes da tarifa cadastrada
     if (!tarifa) return null;
 
     if (isGrupoA) {
-      // Grupo A: apenas FP (solar gera durante o dia)
+      // Grupo A: calcular por posto tarifário (Ponta, FP, HR)
+      const bandeiraValor = obterValorBandeira(tarifa, data.bandeira);
+      const encargos = tarifa.tusd_encargos_rs_kwh || 0;
+      
+      // Ponta
+      const tePonta = tarifa.te_ponta_rs_kwh || 0;
+      const tusdPonta = tarifa.tusd_ponta_rs_kwh || 0;
+      const tarifaPonta = tePonta + tusdPonta + encargos + bandeiraValor;
+      const valorPonta = (data.autoconsumo_ponta_kwh || 0) * tarifaPonta;
+      
+      // Fora Ponta
       const teFP = tarifa.te_fora_ponta_rs_kwh || 0;
       const tusdFP = tarifa.tusd_fora_ponta_rs_kwh || 0;
-      const encargos = tarifa.tusd_encargos_rs_kwh || 0;
-      const bandeiraValor = obterValorBandeira(tarifa, data.bandeira);
+      const tarifaFP = teFP + tusdFP + encargos + bandeiraValor;
+      const valorFP = (data.autoconsumo_fp_kwh || 0) * tarifaFP;
       
-      // Tarifa base por kWh (TE + TUSD + Encargos + Bandeira)
-      const tarifaBase = teFP + tusdFP + encargos + bandeiraValor;
-      const valorBase = data.autoconsumo_fp_kwh * tarifaBase;
+      // Horário Reservado (usa tarifa reservado se disponível, senão usa FP)
+      const teHR = tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || 0;
+      const tusdHR = tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0;
+      const tarifaHR = teHR + tusdHR + encargos + bandeiraValor;
+      const valorHR = (data.autoconsumo_hr_kwh || 0) * tarifaHR;
+      
+      // Soma de todos os postos
+      const valorBase = valorPonta + valorFP + valorHR;
       
       // Aplicar impostos (método "por dentro") - cost avoidance
       const impostos = obterImpostos(tarifa);
@@ -138,7 +154,7 @@ export function Step4GeracaoLocal() {
       
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     }
-  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_fp_kwh, data.bandeira, data.tarifa_liquida_fp_rs_kwh, isGrupoA]);
+  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, data.bandeira, data.tarifa_liquida_fp_rs_kwh, isGrupoA]);
 
   // Detalhamento do cálculo para exibição
   const detalhamentoCalculo = useMemo(() => {
