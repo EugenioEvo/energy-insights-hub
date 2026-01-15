@@ -23,6 +23,7 @@ import { useCreateCliente, useUpdateCliente, Cliente } from '@/hooks/useClientes
 import { useCreateUnidadeConsumidora, useUpdateUnidadeConsumidora, UnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useUsinasRemotas } from '@/hooks/useUsinasRemotas';
 import { useVinculosByCliente, useCreateVinculo, useUpdateVinculo, useDeleteVinculo, ClienteUsinaVinculoWithRelations, ModalidadeEconomia, ReferenciaDesconto } from '@/hooks/useClienteUsinaVinculo';
+import { useConcessionariasComTarifas } from '@/hooks/useTarifas';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Plus, MapPin, Zap, Loader2, Pencil, Factory, Sun, Link2, Trash2, DollarSign, Percent } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -63,6 +64,7 @@ export default function Clientes() {
   const updateUC = useUpdateUnidadeConsumidora();
   const { data: usinas = [] } = useUsinasRemotas();
   const { data: vinculos = [], refetch: refetchVinculos } = useVinculosByCliente(clienteId);
+  const { data: concessionarias = [], isLoading: loadingConcessionarias } = useConcessionariasComTarifas();
   const createVinculo = useCreateVinculo();
   const updateVinculo = useUpdateVinculo();
   const deleteVinculo = useDeleteVinculo();
@@ -219,6 +221,7 @@ export default function Clientes() {
         numero: novaUC.numero,
         endereco: novaUC.endereco,
         distribuidora: novaUC.distribuidora,
+        concessionaria: novaUC.distribuidora, // Sincronizar com distribuidora
         modalidade_tarifaria: novaUC.modalidade_tarifaria,
         demanda_contratada: parseFloat(novaUC.demanda_contratada) || 0,
       });
@@ -257,6 +260,7 @@ export default function Clientes() {
         numero: editUC.numero,
         endereco: editUC.endereco,
         distribuidora: editUC.distribuidora,
+        concessionaria: editUC.distribuidora, // Sincronizar com distribuidora
         modalidade_tarifaria: editUC.modalidade_tarifaria,
         demanda_contratada: parseFloat(editUC.demanda_contratada) || 0,
       });
@@ -518,12 +522,31 @@ export default function Clientes() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Distribuidora *</Label>
-                  <Input
-                    value={editUC.distribuidora}
-                    onChange={(e) => setEditUC({ ...editUC, distribuidora: e.target.value })}
-                    placeholder="CEMIG, CPFL, etc."
-                  />
+                  <Label>Distribuidora/Concessionária *</Label>
+                  <Select 
+                    value={editUC.distribuidora} 
+                    onValueChange={(value) => setEditUC({ ...editUC, distribuidora: value })}
+                    disabled={loadingConcessionarias}
+                  >
+                    <SelectTrigger>
+                      {loadingConcessionarias ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Carregando...
+                        </span>
+                      ) : (
+                        <SelectValue placeholder="Selecione a concessionária" />
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {concessionarias.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                      {concessionarias.length === 0 && !loadingConcessionarias && (
+                        <SelectItem value="" disabled>Nenhuma tarifa cadastrada</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Modalidade Tarifária</Label>
@@ -657,12 +680,31 @@ export default function Clientes() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>Distribuidora *</Label>
-                              <Input
-                                value={novaUC.distribuidora}
-                                onChange={(e) => setNovaUC({ ...novaUC, distribuidora: e.target.value })}
-                                placeholder="CEMIG, CPFL, etc."
-                              />
+                              <Label>Distribuidora/Concessionária *</Label>
+                              <Select 
+                                value={novaUC.distribuidora} 
+                                onValueChange={(value) => setNovaUC({ ...novaUC, distribuidora: value })}
+                                disabled={loadingConcessionarias}
+                              >
+                                <SelectTrigger>
+                                  {loadingConcessionarias ? (
+                                    <span className="flex items-center gap-2">
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      Carregando...
+                                    </span>
+                                  ) : (
+                                    <SelectValue placeholder="Selecione a concessionária" />
+                                  )}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {concessionarias.map(c => (
+                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                  ))}
+                                  {concessionarias.length === 0 && !loadingConcessionarias && (
+                                    <SelectItem value="" disabled>Nenhuma tarifa cadastrada</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div className="space-y-2">
                               <Label>Modalidade Tarifária</Label>
