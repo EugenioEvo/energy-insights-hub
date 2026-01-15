@@ -95,24 +95,14 @@ export function Step5CreditosRemotos() {
     }
   }, [tarifa, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA]);
 
-  // Calcular custo da assinatura baseado na modalidade do contrato
+  // Calcular custo da assinatura: valor compensado - 15% (cliente paga 85%)
   const custoAssinaturaCalculado = useMemo(() => {
-    if (!vinculo || !data.credito_remoto_kwh) return null;
+    const valorCompensado = data.credito_remoto_compensado_rs || valorCompensadoCalculado || 0;
+    if (valorCompensado <= 0) return null;
 
-    if (vinculo.modalidade_economia === 'ppa_tarifa') {
-      // PPA: kWh alocados × tarifa fixa do contrato
-      return data.credito_remoto_kwh * (vinculo.tarifa_ppa_rs_kwh || 0);
-    } else {
-      // Desconto sobre fatura: valor compensado × (100% - desconto%)
-      // O custo é o que o cliente paga ao gerador
-      const valorCompensado = data.credito_remoto_compensado_rs || valorCompensadoCalculado || 0;
-      const desconto = vinculo.desconto_garantido_percent || 0;
-      
-      // Custo = valor compensado × (1 - desconto/100)
-      // Ex: se desconto é 15%, cliente paga 85% do valor compensado
-      return valorCompensado * (1 - desconto / 100);
-    }
-  }, [vinculo, data.credito_remoto_kwh, data.credito_remoto_compensado_rs, valorCompensadoCalculado]);
+    // Custo = valor compensado × 85% (desconto fixo de 15%)
+    return valorCompensado * 0.85;
+  }, [data.credito_remoto_compensado_rs, valorCompensadoCalculado]);
 
   // Auto-atualizar valor compensado quando calculado - apenas uma vez
   useEffect(() => {
@@ -375,10 +365,10 @@ export function Step5CreditosRemotos() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Custo da Assinatura (R$)</Label>
-              {custoAssinaturaCalculado !== null && vinculo && (
+              {custoAssinaturaCalculado !== null && (
                 <Badge variant="outline" className="text-xs gap-1">
                   <Calculator className="h-3 w-3" />
-                  {vinculo.modalidade_economia === 'ppa_tarifa' ? 'PPA' : 'Desconto'}
+                  85% do compensado
                 </Badge>
               )}
             </div>
@@ -389,14 +379,9 @@ export function Step5CreditosRemotos() {
               onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
               placeholder="Valor pago ao gerador"
             />
-            {vinculo && (
-              <p className="text-xs text-muted-foreground">
-                {vinculo.modalidade_economia === 'ppa_tarifa' 
-                  ? `Cálculo: ${data.credito_remoto_kwh || 0} kWh × R$ ${(vinculo.tarifa_ppa_rs_kwh || 0).toFixed(4)}`
-                  : `Cálculo: R$ ${(data.credito_remoto_compensado_rs || 0).toFixed(2)} × ${100 - (vinculo.desconto_garantido_percent || 0)}%`
-                }
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              Cálculo: R$ {(data.credito_remoto_compensado_rs || 0).toFixed(2)} × 85% (desconto 15%)
+            </p>
           </div>
         </div>
 
