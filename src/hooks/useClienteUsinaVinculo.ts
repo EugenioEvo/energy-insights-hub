@@ -82,6 +82,35 @@ export const useVinculosByCliente = (clienteId: string | undefined) => {
   });
 };
 
+export const useVinculoByUC = (ucId: string | undefined) => {
+  return useQuery({
+    queryKey: ['cliente_usina_vinculo', 'uc', ucId],
+    queryFn: async () => {
+      if (!ucId) return null;
+      const { data, error } = await supabase
+        .from('cliente_usina_vinculo')
+        .select(`
+          *,
+          usinas_remotas (
+            id,
+            nome,
+            uc_geradora,
+            modalidade_gd,
+            fonte,
+            potencia_instalada_kw
+          )
+        `)
+        .eq('uc_beneficiaria_id', ucId)
+        .eq('ativo', true)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as ClienteUsinaVinculoWithRelations | null;
+    },
+    enabled: !!ucId,
+  });
+};
+
 export const useVinculosByUsina = (usinaId: string | undefined) => {
   return useQuery({
     queryKey: ['cliente_usina_vinculo', 'usina', usinaId],

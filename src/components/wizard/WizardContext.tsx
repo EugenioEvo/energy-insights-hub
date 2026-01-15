@@ -63,6 +63,9 @@ export type FaturaWizardData = {
   
   // Passo 5 - Créditos Remotos (Usina assinada)
   credito_remoto_kwh: number;
+  credito_remoto_ponta_kwh: number;
+  credito_remoto_fp_kwh: number;
+  credito_remoto_hr_kwh: number;
   credito_remoto_compensado_rs: number;
   custo_assinatura_rs: number;
   economia_liquida_rs: number;
@@ -179,6 +182,9 @@ export const initialWizardData: FaturaWizardData = {
   
   // Créditos Remotos
   credito_remoto_kwh: 0,
+  credito_remoto_ponta_kwh: 0,
+  credito_remoto_fp_kwh: 0,
+  credito_remoto_hr_kwh: 0,
   credito_remoto_compensado_rs: 0,
   custo_assinatura_rs: 0,
   economia_liquida_rs: 0,

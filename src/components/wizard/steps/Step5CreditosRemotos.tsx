@@ -4,22 +4,99 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useWizard } from '../WizardContext';
-import { PlugZap, ArrowDownRight, Wallet, TrendingUp, Info, AlertTriangle } from 'lucide-react';
+import { PlugZap, ArrowDownRight, Wallet, TrendingUp, Info, AlertTriangle, Calculator, FileText } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useVinculoByUC } from '@/hooks/useClienteUsinaVinculo';
+import { useTarifas } from '@/hooks/useTarifas';
+import { useRateioByUCMes } from '@/hooks/useUsinaRateioMensal';
 
 export function Step5CreditosRemotos() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
 
-  // Cálculos
+  // Buscar vínculo da UC com usina
+  const { data: vinculo, isLoading: loadingVinculo } = useVinculoByUC(data.uc_id);
+  
+  // Buscar tarifa vigente
+  const { data: tarifa, isLoading: loadingTarifa } = useTarifas(
+    data.concessionaria || null,
+    data.grupo_tarifario || null,
+    data.modalidade || null
+  );
+
+  // Buscar rateio existente para o mês
+  const { data: rateioRemoto } = useRateioByUCMes(data.uc_id, data.mes_ref);
+
+  // Auto-preencher dados do rateio quando disponível
+  useEffect(() => {
+    if (rateioRemoto && !data.credito_remoto_kwh) {
+      updateData({
+        credito_remoto_kwh: rateioRemoto.energia_alocada_kwh,
+        // Se tiver valor da fatura da usina no rateio, usar como custo
+        custo_assinatura_rs: rateioRemoto.valor_fatura_usina_rs || data.custo_assinatura_rs,
+      });
+    }
+  }, [rateioRemoto]);
+
+  // Calcular valor compensado baseado na tarifa (TUSD para GD)
+  const valorCompensadoCalculado = useMemo(() => {
+    if (!tarifa || !data.credito_remoto_kwh) return null;
+
+    if (isGrupoA) {
+      // Grupo A (Binômia): soma por posto horário usando TUSD (GD só compensa TUSD)
+      const energiaPonta = data.credito_remoto_ponta_kwh || 0;
+      const energiaFP = data.credito_remoto_fp_kwh || 0;
+      const energiaHR = data.credito_remoto_hr_kwh || 0;
+      
+      const valorPonta = energiaPonta * (tarifa.tusd_ponta_rs_kwh || 0);
+      const valorFP = energiaFP * (tarifa.tusd_fora_ponta_rs_kwh || 0);
+      const valorHR = energiaHR * (tarifa.tusd_reservado_rs_kwh || 0);
+      
+      return valorPonta + valorFP + valorHR;
+    } else {
+      // Grupo B (Monômia): tarifa única
+      const tusdUnica = tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0;
+      return data.credito_remoto_kwh * tusdUnica;
+    }
+  }, [tarifa, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA]);
+
+  // Calcular custo da assinatura baseado na modalidade do contrato
+  const custoAssinaturaCalculado = useMemo(() => {
+    if (!vinculo || !data.credito_remoto_kwh) return null;
+
+    if (vinculo.modalidade_economia === 'ppa_tarifa') {
+      // PPA: kWh alocados × tarifa fixa do contrato
+      return data.credito_remoto_kwh * (vinculo.tarifa_ppa_rs_kwh || 0);
+    } else {
+      // Desconto sobre fatura: valor compensado × (100% - desconto%)
+      // O custo é o que o cliente paga ao gerador
+      const valorCompensado = data.credito_remoto_compensado_rs || valorCompensadoCalculado || 0;
+      const desconto = vinculo.desconto_garantido_percent || 0;
+      
+      // Custo = valor compensado × (1 - desconto/100)
+      // Ex: se desconto é 15%, cliente paga 85% do valor compensado
+      return valorCompensado * (1 - desconto / 100);
+    }
+  }, [vinculo, data.credito_remoto_kwh, data.credito_remoto_compensado_rs, valorCompensadoCalculado]);
+
+  // Auto-atualizar valor compensado quando calculado
+  useEffect(() => {
+    if (valorCompensadoCalculado !== null && !data.credito_remoto_compensado_rs) {
+      updateData({ credito_remoto_compensado_rs: valorCompensadoCalculado });
+    }
+  }, [valorCompensadoCalculado]);
+
+  // Auto-atualizar custo da assinatura quando calculado
+  useEffect(() => {
+    if (custoAssinaturaCalculado !== null && !data.custo_assinatura_rs) {
+      updateData({ custo_assinatura_rs: custoAssinaturaCalculado });
+    }
+  }, [custoAssinaturaCalculado]);
+
+  // Cálculos de economia
   const calculos = useMemo(() => {
-    // Economia líquida = valor compensado - custo assinatura
     const economiaLiquida = data.credito_remoto_compensado_rs - data.custo_assinatura_rs;
-    
-    // Consumo final = consumo residual - créditos remotos utilizados
     const creditosUtilizados = Math.min(data.credito_remoto_kwh, data.consumo_residual_kwh);
     const consumoFinal = Math.max(0, data.consumo_residual_kwh - creditosUtilizados);
-    
-    // Desconto efetivo %
     const descontoEfetivo = data.credito_remoto_compensado_rs > 0
       ? ((economiaLiquida / data.credito_remoto_compensado_rs) * 100).toFixed(1)
       : '0';
@@ -46,10 +123,23 @@ export function Step5CreditosRemotos() {
       setCanProceed(true);
       return;
     }
-    // Se tem usina remota, deve ter algum crédito ou valor
     const hasValues = data.credito_remoto_kwh > 0 || data.credito_remoto_compensado_rs > 0;
     setCanProceed(hasValues);
   }, [data.tem_usina_remota, data.credito_remoto_kwh, data.credito_remoto_compensado_rs, setCanProceed]);
+
+  // Helpers para labels
+  const getModalidadeLabel = () => {
+    if (!vinculo) return '';
+    if (vinculo.modalidade_economia === 'ppa_tarifa') {
+      return `PPA - R$ ${(vinculo.tarifa_ppa_rs_kwh || 0).toFixed(4)}/kWh`;
+    }
+    const refLabels: Record<string, string> = {
+      valor_total: 'Valor Total',
+      te_tusd: 'TE+TUSD',
+      apenas_te: 'Apenas TE',
+    };
+    return `Desconto ${vinculo.desconto_garantido_percent || 0}% sobre ${refLabels[vinculo.referencia_desconto || 'valor_total']}`;
+  };
 
   if (!data.tem_usina_remota) {
     return (
@@ -89,6 +179,32 @@ export function Step5CreditosRemotos() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Card de Contrato */}
+        {vinculo && (
+          <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
+            <FileText className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <strong>Contrato:</strong>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                    {getModalidadeLabel()}
+                  </Badge>
+                </div>
+                {vinculo.usinas_remotas && (
+                  <span className="text-sm text-blue-600 dark:text-blue-400">
+                    Usina: {vinculo.usinas_remotas.nome} ({vinculo.usinas_remotas.uc_geradora})
+                  </span>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {loadingVinculo && (
+          <div className="text-sm text-muted-foreground">Carregando dados do contrato...</div>
+        )}
+
         {/* Contexto - Consumo Residual */}
         <div className="p-4 bg-muted rounded-lg">
           <div className="flex items-center justify-between mb-2">
@@ -109,7 +225,50 @@ export function Step5CreditosRemotos() {
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Campos de Energia por Posto (Grupo A) */}
+          {isGrupoA ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Energia Total Alocada (kWh)</Label>
+                <Input
+                  type="number"
+                  value={data.credito_remoto_kwh || ''}
+                  onChange={(e) => updateData({ credito_remoto_kwh: parseFloat(e.target.value) || 0 })}
+                  placeholder="Total de créditos recebidos"
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-sm">Ponta (kWh)</Label>
+                  <Input
+                    type="number"
+                    value={data.credito_remoto_ponta_kwh || ''}
+                    onChange={(e) => updateData({ credito_remoto_ponta_kwh: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Fora Ponta (kWh)</Label>
+                  <Input
+                    type="number"
+                    value={data.credito_remoto_fp_kwh || ''}
+                    onChange={(e) => updateData({ credito_remoto_fp_kwh: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Reservado (kWh)</Label>
+                  <Input
+                    type="number"
+                    value={data.credito_remoto_hr_kwh || ''}
+                    onChange={(e) => updateData({ credito_remoto_hr_kwh: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
             <div className="space-y-2">
               <Label>Energia Alocada (kWh)</Label>
               <Input
@@ -119,20 +278,44 @@ export function Step5CreditosRemotos() {
                 placeholder="Créditos recebidos da usina"
               />
             </div>
-            <div className="space-y-2">
+          )}
+
+          {/* Valor Compensado */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <Label>Valor Compensado (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={data.credito_remoto_compensado_rs || ''}
-                onChange={(e) => updateData({ credito_remoto_compensado_rs: parseFloat(e.target.value) || 0 })}
-                placeholder="Desconto na fatura"
-              />
+              {valorCompensadoCalculado !== null && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Calculator className="h-3 w-3" />
+                  Calculado via tarifa
+                </Badge>
+              )}
             </div>
+            <Input
+              type="number"
+              step="0.01"
+              value={data.credito_remoto_compensado_rs || ''}
+              onChange={(e) => updateData({ credito_remoto_compensado_rs: parseFloat(e.target.value) || 0 })}
+              placeholder="Desconto na fatura"
+            />
+            {tarifa && (
+              <p className="text-xs text-muted-foreground">
+                Tarifa TUSD: R$ {(tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0).toFixed(4)}/kWh
+              </p>
+            )}
           </div>
 
+          {/* Custo da Assinatura */}
           <div className="space-y-2">
-            <Label>Custo da Assinatura (R$)</Label>
+            <div className="flex items-center justify-between">
+              <Label>Custo da Assinatura (R$)</Label>
+              {custoAssinaturaCalculado !== null && vinculo && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Calculator className="h-3 w-3" />
+                  {vinculo.modalidade_economia === 'ppa_tarifa' ? 'PPA' : 'Desconto'}
+                </Badge>
+              )}
+            </div>
             <Input
               type="number"
               step="0.01"
@@ -140,9 +323,14 @@ export function Step5CreditosRemotos() {
               onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
               placeholder="Valor pago ao gerador"
             />
-            <p className="text-xs text-muted-foreground">
-              Valor mensal pago pela assinatura/locação da usina remota
-            </p>
+            {vinculo && (
+              <p className="text-xs text-muted-foreground">
+                {vinculo.modalidade_economia === 'ppa_tarifa' 
+                  ? `Cálculo: ${data.credito_remoto_kwh || 0} kWh × R$ ${(vinculo.tarifa_ppa_rs_kwh || 0).toFixed(4)}`
+                  : `Cálculo: R$ ${(data.credito_remoto_compensado_rs || 0).toFixed(2)} × ${100 - (vinculo.desconto_garantido_percent || 0)}%`
+                }
+              </p>
+            )}
           </div>
         </div>
 
