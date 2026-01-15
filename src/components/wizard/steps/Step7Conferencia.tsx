@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWizard, FaturaWizardData } from '../WizardContext';
-import { ClipboardCheck, AlertTriangle, CheckCircle2, XCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { ClipboardCheck, AlertTriangle, CheckCircle2, XCircle, Info, ChevronDown, ChevronUp, Zap, Sun, ArrowRightLeft, Wallet } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { calcularComponentesFatura, validarCruzado, ComponentesFatura, ValidacaoCruzada } from '@/lib/faturaCalculations';
+import { calcularComponentesFatura, validarCruzado, validarIntegridadeDados, ComponentesFatura, ValidacaoCruzada } from '@/lib/faturaCalculations';
 
 type AlertaWizard = { tipo: string; mensagem: string; severidade: 'info' | 'warning' | 'error' };
 
@@ -19,7 +19,7 @@ function calcularAlertas(data: FaturaWizardData): AlertaWizard[] {
     const ultrapassagem = ((data.demanda_medida_kw - data.demanda_contratada_kw) / data.demanda_contratada_kw * 100).toFixed(1);
     alertas.push({
       tipo: 'demanda',
-      mensagem: `Ultrapassagem de demanda: ${data.demanda_ultrapassagem_kw.toFixed(2)} kW (${ultrapassagem}%). Revisar demanda contratada / retrofit / gestão de carga.`,
+      mensagem: `Ultrapassagem de demanda: ${data.demanda_ultrapassagem_kw?.toFixed(2) || 0} kW (${ultrapassagem}%). Revisar demanda contratada / retrofit / gestão de carga.`,
       severidade: 'error',
     });
   }
@@ -84,12 +84,19 @@ function calcularRecomendacoes(alertas: AlertaWizard[]): string[] {
 export function Step7Conferencia() {
   const { data, updateData, setCanProceed } = useWizard();
   const [detalhesAberto, setDetalhesAberto] = useState(false);
+  const [integridadeAberto, setIntegridadeAberto] = useState(false);
+  
+  // Ref para controlar atualizações e evitar loop infinito
+  const prevAlertasRef = useRef<string>('');
 
   // Calcular componentes usando função centralizada
   const componentes = useMemo(() => calcularComponentesFatura(data), [data]);
   
   // Validação cruzada
   const validacao = useMemo(() => validarCruzado(data, componentes), [data, componentes]);
+  
+  // Validação de integridade de dados
+  const integridade = useMemo(() => validarIntegridadeDados(data), [data]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -109,17 +116,30 @@ export function Step7Conferencia() {
     return [...alertasValidacaoConvertidos, ...alertasOperacionais];
   }, [validacao.alertasValidacao, alertasOperacionais]);
 
-  // Atualizar dados com alertas e recomendações
+  // Atualizar dados com alertas e recomendações - com proteção contra loop infinito
   useEffect(() => {
-    updateData({ alertas: todosAlertas, recomendacoes });
+    const alertasJson = JSON.stringify(todosAlertas);
+    const recsJson = JSON.stringify(recomendacoes);
+    const currentHash = `${alertasJson}|${recsJson}`;
+    
+    // Só atualiza se houver mudança real
+    if (prevAlertasRef.current !== currentHash) {
+      prevAlertasRef.current = currentHash;
+      updateData({ alertas: todosAlertas, recomendacoes });
+    }
   }, [todosAlertas, recomendacoes, updateData]);
 
-  // Validação - bloquear se diferença > 0.5%
+  // Validação - bloquear se diferença > 0.5% ou integridade inválida
   useEffect(() => {
-    setCanProceed(validacao.isValid);
-  }, [validacao.isValid, setCanProceed]);
+    setCanProceed(validacao.isValid && integridade.isValid);
+  }, [validacao.isValid, integridade.isValid, setCanProceed]);
 
   const temAlertasCriticos = todosAlertas.some(a => a.severidade === 'error');
+  
+  // Calcular saldo total de créditos
+  const saldoTotalCreditos = (data.scee_saldo_kwh_p || 0) + 
+                              (data.scee_saldo_kwh_fp || 0) + 
+                              (data.scee_saldo_kwh_hr || 0);
 
   return (
     <Card>
@@ -133,6 +153,91 @@ export function Step7Conferencia() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        
+        {/* Resumo Energético */}
+        <div>
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+            Resumo Energético (kWh)
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Zap className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Consumo Total</span>
+              </div>
+              <p className="text-lg font-bold">{(data.consumo_total_kwh || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Sun className="h-4 w-4 text-green-600" />
+                <span className="text-xs text-muted-foreground">Geração Local</span>
+              </div>
+              <p className="text-lg font-bold text-green-600">{(data.geracao_local_total_kwh || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <ArrowRightLeft className="h-4 w-4 text-blue-600" />
+                <span className="text-xs text-muted-foreground">Créditos Remotos</span>
+              </div>
+              <p className="text-lg font-bold text-blue-600">{(data.credito_remoto_kwh || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Wallet className="h-4 w-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Saldo Créditos</span>
+              </div>
+              <p className="text-lg font-bold text-primary">{saldoTotalCreditos.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Validações de Integridade */}
+        {integridade.checks.length > 0 && (
+          <>
+            <div>
+              <Collapsible open={integridadeAberto} onOpenChange={setIntegridadeAberto}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                        Validações de Integridade ({integridade.checks.length})
+                      </span>
+                      {!integridade.isValid && (
+                        <Badge variant="destructive" className="text-xs">Erros</Badge>
+                      )}
+                    </span>
+                    {integridadeAberto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <div className="space-y-2">
+                    {integridade.checks.map((check, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{check.nome}</span>
+                          <p className="text-xs text-muted-foreground">{check.mensagem}</p>
+                        </div>
+                        <Badge 
+                          variant={
+                            check.status === 'ok' ? 'default' : 
+                            check.status === 'warning' ? 'secondary' : 
+                            'destructive'
+                          }
+                        >
+                          {check.status === 'ok' ? '✓ OK' : `Δ ${check.diferenca.toFixed(1)}`}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+            <Separator />
+          </>
+        )}
+
         {/* Conferência de Valores */}
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
@@ -221,8 +326,11 @@ export function Step7Conferencia() {
                     {componentes.scee.total === 0 && (
                       <Badge variant="outline" className="text-xs">vazio</Badge>
                     )}
+                    {componentes.scee.total < 0 && (
+                      <Badge variant="secondary" className="text-xs">crédito</Badge>
+                    )}
                   </div>
-                  <span className={componentes.scee.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                  <span className={componentes.scee.total !== 0 ? 'font-medium' : 'text-muted-foreground'}>
                     {formatCurrency(componentes.scee.total)}
                   </span>
                 </div>
@@ -373,10 +481,10 @@ export function Step7Conferencia() {
           <div className="flex items-center justify-between">
             <span className="font-medium">Status Final:</span>
             <Badge 
-              variant={temAlertasCriticos ? 'destructive' : 'default'}
+              variant={temAlertasCriticos || !integridade.isValid ? 'destructive' : 'default'}
               className="text-sm"
             >
-              {temAlertasCriticos ? 'CRÍTICO' : todosAlertas.length > 0 ? 'ATENÇÃO' : 'OK'}
+              {temAlertasCriticos || !integridade.isValid ? 'CRÍTICO' : todosAlertas.length > 0 ? 'ATENÇÃO' : 'OK'}
             </Badge>
           </div>
         </div>
