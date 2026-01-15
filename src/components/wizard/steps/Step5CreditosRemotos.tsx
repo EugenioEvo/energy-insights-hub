@@ -95,13 +95,17 @@ export function Step5CreditosRemotos() {
     }
   }, [tarifa, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA]);
 
-  // Calcular custo da assinatura: valor compensado - 15% (cliente paga 85%)
+  // Percentual de desconto: usa o valor do vínculo ou 15% como padrão
+  const descontoPercent = vinculo?.desconto_garantido_percent ?? 15;
+  const percentualPago = 100 - descontoPercent;
+
+  // Calcular custo da assinatura: valor compensado × (100% - desconto%)
   const custoAssinaturaCalculado = useMemo(() => {
     const valorCompensado = data.credito_remoto_compensado_rs || valorCompensadoCalculado || 0;
     if (valorCompensado <= 0) return null;
 
-    // Custo = valor compensado × 85% (desconto fixo de 15%)
-    return valorCompensado * 0.85;
+    // Custo = valor compensado × percentual que o cliente paga
+    return valorCompensado * (percentualPago / 100);
   }, [data.credito_remoto_compensado_rs, valorCompensadoCalculado]);
 
   // Auto-atualizar valor compensado quando calculado - apenas uma vez
@@ -368,7 +372,7 @@ export function Step5CreditosRemotos() {
               {custoAssinaturaCalculado !== null && (
                 <Badge variant="outline" className="text-xs gap-1">
                   <Calculator className="h-3 w-3" />
-                  85% do compensado
+                  {percentualPago}% do compensado
                 </Badge>
               )}
             </div>
@@ -380,7 +384,8 @@ export function Step5CreditosRemotos() {
               placeholder="Valor pago ao gerador"
             />
             <p className="text-xs text-muted-foreground">
-              Cálculo: R$ {(data.credito_remoto_compensado_rs || 0).toFixed(2)} × 85% (desconto 15%)
+              Cálculo: R$ {(data.credito_remoto_compensado_rs || 0).toFixed(2)} × {percentualPago}% (desconto {descontoPercent}%)
+              {vinculo ? '' : ' - padrão'}
             </p>
           </div>
         </div>
