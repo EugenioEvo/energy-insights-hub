@@ -262,9 +262,9 @@ export const STEPS_GRUPO_A: StepDefinition[] = [
   { id: 'consumo', name: 'Consumo', description: 'Consumo por posto horário' },
   { id: 'demanda', name: 'Demanda', description: 'Demanda contratada e medida' },
   { id: 'geracao_local', name: 'Geração Local', description: 'Autoconsumo e injeção da usina própria' },
-  { id: 'creditos_remotos', name: 'Créditos Remotos', description: 'Créditos da usina assinada' },
   { id: 'itens_fatura', name: 'Itens Fatura', description: 'Decomposição TE/TUSD' },
   { id: 'tributos', name: 'Tributos', description: 'PIS, COFINS, ICMS' },
+  { id: 'creditos_remotos', name: 'Créditos Remotos', description: 'Créditos da usina assinada' },
   { id: 'conferencia', name: 'Conferência', description: 'Validação e fechamento' },
 ];
 
@@ -273,8 +273,8 @@ export const STEPS_GRUPO_B: StepDefinition[] = [
   { id: 'cabecalho', name: 'Cabeçalho', description: 'Dados gerais da fatura' },
   { id: 'consumo', name: 'Consumo', description: 'Consumo total' },
   { id: 'geracao_local', name: 'Geração Local', description: 'Autoconsumo e injeção' },
-  { id: 'creditos_remotos', name: 'Créditos Remotos', description: 'Créditos da usina assinada' },
   { id: 'tributos', name: 'Tributos', description: 'Tributos simplificados' },
+  { id: 'creditos_remotos', name: 'Créditos Remotos', description: 'Créditos da usina assinada' },
   { id: 'conferencia', name: 'Conferência', description: 'Validação e fechamento' },
 ];
 
