@@ -46,29 +46,31 @@ serve(async (req) => {
 
     console.log("Buscando tarifas da Equatorial Goiás via Perplexity...");
 
-    const prompt = `Busque as tarifas de energia elétrica vigentes da Equatorial Goiás no site oficial https://go.equatorialenergia.com.br/valor-de-tarifas-e-servicos/
+    const prompt = `Preciso das tarifas de energia elétrica da Equatorial Goiás (CELG-D) homologadas pela ANEEL, vigentes a partir de outubro/2025.
 
-Extraia TODAS as tarifas para os seguintes subgrupos:
-- Grupo A: A1, A2, A3, A3a, A4, AS (Alta Tensão)
-- Grupo B: B1-Residencial, B2-Rural, B3-Comercial (Baixa Tensão)
+Busque os valores EXATOS em R$/kWh e R$/kW das seguintes tarifas:
 
-Para cada subgrupo, extraia:
-1. TE (Tarifa de Energia) em R$/kWh - Ponta e Fora Ponta (ou única para Grupo B)
-2. TUSD (Tarifa de Uso do Sistema de Distribuição) em R$/kWh - Ponta e Fora Ponta (ou única para Grupo B)
-3. Demanda em R$/kW - Para modalidades Verde e Azul (Grupo A)
-4. Demanda de Ultrapassagem em R$/kW
-5. Demanda de Geração em R$/kW (se disponível)
+GRUPO A (subgrupo A4, modalidade Verde):
+- TE Ponta: valor em R$/kWh
+- TE Fora Ponta: valor em R$/kWh  
+- TUSD Ponta: valor em R$/kWh
+- TUSD Fora Ponta: valor em R$/kWh
+- Demanda: valor em R$/kW
 
-Também extraia:
-- Número da Resolução ANEEL vigente
-- Data de início de vigência
+GRUPO A (subgrupo A4, modalidade Azul):
+- TE Ponta: valor em R$/kWh
+- TE Fora Ponta: valor em R$/kWh
+- TUSD Ponta: valor em R$/kWh
+- TUSD Fora Ponta: valor em R$/kWh
+- Demanda Ponta: valor em R$/kW
+- Demanda Fora Ponta: valor em R$/kW
 
-IMPORTANTE: 
-- Valores devem ser numéricos em R$ (não incluir o símbolo R$)
-- Para Grupo B, use te_unica e tusd_unica ao invés de ponta/fora_ponta
-- Se um valor não estiver disponível, use null
+GRUPO B3 Comercial:
+- TE: valor em R$/kWh
+- TUSD: valor em R$/kWh
 
-Retorne em formato JSON estruturado.`;
+Informe a Resolução Homologatória ANEEL e data de vigência.
+Os valores devem ser numéricos (ex: 0.45678), SEM impostos.`;
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -81,14 +83,13 @@ Retorne em formato JSON estruturado.`;
         messages: [
           {
             role: "system",
-            content: "Você é um especialista em tarifas de energia elétrica do Brasil. Extraia dados precisos e estruturados das fontes oficiais. Sempre retorne JSON válido."
+            content: "Você é um especialista em tarifas de energia elétrica do Brasil. Busque as tarifas mais recentes homologadas pela ANEEL. Retorne os dados em formato JSON estruturado."
           },
           {
             role: "user",
             content: prompt
           }
         ],
-        search_domain_filter: ["equatorialenergia.com.br", "aneel.gov.br"],
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -177,6 +178,28 @@ Retorne em formato JSON estruturado.`;
       console.error("Erro ao desativar tarifas antigas:", updateError);
     }
 
+    // Parsear data brasileira para ISO
+    const parseDate = (dateStr: string): string => {
+      if (!dateStr) return new Date().toISOString().split("T")[0];
+      
+      // Tenta DD/MM/YYYY
+      const brMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (brMatch) {
+        const [, day, month, year] = brMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      
+      // Tenta YYYY-MM-DD (já está no formato correto)
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return dateStr;
+      }
+      
+      return new Date().toISOString().split("T")[0];
+    };
+
+    const vigenciaISO = parseDate(parsedData.vigencia_inicio);
+    console.log(`Vigência parseada: ${parsedData.vigencia_inicio} -> ${vigenciaISO}`);
+
     // Inserir novas tarifas
     const tarifasParaInserir = parsedData.tarifas.map((t) => {
       const isGrupoA = t.subgrupo.startsWith("A");
@@ -197,7 +220,7 @@ Retorne em formato JSON estruturado.`;
         demanda_geracao_rs_kw: t.demanda_geracao,
         demanda_ultrapassagem_rs_kw: t.demanda_ultrapassagem,
         resolucao_aneel: parsedData.resolucao_aneel,
-        vigencia_inicio: parsedData.vigencia_inicio || new Date().toISOString().split("T")[0],
+        vigencia_inicio: vigenciaISO,
         ativo: true,
       };
     });
