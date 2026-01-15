@@ -282,3 +282,33 @@ export function useConcessionariasComTarifas() {
     staleTime: 1000 * 60 * 60,
   });
 }
+
+/**
+ * Hook para buscar tarifas disponíveis para uma concessionária específica
+ * Útil para mostrar fallback quando não encontra a tarifa desejada
+ */
+export function useTarifasDisponiveis(concessionaria: string | null) {
+  return useQuery({
+    queryKey: ['tarifas', 'disponiveis', concessionaria],
+    queryFn: async () => {
+      if (!concessionaria) return [];
+      
+      const { data, error } = await supabase
+        .from('tarifas_concessionaria')
+        .select('id, concessionaria, grupo_tarifario, subgrupo, modalidade, vigencia_inicio, resolucao_aneel')
+        .eq('ativo', true)
+        .ilike('concessionaria', `%${concessionaria}%`)
+        .order('grupo_tarifario', { ascending: true })
+        .order('modalidade', { ascending: true });
+      
+      if (error) {
+        console.error('Erro ao buscar tarifas disponíveis:', error);
+        throw error;
+      }
+      
+      return data || [];
+    },
+    enabled: !!concessionaria,
+    staleTime: 1000 * 60 * 60,
+  });
+}
