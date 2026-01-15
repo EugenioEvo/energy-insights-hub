@@ -10,6 +10,7 @@ import { TarifaInfo, useTarifaAtual } from '../TarifaInfo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FormulaTooltip } from '../FormulaTooltip';
 
 export function Step5ItensFatura() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
@@ -357,14 +358,29 @@ export function Step5ItensFatura() {
 
         {/* 5A - Bandeiras TE */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center">
             5A) Bandeiras (TE) — R$
+            <FormulaTooltip 
+              title="Adicional de Bandeira"
+              formula="Consumo (kWh) × Tarifa Bandeira (R$/kWh)"
+              description="Valor adicional cobrado sobre todo o consumo, conforme bandeira tarifária vigente."
+            />
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <div className="flex items-center">
                 <Label>Bandeira TE Ponta</Label>
                 <AutoBadge show={autoFilled.bandeira_te_p} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="Bandeira TE Ponta"
+                    formula="Consumo P × Tarifa Bandeira"
+                    variables={[
+                      { name: 'Consumo P', value: data.consumo_ponta_kwh || 0, unit: 'kWh' },
+                      { name: 'Tarifa Bandeira', value: data.bandeira === 'verde' ? (tarifa.bandeira_verde_rs_kwh || 0) : data.bandeira === 'amarela' ? (tarifa.bandeira_amarela_rs_kwh || 0) : data.bandeira === 'vermelha1' ? (tarifa.bandeira_vermelha1_rs_kwh || 0) : (tarifa.bandeira_vermelha2_rs_kwh || 0), unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -386,6 +402,16 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>Bandeira TE Fora Ponta</Label>
                 <AutoBadge show={autoFilled.bandeira_te_fp} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="Bandeira TE Fora Ponta"
+                    formula="Consumo FP × Tarifa Bandeira"
+                    variables={[
+                      { name: 'Consumo FP', value: data.consumo_fora_ponta_kwh || 0, unit: 'kWh' },
+                      { name: 'Tarifa Bandeira', value: data.bandeira === 'verde' ? (tarifa.bandeira_verde_rs_kwh || 0) : data.bandeira === 'amarela' ? (tarifa.bandeira_amarela_rs_kwh || 0) : data.bandeira === 'vermelha1' ? (tarifa.bandeira_vermelha1_rs_kwh || 0) : (tarifa.bandeira_vermelha2_rs_kwh || 0), unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -407,6 +433,16 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>Bandeira TE HR</Label>
                 <AutoBadge show={autoFilled.bandeira_te_hr} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="Bandeira TE Hora Reservada"
+                    formula="Consumo HR × Tarifa Bandeira"
+                    variables={[
+                      { name: 'Consumo HR', value: data.consumo_reservado_kwh || 0, unit: 'kWh' },
+                      { name: 'Tarifa Bandeira', value: data.bandeira === 'verde' ? (tarifa.bandeira_verde_rs_kwh || 0) : data.bandeira === 'amarela' ? (tarifa.bandeira_amarela_rs_kwh || 0) : data.bandeira === 'vermelha1' ? (tarifa.bandeira_vermelha1_rs_kwh || 0) : (tarifa.bandeira_vermelha2_rs_kwh || 0), unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -434,14 +470,31 @@ export function Step5ItensFatura() {
 
         {/* 5B - Não Compensado TUSD */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center">
             5B) Consumo NÃO Compensado (TUSD) — R$
+            <FormulaTooltip 
+              title="TUSD Não Compensado"
+              formula="(Consumo - Autoconsumo - Créditos) × TUSD"
+              description="Tarifa de Uso do Sistema de Distribuição aplicada sobre o consumo que não foi compensado por geração ou créditos."
+            />
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <div className="flex items-center">
                 <Label>TUSD Ponta</Label>
                 <AutoBadge show={autoFilled.tusd_p} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="TUSD Ponta"
+                    formula="Consumo NC P × TUSD P"
+                    variables={[
+                      { name: 'Consumo P', value: data.consumo_ponta_kwh || 0, unit: 'kWh' },
+                      { name: 'Autoconsumo P', value: data.autoconsumo_ponta_kwh || 0, unit: 'kWh' },
+                      { name: 'Consumo NC P', value: consumoNaoCompensado.ponta, unit: 'kWh' },
+                      { name: 'TUSD Ponta', value: tarifa.tusd_ponta_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -463,6 +516,18 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>TUSD Fora Ponta</Label>
                 <AutoBadge show={autoFilled.tusd_fp} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="TUSD Fora Ponta"
+                    formula="Consumo NC FP × TUSD FP"
+                    variables={[
+                      { name: 'Consumo FP', value: data.consumo_fora_ponta_kwh || 0, unit: 'kWh' },
+                      { name: 'Autoconsumo FP', value: data.autoconsumo_fp_kwh || 0, unit: 'kWh' },
+                      { name: 'Consumo NC FP', value: consumoNaoCompensado.fp, unit: 'kWh' },
+                      { name: 'TUSD FP', value: tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -484,6 +549,18 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>TUSD HR</Label>
                 <AutoBadge show={autoFilled.tusd_hr} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="TUSD Hora Reservada"
+                    formula="Consumo NC HR × TUSD HR"
+                    variables={[
+                      { name: 'Consumo HR', value: data.consumo_reservado_kwh || 0, unit: 'kWh' },
+                      { name: 'Autoconsumo HR', value: data.autoconsumo_hr_kwh || 0, unit: 'kWh' },
+                      { name: 'Consumo NC HR', value: consumoNaoCompensado.hr, unit: 'kWh' },
+                      { name: 'TUSD HR', value: tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -511,14 +588,29 @@ export function Step5ItensFatura() {
 
         {/* 5C - Não Compensado TE */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center">
             5C) Consumo NÃO Compensado (TE) — R$
+            <FormulaTooltip 
+              title="TE Não Compensado"
+              formula="(Consumo - Autoconsumo - Créditos) × TE"
+              description="Tarifa de Energia aplicada sobre o consumo que não foi compensado por geração ou créditos."
+            />
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <div className="flex items-center">
                 <Label>TE Ponta</Label>
                 <AutoBadge show={autoFilled.te_p} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="TE Ponta"
+                    formula="Consumo NC P × TE P"
+                    variables={[
+                      { name: 'Consumo NC P', value: consumoNaoCompensado.ponta, unit: 'kWh' },
+                      { name: 'TE Ponta', value: tarifa.te_ponta_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -540,6 +632,16 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>TE Fora Ponta</Label>
                 <AutoBadge show={autoFilled.te_fp} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="TE Fora Ponta"
+                    formula="Consumo NC FP × TE FP"
+                    variables={[
+                      { name: 'Consumo NC FP', value: consumoNaoCompensado.fp, unit: 'kWh' },
+                      { name: 'TE FP', value: tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -561,6 +663,16 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>TE HR</Label>
                 <AutoBadge show={autoFilled.te_hr} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="TE Hora Reservada"
+                    formula="Consumo NC HR × TE HR"
+                    variables={[
+                      { name: 'Consumo NC HR', value: consumoNaoCompensado.hr, unit: 'kWh' },
+                      { name: 'TE HR', value: tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -588,14 +700,30 @@ export function Step5ItensFatura() {
 
         {/* 5D - SCEE Compensação */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center">
             5D) SCEE (Compensação) — R$
+            <FormulaTooltip 
+              title="Sistema de Compensação de Energia Elétrica"
+              formula="Consumo Compensado × (TUSD + TE) - Créditos Injeção"
+              description="Valores referentes à energia compensada e créditos de injeção. Injeções geram créditos (valores negativos)."
+            />
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex items-center">
                 <Label>SCEE Consumo FP TUSD</Label>
                 <AutoBadge show={autoFilled.scee_consumo_fp_tusd} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="SCEE TUSD Fora Ponta"
+                    formula="Créditos Recebidos × TUSD FP"
+                    variables={[
+                      { name: 'Créditos', value: data.scee_credito_recebido_kwh || data.credito_assinatura_kwh || 0, unit: 'kWh' },
+                      { name: 'TUSD FP', value: tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                    description="Parcela TUSD sobre a energia compensada com créditos recebidos."
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -620,6 +748,17 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>SCEE Parcela TE FP</Label>
                 <AutoBadge show={autoFilled.scee_parcela_te_fp} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="SCEE TE Fora Ponta"
+                    formula="Créditos Recebidos × TE FP"
+                    variables={[
+                      { name: 'Créditos', value: data.scee_credito_recebido_kwh || data.credito_assinatura_kwh || 0, unit: 'kWh' },
+                      { name: 'TE FP', value: tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                    description="Parcela TE sobre a energia compensada com créditos recebidos."
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -644,6 +783,17 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>SCEE Injeção FP TE (crédito)</Label>
                 <AutoBadge show={autoFilled.scee_injecao_fp_te} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="Crédito Injeção TE"
+                    formula="-(Injeção FP × TE FP)"
+                    variables={[
+                      { name: 'Injeção FP', value: (data.injecao_fp_kwh || 0) + (data.scee_geracao_ciclo_fp_kwh || 0), unit: 'kWh' },
+                      { name: 'TE FP', value: tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                    description="Crédito gerado pela energia injetada na rede. Valor negativo = abatimento."
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -669,6 +819,17 @@ export function Step5ItensFatura() {
               <div className="flex items-center">
                 <Label>SCEE Injeção FP TUSD (crédito)</Label>
                 <AutoBadge show={autoFilled.scee_injecao_fp_tusd} />
+                {tarifa && (
+                  <FormulaTooltip 
+                    title="Crédito Injeção TUSD"
+                    formula="-(Injeção FP × TUSD FP)"
+                    variables={[
+                      { name: 'Injeção FP', value: (data.injecao_fp_kwh || 0) + (data.scee_geracao_ciclo_fp_kwh || 0), unit: 'kWh' },
+                      { name: 'TUSD FP', value: tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0, unit: 'R$/kWh' },
+                    ]}
+                    description="Crédito de TUSD gerado pela energia injetada. Valor negativo = abatimento."
+                  />
+                )}
               </div>
               <Input 
                 type="number"
@@ -699,12 +860,24 @@ export function Step5ItensFatura() {
 
         {/* 5E - Reativo + CIP */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center">
             5E) Reativo + CIP
+            <FormulaTooltip 
+              title="Encargos Adicionais"
+              formula="UFER + CIP"
+              description="UFER: Excedente de Energia Reativa (multa por baixo fator de potência). CIP: Contribuição para Iluminação Pública."
+            />
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>UFER FP (kVArh)</Label>
+              <div className="flex items-center">
+                <Label>UFER FP (kVArh)</Label>
+                <FormulaTooltip 
+                  title="UFER - Energia Reativa"
+                  formula="Excesso reativo quando FP < 0.92"
+                  description="Quantidade de energia reativa consumida acima do limite permitido. Indica necessidade de correção do fator de potência."
+                />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
@@ -714,7 +887,17 @@ export function Step5ItensFatura() {
               />
             </div>
             <div className="space-y-2">
-              <Label>UFER FP (R$)</Label>
+              <div className="flex items-center">
+                <Label>UFER FP (R$)</Label>
+                <FormulaTooltip 
+                  title="Multa UFER"
+                  formula="UFER (kVArh) × Tarifa Reativo"
+                  variables={[
+                    { name: 'UFER', value: data.ufer_fp_kvarh || 0, unit: 'kVArh' },
+                  ]}
+                  description="Valor cobrado pelo consumo excessivo de energia reativa."
+                />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
@@ -725,7 +908,14 @@ export function Step5ItensFatura() {
               />
             </div>
             <div className="space-y-2">
-              <Label>CIP (R$)</Label>
+              <div className="flex items-center">
+                <Label>CIP (R$)</Label>
+                <FormulaTooltip 
+                  title="Contribuição Iluminação Pública"
+                  formula="Valor fixo municipal"
+                  description="Taxa cobrada pela prefeitura para manutenção da iluminação pública. Valor definido por lei municipal."
+                />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
