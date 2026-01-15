@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { useVinculoByUC } from '@/hooks/useClienteUsinaVinculo';
 import { useTarifas } from '@/hooks/useTarifas';
 import { useRateioByUCMes } from '@/hooks/useUsinaRateioMensal';
 import { calcularBalancoEnergetico, formatarKwh } from '@/lib/energyBalanceCalculations';
+import { FormulaTooltip, DataSourceTooltip } from '../FormulaTooltip';
 
 export function Step5CreditosRemotos() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
@@ -27,52 +28,109 @@ export function Step5CreditosRemotos() {
   // Buscar rateio existente para o mês
   const { data: rateioRemoto } = useRateioByUCMes(data.uc_id, data.mes_ref);
 
-  // Auto-preencher dados do rateio quando disponível
+  // Ref para evitar auto-preenchimento repetido
+  const autoFilledRef = useRef(false);
+
+  // =====================================
+  // CÁLCULO AUTOMÁTICO DE CRÉDITOS ALOCADOS
+  // =====================================
+  // Calcular créditos alocados por posto baseado no consumo residual (Consumo - Autoconsumo)
+  const creditosAlocadosCalculados = useMemo(() => {
+    // Consumo residual por posto = Consumo - Autoconsumo
+    const consumoResidualPonta = Math.max(0, data.consumo_ponta_kwh - (data.autoconsumo_ponta_kwh || 0));
+    const consumoResidualFP = Math.max(0, data.consumo_fora_ponta_kwh - (data.autoconsumo_fp_kwh || 0));
+    const consumoResidualHR = Math.max(0, data.consumo_reservado_kwh - (data.autoconsumo_hr_kwh || 0));
+    const consumoResidualTotal = consumoResidualPonta + consumoResidualFP + consumoResidualHR;
+
+    // Créditos remotos disponíveis (do contrato/rateio ou scee_credito_recebido)
+    const creditosDisponiveis = rateioRemoto?.energia_alocada_kwh 
+      || data.scee_credito_recebido_kwh 
+      || data.credito_remoto_kwh 
+      || 0;
+
+    // Alocar créditos por posto para zerar consumo residual
+    let creditoPonta = 0, creditoFP = 0, creditoHR = 0;
+    let creditosRestantes = creditosDisponiveis;
+
+    if (consumoResidualTotal > 0 && creditosDisponiveis > 0) {
+      // Alocar proporcionalmente ao consumo residual, até o limite disponível
+      if (creditosDisponiveis >= consumoResidualTotal) {
+        // Créditos suficientes para zerar todo o consumo residual
+        creditoPonta = consumoResidualPonta;
+        creditoFP = consumoResidualFP;
+        creditoHR = consumoResidualHR;
+      } else {
+        // Créditos insuficientes: distribuir proporcionalmente
+        const propPonta = consumoResidualPonta / consumoResidualTotal;
+        const propFP = consumoResidualFP / consumoResidualTotal;
+        const propHR = consumoResidualHR / consumoResidualTotal;
+        
+        creditoPonta = Math.round(creditosDisponiveis * propPonta * 100) / 100;
+        creditoFP = Math.round(creditosDisponiveis * propFP * 100) / 100;
+        creditoHR = Math.round(creditosDisponiveis * propHR * 100) / 100;
+      }
+    }
+
+    // Consumo não compensado por posto (será cobrado na fatura)
+    const naoCompensadoPonta = Math.max(0, consumoResidualPonta - creditoPonta);
+    const naoCompensadoFP = Math.max(0, consumoResidualFP - creditoFP);
+    const naoCompensadoHR = Math.max(0, consumoResidualHR - creditoHR);
+    
+    const totalAlocado = creditoPonta + creditoFP + creditoHR;
+    const totalNaoCompensado = naoCompensadoPonta + naoCompensadoFP + naoCompensadoHR;
+
+    return {
+      consumoResidual: { 
+        ponta: consumoResidualPonta, 
+        fp: consumoResidualFP, 
+        hr: consumoResidualHR, 
+        total: consumoResidualTotal 
+      },
+      creditosAlocados: { 
+        ponta: creditoPonta, 
+        fp: creditoFP, 
+        hr: creditoHR, 
+        total: totalAlocado 
+      },
+      naoCompensado: { 
+        ponta: naoCompensadoPonta, 
+        fp: naoCompensadoFP, 
+        hr: naoCompensadoHR, 
+        total: totalNaoCompensado 
+      },
+      creditosDisponiveis,
+    };
+  }, [
+    data.consumo_ponta_kwh, data.consumo_fora_ponta_kwh, data.consumo_reservado_kwh,
+    data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh,
+    data.scee_credito_recebido_kwh, data.credito_remoto_kwh,
+    rateioRemoto
+  ]);
+
+  // Auto-preencher créditos alocados quando calculados (apenas uma vez)
   useEffect(() => {
-    if (rateioRemoto && !data.credito_remoto_kwh) {
+    const { creditosAlocados } = creditosAlocadosCalculados;
+    
+    // Só auto-preencher se:
+    // 1. Tiver créditos calculados
+    // 2. Campos ainda estão zerados
+    // 3. Não foi auto-preenchido ainda
+    if (
+      creditosAlocados.total > 0 && 
+      !data.credito_remoto_ponta_kwh && 
+      !data.credito_remoto_fp_kwh && 
+      !data.credito_remoto_hr_kwh &&
+      !autoFilledRef.current
+    ) {
+      autoFilledRef.current = true;
       updateData({
-        credito_remoto_kwh: rateioRemoto.energia_alocada_kwh,
-        credito_remoto_ponta_kwh: rateioRemoto.energia_ponta_kwh || 0,
-        credito_remoto_fp_kwh: rateioRemoto.energia_fora_ponta_kwh || 0,
-        credito_remoto_hr_kwh: rateioRemoto.energia_reservado_kwh || 0,
-        custo_assinatura_rs: rateioRemoto.valor_fatura_usina_rs || data.custo_assinatura_rs,
+        credito_remoto_ponta_kwh: creditosAlocados.ponta,
+        credito_remoto_fp_kwh: creditosAlocados.fp,
+        credito_remoto_hr_kwh: creditosAlocados.hr,
+        credito_remoto_kwh: creditosAlocados.total,
       });
     }
-  }, [rateioRemoto]);
-
-  // Auto-distribuir energia por posto quando total é informado (Grupo A)
-  const distribuirEnergiaPorPosto = useCallback((totalKwh: number) => {
-    if (!isGrupoA || totalKwh <= 0) return;
-    
-    // Se já tem valores por posto, não sobrescrever
-    const temValoresPosto = (data.credito_remoto_ponta_kwh || 0) > 0 || 
-                            (data.credito_remoto_fp_kwh || 0) > 0 || 
-                            (data.credito_remoto_hr_kwh || 0) > 0;
-    if (temValoresPosto) return;
-
-    // Calcular proporção baseada no consumo da UC
-    const consumoTotal = data.consumo_ponta_kwh + data.consumo_fora_ponta_kwh + data.consumo_reservado_kwh;
-    
-    if (consumoTotal > 0) {
-      // Distribuir proporcionalmente ao consumo
-      const propPonta = data.consumo_ponta_kwh / consumoTotal;
-      const propFP = data.consumo_fora_ponta_kwh / consumoTotal;
-      const propHR = data.consumo_reservado_kwh / consumoTotal;
-      
-      updateData({
-        credito_remoto_ponta_kwh: Math.round(totalKwh * propPonta * 100) / 100,
-        credito_remoto_fp_kwh: Math.round(totalKwh * propFP * 100) / 100,
-        credito_remoto_hr_kwh: Math.round(totalKwh * propHR * 100) / 100,
-      });
-    } else {
-      // Padrão: 10% Ponta, 85% FP, 5% HR (perfil típico solar)
-      updateData({
-        credito_remoto_ponta_kwh: Math.round(totalKwh * 0.10 * 100) / 100,
-        credito_remoto_fp_kwh: Math.round(totalKwh * 0.85 * 100) / 100,
-        credito_remoto_hr_kwh: Math.round(totalKwh * 0.05 * 100) / 100,
-      });
-    }
-  }, [isGrupoA, data.consumo_ponta_kwh, data.consumo_fora_ponta_kwh, data.consumo_reservado_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, updateData]);
+  }, [creditosAlocadosCalculados, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, updateData]);
 
   // Impostos padrão caso não estejam configurados na tarifa
   const IMPOSTOS_DEFAULT = {
@@ -91,81 +149,67 @@ export function Step5CreditosRemotos() {
   };
 
   // Calcular valor compensado baseado na tarifa (TUSD + Encargos + impostos "por dentro")
-  // Alinhado com a metodologia de cost avoidance do autoconsumo
   const valorCompensadoCalculado = useMemo(() => {
-    if (!tarifa || !data.credito_remoto_kwh) return null;
+    const creditoTotal = data.credito_remoto_kwh || creditosAlocadosCalculados.creditosAlocados.total;
+    if (!tarifa || !creditoTotal) return null;
 
     // Se modalidade PPA, usar tarifa fixa do contrato
     if (vinculo?.modalidade_economia === 'ppa_tarifa' && vinculo?.tarifa_ppa_rs_kwh) {
-      return data.credito_remoto_kwh * vinculo.tarifa_ppa_rs_kwh;
+      return creditoTotal * vinculo.tarifa_ppa_rs_kwh;
     }
 
     const encargos = tarifa.tusd_encargos_rs_kwh || 0;
     const impostos = obterImpostos(tarifa);
-    // Fator de impostos "por dentro" (cost avoidance)
     const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins);
 
     if (isGrupoA) {
-      // Grupo A (Binômia): soma por posto horário usando TUSD + Encargos
-      const energiaPonta = data.credito_remoto_ponta_kwh || 0;
-      const energiaFP = data.credito_remoto_fp_kwh || 0;
-      const energiaHR = data.credito_remoto_hr_kwh || 0;
+      const energiaPonta = data.credito_remoto_ponta_kwh || creditosAlocadosCalculados.creditosAlocados.ponta;
+      const energiaFP = data.credito_remoto_fp_kwh || creditosAlocadosCalculados.creditosAlocados.fp;
+      const energiaHR = data.credito_remoto_hr_kwh || creditosAlocadosCalculados.creditosAlocados.hr;
       
-      // Ponta
       const tusdPonta = tarifa.tusd_ponta_rs_kwh || 0;
-      const tarifaPonta = tusdPonta + encargos;
-      const valorPonta = energiaPonta * tarifaPonta;
+      const valorPonta = energiaPonta * (tusdPonta + encargos);
       
-      // Fora Ponta
       const tusdFP = tarifa.tusd_fora_ponta_rs_kwh || 0;
-      const tarifaFP = tusdFP + encargos;
-      const valorFP = energiaFP * tarifaFP;
+      const valorFP = energiaFP * (tusdFP + encargos);
       
-      // Horário Reservado
       const tusdHR = tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0;
-      const tarifaHR = tusdHR + encargos;
-      const valorHR = energiaHR * tarifaHR;
+      const valorHR = energiaHR * (tusdHR + encargos);
       
-      // Soma base e aplica impostos "por dentro"
       const valorBase = valorPonta + valorFP + valorHR;
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     } else {
-      // Grupo B (Monômia): tarifa única + encargos
       const tusdUnica = tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0;
-      const tarifaBase = tusdUnica + encargos;
-      const valorBase = data.credito_remoto_kwh * tarifaBase;
+      const valorBase = creditoTotal * (tusdUnica + encargos);
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     }
-  }, [tarifa, vinculo, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA]);
+  }, [tarifa, vinculo, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA, creditosAlocadosCalculados]);
 
-  // Percentual de desconto: usa o valor do vínculo ou 15% como padrão
+  // Percentual de desconto: usa o valor do vínculo ou 15% como padrão (paga 85%)
   const descontoPercent = vinculo?.desconto_garantido_percent ?? 15;
   const percentualPago = 100 - descontoPercent;
 
-  // Calcular custo da assinatura: valor compensado × (100% - desconto%)
+  // Custo da assinatura automático: 85% do valor compensado (desconto de 15%)
   const custoAssinaturaCalculado = useMemo(() => {
     const valorCompensado = data.credito_remoto_compensado_rs || valorCompensadoCalculado || 0;
     if (valorCompensado <= 0) return null;
-
-    // Custo = valor compensado × percentual que o cliente paga
+    // Custo = valor compensado × percentual que o cliente paga (85% padrão)
     return valorCompensado * (percentualPago / 100);
-  }, [data.credito_remoto_compensado_rs, valorCompensadoCalculado]);
+  }, [data.credito_remoto_compensado_rs, valorCompensadoCalculado, percentualPago]);
 
-  // Auto-atualizar valor compensado quando calculado - apenas uma vez
+  // Auto-atualizar valor compensado
   useEffect(() => {
     if (valorCompensadoCalculado !== null && valorCompensadoCalculado > 0 && !data.credito_remoto_compensado_rs) {
-      updateData({ credito_remoto_compensado_rs: valorCompensadoCalculado });
+      updateData({ credito_remoto_compensado_rs: Math.round(valorCompensadoCalculado * 100) / 100 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [valorCompensadoCalculado]);
+  }, [valorCompensadoCalculado, data.credito_remoto_compensado_rs, updateData]);
 
-  // Auto-atualizar custo da assinatura quando calculado - apenas uma vez
+  // Auto-atualizar custo da assinatura
   useEffect(() => {
     if (custoAssinaturaCalculado !== null && custoAssinaturaCalculado > 0 && !data.custo_assinatura_rs) {
-      updateData({ custo_assinatura_rs: custoAssinaturaCalculado });
+      updateData({ custo_assinatura_rs: Math.round(custoAssinaturaCalculado * 100) / 100 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [custoAssinaturaCalculado]);
+  }, [custoAssinaturaCalculado, data.custo_assinatura_rs, updateData]);
 
   // Cálculos de economia usando função centralizada para balanço energético
   const calculos = useMemo(() => {
@@ -233,6 +277,10 @@ export function Step5CreditosRemotos() {
     const hasValues = data.credito_remoto_kwh > 0 || data.credito_remoto_compensado_rs > 0;
     setCanProceed(hasValues);
   }, [data.tem_usina_remota, data.credito_remoto_kwh, data.credito_remoto_compensado_rs, setCanProceed]);
+
+  // Helper para formatar números
+  const formatNumber = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatKwh = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   // Helpers para labels
   const getModalidadeLabel = () => {
@@ -312,158 +360,60 @@ export function Step5CreditosRemotos() {
           <div className="text-sm text-muted-foreground">Carregando dados do contrato...</div>
         )}
 
-        {/* Contexto - Consumo Residual */}
-        <div className="p-4 bg-muted rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">Consumo Residual (após autoconsumo):</span>
-            <span className="text-lg font-bold">{data.consumo_residual_kwh.toLocaleString('pt-BR')} kWh</span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Este é o consumo que precisa ser compensado pelos créditos remotos ou pago à concessionária.
-          </p>
-        </div>
-
-        {/* Créditos Alocados */}
+        {/* Fluxo de Compensação Automático */}
         <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-4">
-          <div className="flex items-center gap-2">
-            <ArrowDownRight className="h-4 w-4 text-blue-600" />
-            <h3 className="font-medium text-blue-700 dark:text-blue-400">
-              Créditos Alocados Neste Mês
-            </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowDownRight className="h-4 w-4 text-blue-600" />
+              <h3 className="font-medium text-blue-700 dark:text-blue-400">Créditos Alocados Neste Mês</h3>
+            </div>
+            <Badge variant="outline" className="text-xs gap-1"><Calculator className="h-3 w-3" />Automático</Badge>
           </div>
 
-          {/* Campos de Energia por Posto (Grupo A) */}
-          {isGrupoA ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Energia Total Alocada (kWh)</Label>
-                  <button
-                    type="button"
-                    onClick={() => distribuirEnergiaPorPosto(data.credito_remoto_kwh)}
-                    className="text-xs text-blue-600 hover:text-blue-700 underline"
-                    disabled={!data.credito_remoto_kwh}
-                  >
-                    Distribuir por posto
-                  </button>
-                </div>
-                <Input
-                  type="number"
-                  value={data.credito_remoto_kwh || ''}
-                  onChange={(e) => {
-                    const valor = parseFloat(e.target.value) || 0;
-                    updateData({ credito_remoto_kwh: valor });
-                  }}
-                  onBlur={() => {
-                    // Auto-distribuir ao sair do campo se não tem valores por posto
-                    if (data.credito_remoto_kwh > 0) {
-                      distribuirEnergiaPorPosto(data.credito_remoto_kwh);
-                    }
-                  }}
-                  placeholder="Total de créditos recebidos"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Ao informar o total, os valores por posto serão distribuídos proporcionalmente ao consumo.
-                </p>
+          {/* Consumo Residual por Posto */}
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <Label className="text-xs text-muted-foreground mb-2 block">Consumo Residual (após autoconsumo)</Label>
+            {isGrupoA ? (
+              <div className="grid grid-cols-4 gap-2 text-sm">
+                <div className="p-2 bg-background rounded border"><span className="text-xs text-muted-foreground">Ponta</span><div className="font-semibold">{creditosAlocadosCalculados.consumoResidual.ponta.toLocaleString('pt-BR')} kWh</div></div>
+                <div className="p-2 bg-background rounded border"><span className="text-xs text-muted-foreground">FP</span><div className="font-semibold">{creditosAlocadosCalculados.consumoResidual.fp.toLocaleString('pt-BR')} kWh</div></div>
+                <div className="p-2 bg-background rounded border"><span className="text-xs text-muted-foreground">HR</span><div className="font-semibold">{creditosAlocadosCalculados.consumoResidual.hr.toLocaleString('pt-BR')} kWh</div></div>
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300"><span className="text-xs text-muted-foreground">Total</span><div className="font-bold text-blue-700">{creditosAlocadosCalculados.consumoResidual.total.toLocaleString('pt-BR')} kWh</div></div>
               </div>
-              
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-sm">Ponta (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.credito_remoto_ponta_kwh || ''}
-                    onChange={(e) => updateData({ credito_remoto_ponta_kwh: parseFloat(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Fora Ponta (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.credito_remoto_fp_kwh || ''}
-                    onChange={(e) => updateData({ credito_remoto_fp_kwh: parseFloat(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Reservado (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.credito_remoto_hr_kwh || ''}
-                    onChange={(e) => updateData({ credito_remoto_hr_kwh: parseFloat(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label>Energia Alocada (kWh)</Label>
-              <Input
-                type="number"
-                value={data.credito_remoto_kwh || ''}
-                onChange={(e) => updateData({ credito_remoto_kwh: parseFloat(e.target.value) || 0 })}
-                placeholder="Créditos recebidos da usina"
-              />
-            </div>
-          )}
-
-          {/* Valor Compensado */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Valor Compensado (R$)</Label>
-              {valorCompensadoCalculado !== null && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Calculator className="h-3 w-3" />
-                  Calculado via tarifa
-                </Badge>
-              )}
-            </div>
-            <Input
-              type="number"
-              step="0.01"
-              value={data.credito_remoto_compensado_rs || ''}
-              onChange={(e) => updateData({ credito_remoto_compensado_rs: parseFloat(e.target.value) || 0 })}
-              placeholder="Desconto na fatura"
-            />
-            {tarifa && (
-              <p className="text-xs text-muted-foreground">
-                {isGrupoA ? (
-                  <>
-                    TUSD: Ponta R$ {(tarifa.tusd_ponta_rs_kwh || 0).toFixed(4)} | 
-                    FP R$ {(tarifa.tusd_fora_ponta_rs_kwh || 0).toFixed(4)} | 
-                    Encargos R$ {(tarifa.tusd_encargos_rs_kwh || 0).toFixed(4)}/kWh + impostos
-                  </>
-                ) : (
-                  <>Tarifa TUSD: R$ {(tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0).toFixed(4)}/kWh + encargos + impostos</>
-                )}
-              </p>
+            ) : (
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300"><span className="text-xs text-muted-foreground">Total</span><div className="font-bold text-blue-700">{creditosAlocadosCalculados.consumoResidual.total.toLocaleString('pt-BR')} kWh</div></div>
             )}
           </div>
 
-          {/* Custo da Assinatura */}
+          {/* Créditos Disponíveis */}
+          <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200">
+            <div className="flex items-center gap-2"><Battery className="h-4 w-4 text-green-600" /><span className="text-sm">Créditos Disponíveis:</span></div>
+            <span className="font-bold text-green-700">{creditosAlocadosCalculados.creditosDisponiveis.toLocaleString('pt-BR')} kWh</span>
+          </div>
+
+          {/* Créditos Alocados */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Custo da Assinatura (R$)</Label>
-              {custoAssinaturaCalculado !== null && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Calculator className="h-3 w-3" />
-                  {percentualPago}% do compensado
-                </Badge>
-              )}
-            </div>
-            <Input
-              type="number"
-              step="0.01"
-              value={data.custo_assinatura_rs || ''}
-              onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
-              placeholder="Valor pago ao gerador"
-            />
-            <p className="text-xs text-muted-foreground">
-              Cálculo: R$ {(data.credito_remoto_compensado_rs || 0).toFixed(2)} × {percentualPago}% (desconto {descontoPercent}%)
-              {vinculo ? '' : ' - padrão'}
-            </p>
+            <Label className="text-sm font-medium flex items-center gap-2">Créditos Alocados <Badge variant="secondary" className="text-xs">Auto-calculado</Badge></Label>
+            {isGrupoA ? (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Ponta</Label><Input type="number" value={data.credito_remoto_ponta_kwh || ''} onChange={(e) => updateData({ credito_remoto_ponta_kwh: parseFloat(e.target.value) || 0 })} /><span className="text-xs text-muted-foreground">Sugerido: {creditosAlocadosCalculados.creditosAlocados.ponta.toLocaleString('pt-BR')}</span></div>
+                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Fora Ponta</Label><Input type="number" value={data.credito_remoto_fp_kwh || ''} onChange={(e) => updateData({ credito_remoto_fp_kwh: parseFloat(e.target.value) || 0 })} /><span className="text-xs text-muted-foreground">Sugerido: {creditosAlocadosCalculados.creditosAlocados.fp.toLocaleString('pt-BR')}</span></div>
+                <div className="space-y-1"><Label className="text-xs text-muted-foreground">Reservado</Label><Input type="number" value={data.credito_remoto_hr_kwh || ''} onChange={(e) => updateData({ credito_remoto_hr_kwh: parseFloat(e.target.value) || 0 })} /><span className="text-xs text-muted-foreground">Sugerido: {creditosAlocadosCalculados.creditosAlocados.hr.toLocaleString('pt-BR')}</span></div>
+              </div>
+            ) : (
+              <div className="space-y-1"><Input type="number" value={data.credito_remoto_kwh || ''} onChange={(e) => updateData({ credito_remoto_kwh: parseFloat(e.target.value) || 0 })} /><span className="text-xs text-muted-foreground">Sugerido: {creditosAlocadosCalculados.creditosAlocados.total.toLocaleString('pt-BR')}</span></div>
+            )}
+          </div>
+
+          {/* Alerta Consumo Não Compensado */}
+          {creditosAlocadosCalculados.naoCompensado.total > 0 && (
+            <Alert className="bg-amber-50 border-amber-200"><AlertTriangle className="h-4 w-4 text-amber-600" /><AlertDescription className="text-amber-800"><strong>Créditos insuficientes!</strong> Consumo não compensado: <strong>{creditosAlocadosCalculados.naoCompensado.total.toLocaleString('pt-BR')} kWh</strong> (será cobrado na fatura)</AlertDescription></Alert>
+          )}
+
+          {/* Valor Compensado + Custo */}
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <div className="space-y-2"><Label>Valor Compensado (R$)</Label><Input type="number" step="0.01" value={data.credito_remoto_compensado_rs || ''} onChange={(e) => updateData({ credito_remoto_compensado_rs: parseFloat(e.target.value) || 0 })} /><Badge variant="outline" className="text-xs">Calculado via tarifa</Badge></div>
+            <div className="space-y-2"><Label>Custo Assinatura (R$)</Label><Input type="number" step="0.01" value={data.custo_assinatura_rs || ''} onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })} /><Badge variant="outline" className="text-xs">{percentualPago}% do compensado</Badge></div>
           </div>
         </div>
 
