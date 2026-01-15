@@ -240,9 +240,15 @@ export function Step5CreditosRemotos() {
       ? ((economiaLiquidaRemotos / economiaCreditosRemotos) * 100).toFixed(1)
       : '0';
 
+    // Créditos remotos usados (kWh)
+    const creditosRemotosUsados = data.credito_remoto_kwh || 
+      (data.credito_remoto_ponta_kwh + data.credito_remoto_fp_kwh + data.credito_remoto_hr_kwh) || 0;
+
     return {
       // Balanço energético (da função centralizada)
       ...balanco,
+      // Energia
+      creditosRemotosUsados,
       // Economia
       economiaAutoconsumo,
       economiaCreditosRemotos,
