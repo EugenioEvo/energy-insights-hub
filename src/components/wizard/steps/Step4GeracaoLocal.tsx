@@ -63,6 +63,28 @@ export function Step4GeracaoLocal() {
     }
   };
 
+  // Valores padrão de impostos para "cost avoidance" (economia evitada)
+  // Quando não preenchidos na tarifa, usar valores típicos do setor elétrico
+  const IMPOSTOS_DEFAULT = {
+    icms: 29, // ICMS típico para energia elétrica (varia por estado: 17-29%)
+    pis: 1.65, // PIS típico
+    cofins: 7.6 // COFINS típico
+  };
+
+  // Obter impostos com fallback para valores típicos (cost avoidance)
+  const obterImpostos = (tarifaData: typeof tarifa) => {
+    const icms = (tarifaData?.icms_percent && tarifaData.icms_percent > 0) 
+      ? tarifaData.icms_percent 
+      : IMPOSTOS_DEFAULT.icms;
+    const pis = (tarifaData?.pis_percent && tarifaData.pis_percent > 0) 
+      ? tarifaData.pis_percent 
+      : IMPOSTOS_DEFAULT.pis;
+    const cofins = (tarifaData?.cofins_percent && tarifaData.cofins_percent > 0) 
+      ? tarifaData.cofins_percent 
+      : IMPOSTOS_DEFAULT.cofins;
+    return { icms, pis, cofins };
+  };
+
   // Calcular autoconsumo FP automaticamente: Geração Total - Injeção FP
   // Solar gera apenas durante o dia (horário Fora Ponta)
   const autoconsumoFPCalculado = useMemo(() => {
@@ -87,11 +109,11 @@ export function Step4GeracaoLocal() {
       const tarifaBase = teFP + tusdFP + encargos + bandeiraValor;
       const valorBase = data.autoconsumo_fp_kwh * tarifaBase;
       
-      // Aplicar impostos (método "por dentro")
-      const icms = (tarifa.icms_percent || 0) / 100;
-      const pis = (tarifa.pis_percent || 0) / 100;
-      const cofins = (tarifa.cofins_percent || 0) / 100;
-      const fatorImpostos = 1 - icms - pis - cofins;
+      // Aplicar impostos (método "por dentro") - cost avoidance
+      const impostos = obterImpostos(tarifa);
+      const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins) / 100;
+      
+      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
       
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     } else {
@@ -104,10 +126,11 @@ export function Step4GeracaoLocal() {
       const tarifaBase = teUnica + tusdUnica + encargos + bandeiraValor;
       const valorBase = totais.autoconsumoTotal * tarifaBase;
       
-      const icms = (tarifa.icms_percent || 0) / 100;
-      const pis = (tarifa.pis_percent || 0) / 100;
-      const cofins = (tarifa.cofins_percent || 0) / 100;
-      const fatorImpostos = 1 - icms - pis - cofins;
+      // Aplicar impostos (método "por dentro") - cost avoidance
+      const impostos = obterImpostos(tarifa);
+      const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins) / 100;
+      
+      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
       
       return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     }
@@ -121,16 +144,16 @@ export function Step4GeracaoLocal() {
     const tusdFP = tarifa.tusd_fora_ponta_rs_kwh || 0;
     const encargos = tarifa.tusd_encargos_rs_kwh || 0;
     const bandeiraValor = obterValorBandeira(tarifa, data.bandeira);
-    const icms = tarifa.icms_percent || 0;
-    const pis = tarifa.pis_percent || 0;
-    const cofins = tarifa.cofins_percent || 0;
+    
+    // Usar impostos com fallback (cost avoidance)
+    const impostos = obterImpostos(tarifa);
     
     return {
       teFP,
       tusdFP,
       encargos,
       bandeira: bandeiraValor,
-      impostos: { icms, pis, cofins },
+      impostos,
       tarifaTotal: teFP + tusdFP + encargos + bandeiraValor
     };
   }, [tarifa, data.bandeira, isGrupoA]);
