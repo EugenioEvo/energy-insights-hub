@@ -8,23 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { useWizard, GrupoTarifario, FaturaWizardData } from '../WizardContext';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
 import { useClientes } from '@/hooks/useClientes';
-import { Building2, AlertCircle, Zap, Sun, PlugZap } from 'lucide-react';
+import { useConcessionariasComTarifas } from '@/hooks/useTarifas';
+import { Building2, AlertCircle, Zap, Sun, PlugZap, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileImportCard } from '../FileImportCard';
-
-const concessionarias = [
-  'Equatorial Goiás',
-  'Equatorial Pará',
-  'Equatorial Maranhão',
-  'Equatorial Piauí',
-  'Equatorial Alagoas',
-  'CEMIG',
-  'CPFL',
-  'Enel',
-  'Energisa',
-  'Light',
-  'Outra',
-];
 
 const modalidadesGrupoA = [
   { value: 'THS_VERDE', label: 'THS Verde' },
@@ -46,6 +33,7 @@ export function Step0ContextoUC() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
   const { data: unidades, isLoading: loadingUCs } = useUnidadesConsumidoras();
   const { data: clientes } = useClientes();
+  const { data: concessionarias, isLoading: loadingConcessionarias } = useConcessionariasComTarifas();
 
   // Validação baseada no grupo tarifário
   useEffect(() => {
@@ -267,14 +255,25 @@ export function Step0ContextoUC() {
                 <Select 
                   value={data.concessionaria} 
                   onValueChange={(v) => updateData({ concessionaria: v })}
+                  disabled={loadingConcessionarias}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    {loadingConcessionarias ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando...
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Selecione a concessionária" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
-                    {concessionarias.map(c => (
+                    {concessionarias?.map(c => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
+                    {(!concessionarias || concessionarias.length === 0) && !loadingConcessionarias && (
+                      <SelectItem value="" disabled>Nenhuma tarifa cadastrada</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
