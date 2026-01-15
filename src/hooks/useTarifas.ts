@@ -214,10 +214,18 @@ export function useTarifas(
         .order('vigencia_inicio', { ascending: false })
         .limit(1);
       
-      // Para Grupo A, filtra por modalidade (case-insensitive)
+      // Para Grupo A, filtra por modalidade com normalização
       // Para Grupo B, não filtra por modalidade pois geralmente é convencional
       if (modalidade && grupoTarifario === 'A') {
-        query = query.ilike('modalidade', modalidade);
+        // Normalizar: THS_VERDE -> VERDE, verde -> VERDE
+        const modalidadeBase = modalidade
+          .replace(/THS_/i, '')
+          .toUpperCase();
+        
+        // Buscar por qualquer variação que contenha a modalidade base
+        query = query.or(
+          `modalidade.ilike.%${modalidadeBase}%,modalidade.ilike.%${modalidade}%`
+        );
       }
       
       const { data, error } = await query;
@@ -295,7 +303,7 @@ export function useTarifasDisponiveis(concessionaria: string | null) {
       
       const { data, error } = await supabase
         .from('tarifas_concessionaria')
-        .select('id, concessionaria, grupo_tarifario, subgrupo, modalidade, vigencia_inicio, resolucao_aneel')
+        .select('id, concessionaria, grupo_tarifario, subgrupo, modalidade, vigencia_inicio, resolucao_aneel, te_ponta_rs_kwh, te_fora_ponta_rs_kwh, te_unica_rs_kwh, tusd_ponta_rs_kwh, tusd_fora_ponta_rs_kwh, tusd_unica_rs_kwh')
         .eq('ativo', true)
         .ilike('concessionaria', `%${concessionaria}%`)
         .order('grupo_tarifario', { ascending: true })

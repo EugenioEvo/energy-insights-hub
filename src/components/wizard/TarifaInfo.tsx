@@ -49,22 +49,39 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
   };
 
   const handleSelectTarifa = (tarifa: { 
+    id: string;
+    concessionaria: string;
     grupo_tarifario: string; 
     modalidade: string | null;
     subgrupo: string | null;
   }) => {
     const updates: Record<string, unknown> = {
       grupo_tarifario: tarifa.grupo_tarifario as 'A' | 'B',
+      concessionaria: tarifa.concessionaria,
     };
     
     if (tarifa.modalidade) {
-      updates.modalidade = tarifa.modalidade;
+      // Normalizar para o formato esperado pelo wizard (THS_VERDE, THS_AZUL)
+      const modalidadeUpper = tarifa.modalidade.toUpperCase();
+      let modalidadeNormalizada = tarifa.modalidade;
+      
+      if (modalidadeUpper.includes('VERDE') && !modalidadeUpper.includes('THS_')) {
+        modalidadeNormalizada = 'THS_VERDE';
+      } else if (modalidadeUpper.includes('AZUL') && !modalidadeUpper.includes('THS_')) {
+        modalidadeNormalizada = 'THS_AZUL';
+      }
+      
+      updates.modalidade = modalidadeNormalizada;
+    }
+    
+    if (tarifa.subgrupo) {
+      updates.classe_tarifaria = tarifa.subgrupo;
     }
     
     updateData(updates);
     
     toast.success('Tarifa aplicada!', {
-      description: `Grupo ${tarifa.grupo_tarifario}${tarifa.modalidade ? ` - ${tarifa.modalidade}` : ''} selecionado.`,
+      description: `${tarifa.concessionaria} - Grupo ${tarifa.grupo_tarifario}${tarifa.modalidade ? ` - ${tarifa.modalidade}` : ''} selecionado.`,
     });
   };
 
@@ -132,7 +149,13 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
                   <TableRow 
                     key={t.id} 
                     className={`cursor-pointer hover:bg-accent/50 transition-colors ${isMatch ? "bg-green-500/10" : ""}`}
-                    onClick={() => handleSelectTarifa(t)}
+                    onClick={() => handleSelectTarifa({
+                      id: t.id,
+                      concessionaria: t.concessionaria || concessionaria,
+                      grupo_tarifario: t.grupo_tarifario,
+                      modalidade: t.modalidade,
+                      subgrupo: t.subgrupo,
+                    })}
                   >
                     <TableCell className="py-1">
                       <Badge variant={t.grupo_tarifario === grupoTarifario ? "default" : "outline"} className="text-xs">
@@ -152,7 +175,13 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
                         className="h-6 text-xs px-2"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSelectTarifa(t);
+                          handleSelectTarifa({
+                            id: t.id,
+                            concessionaria: t.concessionaria || concessionaria,
+                            grupo_tarifario: t.grupo_tarifario,
+                            modalidade: t.modalidade,
+                            subgrupo: t.subgrupo,
+                          });
                         }}
                       >
                         Aplicar
