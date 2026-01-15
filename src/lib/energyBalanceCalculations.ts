@@ -1,47 +1,66 @@
 /**
  * Funções centralizadas para cálculos de balanço energético
  * Usadas em múltiplos steps do wizard para garantir consistência
+ * 
+ * CONCEITO CHAVE:
+ * - Consumo da Rede (fatura concessionária) = energia medida pela distribuidora
+ * - Autoconsumo (energia simultânea) = geração consumida no momento, "atrás do medidor"
+ * - Consumo Real Total = Consumo da Rede + Autoconsumo
+ * 
+ * A fatura da concessionária só mostra o que veio da rede.
+ * A "fatura da usina" é o custo do PPA local + assinatura remota (com desconto).
  */
 
 import type { FaturaWizardData } from '@/components/wizard/WizardContext';
 
 export interface BalancoEnergetico {
-  // Consumo da UC
-  energiaDaRede: number;         // consumo_total_kwh (o que veio da distribuidora)
-  energiaSimultanea: number;     // autoconsumo_total_kwh (geração consumida instantaneamente)
-  consumoRealUC: number;         // energiaDaRede + energiaSimultanea
+  // Consumo da UC - visão completa
+  consumoDaRede: number;         // O que veio da distribuidora (fatura concessionária)
+  autoconsumoSimultaneo: number; // Geração consumida instantaneamente (atrás do medidor)
+  consumoRealTotal: number;      // consumoDaRede + autoconsumoSimultaneo = tudo que a UC consumiu
 
   // Geração local
   geracaoLocal: number;          // geracao_local_total_kwh
-  injecaoLocal: number;          // injecao_total_kwh (excedente injetado na rede)
+  injecaoLocal: number;          // Excedente injetado na rede (gera créditos próprios)
   
-  // Créditos
-  saldoCreditosLocais: number;   // soma dos saldos SCEE (créditos acumulados)
-  creditosRemotosDisponiveis: number; // credito_remoto_kwh
+  // Compensação do consumo da rede
+  consumoAposAutoconsumo: number;  // = consumoDaRede (já é o residual, fatura da concessionária)
+  creditosRemotosAlocados: number; // Créditos remotos usados para compensar
+  consumoNaoCompensado: number;    // Consumo que não foi compensado (paga na fatura)
   
-  // Compensação
-  baseCompensacao: number;       // energia da rede que precisa ser compensada
+  // Para legado/compatibilidade
+  energiaDaRede: number;
+  energiaSimultanea: number;
+  consumoRealUC: number;
+  saldoCreditosLocais: number;
+  creditosRemotosDisponiveis: number;
+  baseCompensacao: number;
   creditosLocaisUsados: number;
   creditosRemotosUsados: number;
-  consumoFinal: number;          // o que resta a pagar após compensação
+  consumoFinal: number;
 }
 
 /**
  * Calcula o balanço energético completo da UC
- * Fonte única de verdade para todos os cálculos de energia
+ * 
+ * FLUXO:
+ * 1. UC consome energia = parte da rede + parte da usina própria (autoconsumo)
+ * 2. O que veio da rede pode ser compensado por créditos remotos (assinatura)
+ * 3. O que não for compensado é pago na fatura da concessionária
+ * 4. Autoconsumo + Créditos Remotos são pagos via "fatura da usina" (com 15% desconto)
  */
 export function calcularBalancoEnergetico(data: FaturaWizardData, isGrupoA: boolean): BalancoEnergetico {
   // === CONSUMO ===
-  // Energia da Rede = consumo medido pela concessionária
-  const energiaDaRede = data.consumo_total_kwh || 0;
+  // Consumo da Rede = o que a concessionária mediu (já veio na fatura)
+  const consumoDaRede = data.consumo_total_kwh || 0;
   
-  // Energia Simultânea = autoconsumo (geração consumida no momento)
-  const energiaSimultanea = isGrupoA
+  // Autoconsumo Simultâneo = geração consumida instantaneamente (não passa pelo medidor)
+  const autoconsumoSimultaneo = isGrupoA
     ? (data.autoconsumo_ponta_kwh || 0) + (data.autoconsumo_fp_kwh || 0) + (data.autoconsumo_hr_kwh || 0)
     : (data.autoconsumo_total_kwh || 0);
   
-  // Consumo Real = o que a UC realmente consumiu (rede + simultânea)
-  const consumoRealUC = energiaDaRede + energiaSimultanea;
+  // Consumo Real Total = tudo que a UC consumiu (rede + autoconsumo)
+  const consumoRealTotal = consumoDaRede + autoconsumoSimultaneo;
 
   // === GERAÇÃO LOCAL ===
   const geracaoLocal = data.geracao_local_total_kwh || 0;
@@ -50,36 +69,42 @@ export function calcularBalancoEnergetico(data: FaturaWizardData, isGrupoA: bool
     ? (data.injecao_ponta_kwh || 0) + (data.injecao_fp_kwh || 0) + (data.injecao_hr_kwh || 0)
     : (data.injecao_total_kwh || 0);
 
-  // === CRÉDITOS ===
-  // Saldo de créditos locais = créditos acumulados próprios (não confundir com injeção do mês!)
+  // === COMPENSAÇÃO DO CONSUMO DA REDE ===
+  // O consumo da rede precisa ser compensado (ou pago na fatura)
+  const consumoAposAutoconsumo = consumoDaRede; // Já é o residual
+  
+  // Créditos remotos alocados (da assinatura ou SCEE)
+  const creditosRemotosAlocados = data.credito_remoto_kwh || 0;
+  
+  // Consumo não compensado = o que vai pagar na fatura da concessionária
+  const consumoNaoCompensado = Math.max(0, consumoAposAutoconsumo - creditosRemotosAlocados);
+
+  // === LEGADO (compatibilidade) ===
   const saldoCreditosLocais = (data.scee_saldo_kwh_p || 0) + 
                                (data.scee_saldo_kwh_fp || 0) + 
                                (data.scee_saldo_kwh_hr || 0);
-  
-  const creditosRemotosDisponiveis = data.credito_remoto_kwh || 0;
-
-  // === COMPENSAÇÃO ===
-  // Base para compensação = energia que veio da rede (precisa pagar ou compensar)
-  const baseCompensacao = energiaDaRede;
-  
-  // Prioridade: usar créditos locais primeiro, depois remotos
-  const creditosLocaisUsados = Math.min(saldoCreditosLocais, baseCompensacao);
-  const consumoAposLocais = Math.max(0, baseCompensacao - creditosLocaisUsados);
-  const creditosRemotosUsados = Math.min(creditosRemotosDisponiveis, consumoAposLocais);
-  const consumoFinal = Math.max(0, consumoAposLocais - creditosRemotosUsados);
 
   return {
-    energiaDaRede,
-    energiaSimultanea,
-    consumoRealUC,
+    // Novos campos (nomenclatura clara)
+    consumoDaRede,
+    autoconsumoSimultaneo,
+    consumoRealTotal,
     geracaoLocal,
     injecaoLocal,
+    consumoAposAutoconsumo,
+    creditosRemotosAlocados,
+    consumoNaoCompensado,
+    
+    // Campos legados (manter compatibilidade)
+    energiaDaRede: consumoDaRede,
+    energiaSimultanea: autoconsumoSimultaneo,
+    consumoRealUC: consumoRealTotal,
     saldoCreditosLocais,
-    creditosRemotosDisponiveis,
-    baseCompensacao,
-    creditosLocaisUsados,
-    creditosRemotosUsados,
-    consumoFinal,
+    creditosRemotosDisponiveis: creditosRemotosAlocados,
+    baseCompensacao: consumoAposAutoconsumo,
+    creditosLocaisUsados: 0, // Não estamos usando créditos locais separadamente aqui
+    creditosRemotosUsados: creditosRemotosAlocados,
+    consumoFinal: consumoNaoCompensado,
   };
 }
 
@@ -107,8 +132,7 @@ export function calcularTotaisGeracaoLocal(data: FaturaWizardData, isGrupoA: boo
   
   const geracaoCalculada = autoconsumoTotal + injecaoTotal;
   
-  // Consumo residual = consumo da rede (já descontado o autoconsumo)
-  // Nota: consumo_total_kwh é o que vem da rede, então consumoResidual = consumo_total_kwh
+  // Consumo residual = consumo da rede (o que a concessionária mediu)
   const consumoResidual = data.consumo_total_kwh || 0;
   
   // Percentuais
@@ -126,6 +150,75 @@ export function calcularTotaisGeracaoLocal(data: FaturaWizardData, isGrupoA: boo
     consumoResidual,
     pctAutoconsumo,
     pctInjecao,
+  };
+}
+
+/**
+ * Calcula os custos separados: Fatura Concessionária vs Fatura Usina
+ * 
+ * CONCEITO:
+ * - Fatura Concessionária = consumo não compensado × tarifa rede
+ * - Fatura Usina = (autoconsumo × tarifa evitada + créditos × tarifa compensação) × (1 - desconto)
+ *   - Desconto padrão = 15% (cliente paga 85%)
+ */
+export interface CustosDuasFaturas {
+  // Fatura Concessionária
+  custoConsumoNaoCompensado: number;  // Paga à distribuidora
+  
+  // Fatura Usina (PPA + Assinatura)
+  valorAutoconsumoEvitado: number;    // Economia do autoconsumo (tarifa cheia)
+  valorCreditosCompensados: number;   // Valor dos créditos remotos (TUSD)
+  custoAssinaturaRemota: number;      // 85% do valor compensado
+  custoPPALocal: number;              // 85% do autoconsumo (se PPA)
+  
+  // Economia
+  economiaAutoconsumo: number;        // 100% de economia (evitou a tarifa)
+  economiaAssinatura: number;         // 15% de economia sobre créditos
+  economiaTotal: number;              // Soma
+}
+
+export function calcularCustosDuasFaturas(
+  data: FaturaWizardData, 
+  isGrupoA: boolean,
+  descontoPercent: number = 15
+): CustosDuasFaturas {
+  const percentualPago = (100 - descontoPercent) / 100; // 0.85 para 15% desconto
+  
+  // Valores já calculados
+  const valorAutoconsumoEvitado = data.autoconsumo_rs || 0;
+  const valorCreditosCompensados = data.credito_remoto_compensado_rs || 0;
+  
+  // Custo assinatura = 85% do valor compensado
+  const custoAssinaturaRemota = valorCreditosCompensados * percentualPago;
+  
+  // Custo PPA local = 85% do autoconsumo (se o cliente paga pela energia solar)
+  // Obs: em geração própria, normalmente não há custo adicional (já pagou o sistema)
+  // Em assinatura/PPA, paga 85%
+  const custoPPALocal = data.tem_usina_remota 
+    ? valorAutoconsumoEvitado * percentualPago 
+    : 0; // Geração própria = sem custo mensal
+  
+  // Economia do autoconsumo = 100% (evitou pagar a tarifa da concessionária)
+  const economiaAutoconsumo = valorAutoconsumoEvitado;
+  
+  // Economia da assinatura = 15% do compensado
+  const economiaAssinatura = valorCreditosCompensados * (descontoPercent / 100);
+  
+  // Economia total
+  const economiaTotal = economiaAutoconsumo + economiaAssinatura;
+  
+  // Consumo não compensado (seria calculado via tarifa, aqui é placeholder)
+  const custoConsumoNaoCompensado = 0; // Vem da fatura da concessionária
+  
+  return {
+    custoConsumoNaoCompensado,
+    valorAutoconsumoEvitado,
+    valorCreditosCompensados,
+    custoAssinaturaRemota,
+    custoPPALocal,
+    economiaAutoconsumo,
+    economiaAssinatura,
+    economiaTotal,
   };
 }
 
