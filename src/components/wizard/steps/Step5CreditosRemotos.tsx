@@ -1,34 +1,34 @@
-import { useEffect, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { useWizard } from '../WizardContext';
-import { PlugZap, ArrowDownRight, Wallet, TrendingUp, Info, AlertTriangle, Calculator, FileText, Zap, Minus, Plus, Equal, CircleDollarSign, Battery, Receipt, Factory } from 'lucide-react';
+import { 
+  PlugZap, ArrowDownRight, Info, AlertTriangle, Calculator, FileText, 
+  Zap, Minus, CircleDollarSign, Battery, Receipt, Factory, Building2,
+  TrendingDown, ArrowRight, CheckCircle2
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useVinculoByUC } from '@/hooks/useClienteUsinaVinculo';
 import { useTarifas } from '@/hooks/useTarifas';
 import { useRateioByUCMes } from '@/hooks/useUsinaRateioMensal';
-import { calcularBalancoEnergetico, formatarKwh, calcularCustosDuasFaturas } from '@/lib/energyBalanceCalculations';
-import { FormulaTooltip, DataSourceTooltip } from '../FormulaTooltip';
+import { calcularBalancoEnergetico, formatarKwh, formatarReais } from '@/lib/energyBalanceCalculations';
 
 /**
- * Step 5: Créditos Remotos - Usina Assinada
+ * Passo 5: Consumo SCEE e Créditos Remotos
  * 
- * CONCEITO DE NEGÓCIO:
- * O cliente consome energia de duas fontes:
- * 1. Usina Local (autoconsumo simultâneo) - economiza 100% da tarifa
- * 2. Rede da Concessionária - o que não veio da usina local
+ * CONCEITO:
+ * - Consumo SCEE = consumo da rede que é COMPENSADO através de créditos de energia
+ * - Créditos vêm de: injeção da usina local ou assinatura de usina remota
+ * - O que é compensado = evita pagar à concessionária
+ * - Mas o cliente paga ao fornecedor de energia (85% do valor, com 15% de desconto)
  * 
- * O consumo da rede pode ser abatido por:
- * - Créditos da injeção local (excedente da usina própria)
- * - Créditos remotos (assinatura de usina remota)
- * 
- * São geradas duas "faturas" conceituais:
- * 1. FATURA CONCESSIONÁRIA: Consumo não compensado × tarifa rede
- * 2. FATURA USINA: (Autoconsumo + Créditos Remotos) × 85% (15% desconto)
- * 
- * A economia total = Autoconsumo 100% evitado + 15% desconto sobre créditos
+ * FLUXO:
+ * 1. Consumo Registrado da Rede (Step 2)
+ * 2. (-) Créditos aplicados = Consumo SCEE (compensado)
+ * 3. (=) Consumo Não Compensado (paga fatura concessionária)
  */
 export function Step5CreditosRemotos() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
@@ -37,7 +37,7 @@ export function Step5CreditosRemotos() {
   const { data: vinculo, isLoading: loadingVinculo } = useVinculoByUC(data.uc_id);
   
   // Buscar tarifa vigente
-  const { data: tarifa, isLoading: loadingTarifa } = useTarifas(
+  const { data: tarifa } = useTarifas(
     data.concessionaria || null,
     data.grupo_tarifario || null,
     data.modalidade || null
@@ -54,182 +54,111 @@ export function Step5CreditosRemotos() {
   const percentualPago = 100 - descontoPercent;
 
   // =====================================
-  // BALANÇO ENERGÉTICO (fonte única de verdade)
+  // BALANÇO ENERGÉTICO
   // =====================================
   const balanco = useMemo(() => {
     return calcularBalancoEnergetico(data, isGrupoA);
   }, [data, isGrupoA]);
 
   // =====================================
-  // CÁLCULO DE CRÉDITOS DISPONÍVEIS E ALOCAÇÃO
+  // CÁLCULO: CONSUMO SCEE (COMPENSADO)
   // =====================================
-  const creditosCalculados = useMemo(() => {
-    // Consumo da rede que precisa ser compensado
-    const consumoDaRede = data.consumo_total_kwh || 0;
+  const calculoSCEE = useMemo(() => {
+    // Consumo registrado da rede (veio da fatura da concessionária)
+    const consumoRegistradoRede = data.consumo_total_kwh || 0;
     
-    // Créditos disponíveis (do rateio mensal ou contrato)
+    // Créditos disponíveis para compensação
+    // Podem vir de: rateio mensal da usina, campo SCEE da fatura, ou input manual
     const creditosDisponiveis = rateioRemoto?.energia_alocada_kwh 
       || data.scee_credito_recebido_kwh 
       || 0;
 
-    // Alocar créditos para cobrir o consumo da rede
-    const creditosAlocados = Math.min(creditosDisponiveis, consumoDaRede);
+    // CONSUMO SCEE = consumo que será compensado (limitado aos créditos disponíveis)
+    const consumoSCEE = Math.min(creditosDisponiveis, consumoRegistradoRede);
     
-    // Consumo não compensado (vai pagar na fatura da concessionária)
-    const consumoNaoCompensado = Math.max(0, consumoDaRede - creditosAlocados);
+    // Consumo NÃO compensado = vai pagar na fatura da concessionária
+    const consumoNaoCompensado = Math.max(0, consumoRegistradoRede - consumoSCEE);
     
-    // Créditos sobram (virão saldo)
-    const creditosSobrando = Math.max(0, creditosDisponiveis - creditosAlocados);
+    // Créditos que sobram (viram saldo para próximo mês)
+    const creditosSobrando = Math.max(0, creditosDisponiveis - consumoSCEE);
+
+    // Percentual compensado
+    const percentualCompensado = consumoRegistradoRede > 0 
+      ? ((consumoSCEE / consumoRegistradoRede) * 100).toFixed(1)
+      : '0';
 
     return {
-      consumoDaRede,
+      consumoRegistradoRede,
       creditosDisponiveis,
-      creditosAlocados,
+      consumoSCEE,           // NOVO: Consumo compensado via SCEE
       consumoNaoCompensado,
       creditosSobrando,
+      percentualCompensado,
     };
   }, [data.consumo_total_kwh, data.scee_credito_recebido_kwh, rateioRemoto]);
 
-  // Auto-preencher créditos alocados quando calculados (apenas uma vez)
+  // Auto-preencher campo credito_remoto_kwh com o consumo SCEE calculado
   useEffect(() => {
     if (
-      creditosCalculados.creditosAlocados > 0 && 
+      calculoSCEE.consumoSCEE > 0 && 
       !data.credito_remoto_kwh &&
       !autoFilledRef.current
     ) {
       autoFilledRef.current = true;
       updateData({
-        credito_remoto_kwh: creditosCalculados.creditosAlocados,
+        credito_remoto_kwh: calculoSCEE.consumoSCEE,
       });
     }
-  }, [creditosCalculados.creditosAlocados, data.credito_remoto_kwh, updateData]);
-
-  // Impostos padrão
-  const IMPOSTOS_DEFAULT = {
-    icms: 0.17,
-    pis: 0.0076,
-    cofins: 0.0352
-  };
-
-  const obterImpostos = (tarifa: any) => ({
-    icms: (tarifa?.icms_percent || IMPOSTOS_DEFAULT.icms * 100) / 100,
-    pis: (tarifa?.pis_percent || IMPOSTOS_DEFAULT.pis * 100) / 100,
-    cofins: (tarifa?.cofins_percent || IMPOSTOS_DEFAULT.cofins * 100) / 100,
-  });
+  }, [calculoSCEE.consumoSCEE, data.credito_remoto_kwh, updateData]);
 
   // =====================================
-  // CÁLCULO DE VALORES (R$)
+  // CÁLCULO: VALOR COMPENSADO (R$)
   // =====================================
-  
-  // Valor compensado pelos créditos remotos (TUSD + encargos + impostos)
-  const valorCompensadoCalculado = useMemo(() => {
-    const creditoTotal = data.credito_remoto_kwh || creditosCalculados.creditosAlocados;
-    if (!tarifa || !creditoTotal) return 0;
+  const valorCalculado = useMemo(() => {
+    const consumoSCEE = data.credito_remoto_kwh || calculoSCEE.consumoSCEE;
+    if (!tarifa || !consumoSCEE) return { valorBruto: 0, custoCliente: 0, economia: 0 };
 
-    // Se modalidade PPA, usar tarifa fixa do contrato
+    // Se PPA, usar tarifa fixa do contrato
     if (vinculo?.modalidade_economia === 'ppa_tarifa' && vinculo?.tarifa_ppa_rs_kwh) {
-      return creditoTotal * vinculo.tarifa_ppa_rs_kwh;
+      const valorBruto = consumoSCEE * vinculo.tarifa_ppa_rs_kwh;
+      const custoCliente = valorBruto * (percentualPago / 100);
+      const economia = valorBruto - custoCliente;
+      return { valorBruto, custoCliente, economia };
     }
 
+    // Calcular com TUSD + encargos + impostos
+    const tusd = isGrupoA 
+      ? (tarifa.tusd_fora_ponta_rs_kwh || 0)
+      : (tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0);
     const encargos = tarifa.tusd_encargos_rs_kwh || 0;
-    const impostos = obterImpostos(tarifa);
+    
+    const impostos = {
+      icms: (tarifa.icms_percent || 17) / 100,
+      pis: (tarifa.pis_percent || 0.76) / 100,
+      cofins: (tarifa.cofins_percent || 3.52) / 100,
+    };
     const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins);
 
-    // Grupo A: TUSD por posto, Grupo B: TUSD única
-    const tusd = isGrupoA 
-      ? (tarifa.tusd_fora_ponta_rs_kwh || 0) // Simplificado: usar FP como base
-      : (tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0);
-    
-    const valorBase = creditoTotal * (tusd + encargos);
-    return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
-  }, [tarifa, vinculo, data.credito_remoto_kwh, creditosCalculados.creditosAlocados, isGrupoA]);
+    const valorBase = consumoSCEE * (tusd + encargos);
+    const valorBruto = fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
+    const custoCliente = valorBruto * (percentualPago / 100);
+    const economia = valorBruto - custoCliente;
 
-  // Custo da assinatura = 85% do valor compensado (desconto de 15%)
-  const custoAssinaturaCalculado = useMemo(() => {
-    const valorCompensado = data.credito_remoto_compensado_rs || valorCompensadoCalculado;
-    if (valorCompensado <= 0) return 0;
-    return valorCompensado * (percentualPago / 100);
-  }, [data.credito_remoto_compensado_rs, valorCompensadoCalculado, percentualPago]);
+    return { valorBruto, custoCliente, economia };
+  }, [tarifa, vinculo, data.credito_remoto_kwh, calculoSCEE.consumoSCEE, isGrupoA, percentualPago]);
 
-  // Auto-atualizar valor compensado
+  // Auto-atualizar valores monetários
   useEffect(() => {
-    if (valorCompensadoCalculado > 0 && !data.credito_remoto_compensado_rs) {
-      updateData({ credito_remoto_compensado_rs: Math.round(valorCompensadoCalculado * 100) / 100 });
+    if (valorCalculado.valorBruto > 0 && !data.credito_remoto_compensado_rs) {
+      updateData({ credito_remoto_compensado_rs: Math.round(valorCalculado.valorBruto * 100) / 100 });
     }
-  }, [valorCompensadoCalculado, data.credito_remoto_compensado_rs, updateData]);
+  }, [valorCalculado.valorBruto, data.credito_remoto_compensado_rs, updateData]);
 
-  // Auto-atualizar custo da assinatura
   useEffect(() => {
-    if (custoAssinaturaCalculado > 0 && !data.custo_assinatura_rs) {
-      updateData({ custo_assinatura_rs: Math.round(custoAssinaturaCalculado * 100) / 100 });
+    if (valorCalculado.custoCliente > 0 && !data.custo_assinatura_rs) {
+      updateData({ custo_assinatura_rs: Math.round(valorCalculado.custoCliente * 100) / 100 });
     }
-  }, [custoAssinaturaCalculado, data.custo_assinatura_rs, updateData]);
-
-  // =====================================
-  // RESUMO FINANCEIRO - DUAS FATURAS
-  // =====================================
-  const resumoFinanceiro = useMemo(() => {
-    // Autoconsumo (economia de tarifa cheia)
-    const autoconsumoKwh = balanco.autoconsumoSimultaneo;
-    const autoconsumoRs = data.autoconsumo_rs || 0;
-    
-    // Créditos remotos
-    const creditosKwh = data.credito_remoto_kwh || 0;
-    const valorCompensado = data.credito_remoto_compensado_rs || 0;
-    const custoAssinatura = data.custo_assinatura_rs || 0;
-    
-    // Economia do autoconsumo = 100% (evitou pagar tarifa)
-    const economiaAutoconsumo = autoconsumoRs;
-    
-    // Economia dos créditos = valor compensado - custo assinatura
-    const economiaCreditos = valorCompensado - custoAssinatura;
-    
-    // Economia total
-    const economiaTotal = economiaAutoconsumo + economiaCreditos;
-    
-    // Percentual de desconto efetivo sobre créditos
-    const descontoEfetivo = valorCompensado > 0 
-      ? ((economiaCreditos / valorCompensado) * 100).toFixed(1)
-      : '0';
-
-    // "Fatura" da usina (o que paga ao fornecedor de energia solar)
-    // PPA local (se houver) + Assinatura remota
-    const custoPPALocal = data.tem_geracao_local && vinculo?.tarifa_ppa_rs_kwh
-      ? autoconsumoKwh * vinculo.tarifa_ppa_rs_kwh * (percentualPago / 100)
-      : 0; // Geração própria = sem custo mensal adicional
-    
-    const faturaUsina = custoAssinatura + custoPPALocal;
-
-    return {
-      // Energia
-      autoconsumoKwh,
-      creditosKwh,
-      consumoNaoCompensado: creditosCalculados.consumoNaoCompensado,
-      
-      // Valores
-      autoconsumoRs,
-      valorCompensado,
-      custoAssinatura,
-      custoPPALocal,
-      faturaUsina,
-      
-      // Economia
-      economiaAutoconsumo,
-      economiaCreditos,
-      economiaTotal,
-      descontoEfetivo,
-    };
-  }, [data, balanco, creditosCalculados, vinculo, percentualPago]);
-
-  // Atualizar contexto
-  useEffect(() => {
-    if (data.economia_liquida_rs !== resumoFinanceiro.economiaCreditos) {
-      updateData({
-        economia_liquida_rs: resumoFinanceiro.economiaCreditos,
-        consumo_final_kwh: creditosCalculados.consumoNaoCompensado,
-      });
-    }
-  }, [resumoFinanceiro.economiaCreditos, creditosCalculados.consumoNaoCompensado]);
+  }, [valorCalculado.custoCliente, data.custo_assinatura_rs, updateData]);
 
   // Validação
   useEffect(() => {
@@ -241,11 +170,7 @@ export function Step5CreditosRemotos() {
     setCanProceed(hasValues);
   }, [data.tem_usina_remota, data.credito_remoto_kwh, data.credito_remoto_compensado_rs, setCanProceed]);
 
-  // Helper formatação
-  const formatNumber = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const formatKwh = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-
-  // Labels
+  // Labels do contrato
   const getModalidadeLabel = () => {
     if (!vinculo) return '';
     if (vinculo.modalidade_economia === 'ppa_tarifa') {
@@ -259,13 +184,14 @@ export function Step5CreditosRemotos() {
     return `Desconto ${vinculo.desconto_garantido_percent || 0}% sobre ${refLabels[vinculo.referencia_desconto || 'valor_total']}`;
   };
 
+  // Sem usina remota
   if (!data.tem_usina_remota) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <PlugZap className="h-5 w-5" />
-            Créditos Remotos
+            Passo 5 — Consumo SCEE / Créditos Remotos
           </CardTitle>
           <CardDescription>
             Esta UC não possui assinatura de usina remota configurada.
@@ -289,15 +215,16 @@ export function Step5CreditosRemotos() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <PlugZap className="h-5 w-5 text-blue-500" />
-          Créditos Remotos (Assinatura)
+          Passo 5 — Consumo SCEE (Compensação)
         </CardTitle>
         <CardDescription>
-          Energia compensada via assinatura de usina remota. O cliente paga {percentualPago}% do valor 
-          compensado (desconto de {descontoPercent}%).
+          Consumo compensado através de créditos de energia no Sistema de Compensação de Energia Elétrica (SCEE).
+          O cliente paga {percentualPago}% do valor compensado (desconto de {descontoPercent}%).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Contrato */}
+        
+        {/* Contrato Ativo */}
         {vinculo && (
           <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
             <FileText className="h-4 w-4 text-blue-600" />
@@ -320,326 +247,336 @@ export function Step5CreditosRemotos() {
         )}
 
         {/* ============================================= */}
-        {/* SEÇÃO 1: BALANÇO ENERGÉTICO */}
+        {/* SEÇÃO 1: CÁLCULO DO CONSUMO SCEE */}
         {/* ============================================= */}
-        <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 border border-amber-200 dark:border-amber-800 rounded-lg space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 bg-amber-100 dark:bg-amber-900 rounded">
-              <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-xl space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="font-semibold">Balanço Energético</h3>
-            <Badge variant="outline" className="text-xs">kWh</Badge>
+            <div>
+              <h3 className="font-semibold">Consumo SCEE (Compensado via Créditos)</h3>
+              <p className="text-xs text-muted-foreground">
+                Consumo que é abatido através do sistema de compensação de energia
+              </p>
+            </div>
           </div>
-          
-          <div className="grid gap-2 text-sm">
-            {/* Consumo Real Total */}
-            <div className="flex justify-between items-center py-2 bg-white/50 dark:bg-black/20 rounded px-2">
-              <span className="font-medium">Consumo Real da UC</span>
-              <span className="font-mono font-bold">{formatKwh(balanco.consumoRealTotal)} kWh</span>
-            </div>
-            
-            {/* Detalhamento */}
-            <div className="flex justify-between items-center py-1 pl-4 text-muted-foreground">
-              <span className="text-xs flex items-center gap-1">
-                <Minus className="h-3 w-3" /> Autoconsumo (usina local)
-              </span>
-              <span className="font-mono text-xs text-green-600">
-                {balanco.autoconsumoSimultaneo > 0 ? `-${formatKwh(balanco.autoconsumoSimultaneo)}` : '0'} kWh
+
+          {/* Cálculo visual */}
+          <div className="space-y-3">
+            {/* Linha 1: Consumo da Rede */}
+            <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-orange-500" />
+                <span className="font-medium">Consumo Registrado da Rede</span>
+                <Badge variant="outline" className="text-xs">Step 2</Badge>
+              </div>
+              <span className="font-mono font-bold text-lg">
+                {formatarKwh(calculoSCEE.consumoRegistradoRede)} kWh
               </span>
             </div>
-            
-            <div className="flex justify-between items-center py-2 border-t">
-              <span className="font-medium text-amber-700 dark:text-amber-300">= Consumo da Rede (fatura)</span>
-              <span className="font-mono font-bold text-amber-700 dark:text-amber-300">
-                {formatKwh(balanco.consumoDaRede)} kWh
+
+            {/* Linha 2: Créditos Disponíveis */}
+            <div className="flex items-center justify-between p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Battery className="h-4 w-4 text-green-500" />
+                <span>Créditos Disponíveis (Usina)</span>
+              </div>
+              <span className="font-mono font-bold text-green-600">
+                {formatarKwh(calculoSCEE.creditosDisponiveis)} kWh
               </span>
+            </div>
+
+            {/* Operação */}
+            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
+              <Minus className="h-4 w-4" />
+              <span>Créditos aplicados para compensar</span>
+              <ArrowRight className="h-4 w-4" />
+            </div>
+
+            {/* Linha 3: Consumo SCEE (resultado) */}
+            <div className="flex items-center justify-between p-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg border-2 border-blue-300 dark:border-blue-700">
+              <div className="flex items-center gap-2">
+                <ArrowDownRight className="h-5 w-5 text-blue-600" />
+                <div>
+                  <span className="font-bold text-blue-700 dark:text-blue-300">CONSUMO SCEE</span>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    Compensado = evita pagar concessionária
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="font-mono font-bold text-2xl text-blue-700 dark:text-blue-300">
+                  {formatarKwh(calculoSCEE.consumoSCEE)} kWh
+                </span>
+                <p className="text-xs text-blue-600">
+                  ({calculoSCEE.percentualCompensado}% do consumo)
+                </p>
+              </div>
+            </div>
+
+            {/* Linha 4: Consumo Não Compensado */}
+            {calculoSCEE.consumoNaoCompensado > 0 && (
+              <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <span className="font-medium text-red-700 dark:text-red-300">Consumo NÃO Compensado</span>
+                </div>
+                <span className="font-mono font-bold text-red-600">
+                  {formatarKwh(calculoSCEE.consumoNaoCompensado)} kWh
+                </span>
+              </div>
+            )}
+
+            {calculoSCEE.consumoNaoCompensado === 0 && (
+              <div className="flex items-center gap-2 text-green-600 text-sm">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Consumo 100% compensado via créditos!</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* ============================================= */}
+        {/* SEÇÃO 2: VALORES FINANCEIROS */}
+        {/* ============================================= */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <CircleDollarSign className="h-4 w-4" />
+            Valores Financeiros do Consumo SCEE
+          </h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Input: Créditos Compensados */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                Consumo SCEE Compensado (kWh)
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <Calculator className="h-3 w-3" /> Auto
+                </Badge>
+              </Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.credito_remoto_kwh || ''} 
+                onChange={(e) => {
+                  autoFilledRef.current = true;
+                  updateData({ credito_remoto_kwh: parseFloat(e.target.value) || 0 });
+                }}
+                placeholder={formatarKwh(calculoSCEE.consumoSCEE)}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Sugerido: {formatarKwh(calculoSCEE.consumoSCEE)} kWh
+              </p>
+            </div>
+
+            {/* Input: Valor Bruto */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                Valor Bruto Compensado (R$)
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <Calculator className="h-3 w-3" /> Auto
+                </Badge>
+              </Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.credito_remoto_compensado_rs || ''} 
+                onChange={(e) => updateData({ credito_remoto_compensado_rs: parseFloat(e.target.value) || 0 })}
+                placeholder={formatarReais(valorCalculado.valorBruto)}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                Valor que seria pago se comprasse da concessionária
+              </p>
+            </div>
+          </div>
+
+          {/* Resumo: Custo e Economia */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Custo Assinatura */}
+            <div className="p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Factory className="h-4 w-4 text-orange-600" />
+                <span className="font-medium text-orange-700 dark:text-orange-300">Custo Assinatura</span>
+                <Badge variant="outline" className="text-xs">{percentualPago}%</Badge>
+              </div>
+              <div className="space-y-1">
+                <Input 
+                  type="number"
+                  step="0.01"
+                  value={data.custo_assinatura_rs || ''} 
+                  onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
+                  placeholder={formatarReais(valorCalculado.custoCliente)}
+                  className="font-mono text-lg font-bold"
+                />
+                <p className="text-xs text-muted-foreground">
+                  O que o cliente paga ao fornecedor de energia solar
+                </p>
+              </div>
+            </div>
+
+            {/* Economia */}
+            <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="h-4 w-4 text-green-600" />
+                <span className="font-medium text-green-700 dark:text-green-300">Economia ({descontoPercent}%)</span>
+              </div>
+              <p className="font-mono text-2xl font-bold text-green-600">
+                {formatarReais(valorCalculado.economia)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Economia garantida pelo desconto da assinatura
+              </p>
             </div>
           </div>
         </div>
 
+        <Separator />
+
         {/* ============================================= */}
-        {/* SEÇÃO 2: CRÉDITOS ALOCADOS */}
+        {/* SEÇÃO 3: RESUMO DAS DUAS FATURAS */}
         {/* ============================================= */}
-        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded">
-                <ArrowDownRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            Resumo: Duas Faturas
+          </h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Fatura Concessionária */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 className="h-5 w-5 text-slate-600" />
+                <span className="font-semibold">Fatura Concessionária</span>
               </div>
-              <h3 className="font-semibold">Créditos Remotos</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Consumo não compensado:</span>
+                  <span className="font-mono">{formatarKwh(calculoSCEE.consumoNaoCompensado)} kWh</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Total informado:</span>
+                  <span className="font-mono font-bold text-lg">
+                    {formatarReais(data.valor_total_pagar || 0)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <Badge variant="outline" className="text-xs gap-1">
-              <Calculator className="h-3 w-3" />Automático
-            </Badge>
-          </div>
 
-          {/* Créditos Disponíveis */}
-          <div className="flex items-center justify-between p-3 bg-white/50 dark:bg-black/20 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Battery className="h-4 w-4 text-green-600" />
-              <span className="text-sm">Créditos Recebidos (SCEE/Rateio):</span>
+            {/* Fatura Usina */}
+            <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Factory className="h-5 w-5 text-green-600" />
+                <span className="font-semibold text-green-800 dark:text-green-200">Fatura Usina (Assinatura)</span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Consumo SCEE:</span>
+                  <span className="font-mono">{formatarKwh(data.credito_remoto_kwh || calculoSCEE.consumoSCEE)} kWh</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valor bruto:</span>
+                  <span className="font-mono">{formatarReais(data.credito_remoto_compensado_rs || valorCalculado.valorBruto)}</span>
+                </div>
+                <div className="flex justify-between text-green-600">
+                  <span>Desconto ({descontoPercent}%):</span>
+                  <span className="font-mono">−{formatarReais(valorCalculado.economia)}</span>
+                </div>
+                <Separator className="bg-green-200 dark:bg-green-800" />
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Total a pagar:</span>
+                  <span className="font-mono font-bold text-lg text-green-700 dark:text-green-300">
+                    {formatarReais(data.custo_assinatura_rs || valorCalculado.custoCliente)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <span className="font-bold text-green-700">{formatKwh(creditosCalculados.creditosDisponiveis)} kWh</span>
           </div>
+        </div>
 
-          {/* Alocação */}
-          <div className="grid gap-2 text-sm">
-            <div className="flex justify-between items-center py-1">
-              <span className="text-muted-foreground">Consumo a compensar:</span>
-              <span className="font-mono">{formatKwh(creditosCalculados.consumoDaRede)} kWh</span>
-            </div>
-            <div className="flex justify-between items-center py-1 text-blue-600">
-              <span className="flex items-center gap-1">
-                <Minus className="h-3 w-3" /> Créditos Alocados:
-              </span>
-              <span className="font-mono font-medium">−{formatKwh(creditosCalculados.creditosAlocados)} kWh</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-t border-dashed font-medium">
-              <span>=Consumo Não Compensado:</span>
-              <span className={`font-mono font-bold ${creditosCalculados.consumoNaoCompensado === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatKwh(creditosCalculados.consumoNaoCompensado)} kWh
-              </span>
-            </div>
-          </div>
+        <Separator />
 
-          {creditosCalculados.consumoNaoCompensado > 0 && (
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
-                <strong>Créditos insuficientes!</strong> {formatKwh(creditosCalculados.consumoNaoCompensado)} kWh 
-                será cobrado na fatura da concessionária.
+        {/* ============================================= */}
+        {/* SEÇÃO 4: SALDO DE CRÉDITOS */}
+        {/* ============================================= */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            Saldo de Créditos (Fim do Ciclo)
+          </h4>
+
+          {calculoSCEE.creditosSobrando > 0 && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                Sobram <strong>{formatarKwh(calculoSCEE.creditosSobrando)} kWh</strong> de créditos 
+                para o próximo mês.
               </AlertDescription>
             </Alert>
           )}
 
-          {creditosCalculados.consumoNaoCompensado === 0 && (
-            <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-              ✓ Consumo 100% compensado
-            </Badge>
-          )}
-
-          {/* Campo editável (caso precise ajustar) */}
-          <div className="pt-2 border-t">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Créditos Alocados (kWh)</Label>
-              <Input
+              <Label>Saldo Ponta (kWh)</Label>
+              <Input 
                 type="number"
-                value={data.credito_remoto_kwh || ''}
-                onChange={(e) => updateData({ credito_remoto_kwh: parseFloat(e.target.value) || 0 })}
-                placeholder={`Sugerido: ${formatKwh(creditosCalculados.creditosAlocados)}`}
+                step="0.01"
+                value={data.scee_saldo_kwh_p || ''} 
+                onChange={(e) => updateData({ scee_saldo_kwh_p: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
               />
             </div>
-          </div>
-        </div>
-
-        {/* ============================================= */}
-        {/* SEÇÃO 3: DUAS FATURAS */}
-        {/* ============================================= */}
-        <div className="grid md:grid-cols-2 gap-4">
-          {/* Fatura Concessionária */}
-          <div className="p-4 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-900 dark:to-gray-900 border rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-slate-600" />
-              <h3 className="font-semibold text-sm">Fatura Concessionária</h3>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              O que ainda deve à distribuidora após compensação
-            </p>
-            <div className="p-3 bg-white/50 dark:bg-black/20 rounded text-center">
-              <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">
-                {formatKwh(creditosCalculados.consumoNaoCompensado)} kWh
-              </div>
-              <div className="text-xs text-muted-foreground">Consumo não compensado</div>
-            </div>
-          </div>
-
-          {/* Fatura Usina */}
-          <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border border-green-200 dark:border-green-800 rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <Factory className="h-4 w-4 text-green-600" />
-              <h3 className="font-semibold text-sm">Fatura Usina ({percentualPago}%)</h3>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Custo da assinatura (com {descontoPercent}% de desconto)
-            </p>
-            <div className="p-3 bg-white/50 dark:bg-black/20 rounded text-center">
-              <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-                R$ {formatNumber(resumoFinanceiro.custoAssinatura)}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {formatKwh(resumoFinanceiro.creditosKwh)} kWh × {percentualPago}%
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Valores editáveis */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Valor Compensado (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={data.credito_remoto_compensado_rs || ''}
-              onChange={(e) => updateData({ credito_remoto_compensado_rs: parseFloat(e.target.value) || 0 })}
-            />
-            <Badge variant="outline" className="text-xs">Calculado via tarifa TUSD</Badge>
-          </div>
-          <div className="space-y-2">
-            <Label>Custo Assinatura (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={data.custo_assinatura_rs || ''}
-              onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
-            />
-            <Badge variant="outline" className="text-xs">{percentualPago}% do compensado</Badge>
-          </div>
-        </div>
-
-        {/* ============================================= */}
-        {/* SEÇÃO 4: ECONOMIA TOTAL */}
-        {/* ============================================= */}
-        <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-2 border-green-300 dark:border-green-700 rounded-lg space-y-3">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 bg-green-100 dark:bg-green-900 rounded">
-              <CircleDollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </div>
-            <h3 className="font-semibold">Economia Total do Mês</h3>
-          </div>
-          
-          <div className="grid gap-2 text-sm">
-            {/* Economia do Autoconsumo */}
-            {resumoFinanceiro.autoconsumoRs > 0 && (
-              <div className="flex justify-between items-center py-2">
-                <div className="flex flex-col">
-                  <span className="font-medium text-green-700 dark:text-green-300 flex items-center gap-1">
-                    <Zap className="h-3 w-3" /> Autoconsumo (tarifa evitada)
-                  </span>
-                  <span className="text-xs text-muted-foreground pl-4">
-                    {formatKwh(resumoFinanceiro.autoconsumoKwh)} kWh × 100%
-                  </span>
-                </div>
-                <span className="font-mono font-medium text-green-600">
-                  R$ {formatNumber(resumoFinanceiro.economiaAutoconsumo)}
-                </span>
-              </div>
-            )}
-            
-            {/* Economia dos Créditos */}
-            <div className="flex justify-between items-center py-2">
-              <div className="flex flex-col">
-                <span className="font-medium text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                  <PlugZap className="h-3 w-3" /> Créditos Remotos ({descontoPercent}% desc.)
-                </span>
-                <span className="text-xs text-muted-foreground pl-4">
-                  R$ {formatNumber(resumoFinanceiro.valorCompensado)} - R$ {formatNumber(resumoFinanceiro.custoAssinatura)}
-                </span>
-              </div>
-              <span className="font-mono font-medium text-blue-600">
-                R$ {formatNumber(resumoFinanceiro.economiaCreditos)}
-              </span>
-            </div>
-            
-            {/* Total */}
-            <div className={`flex justify-between items-center py-3 px-3 -mx-3 rounded-lg mt-2 ${
-              resumoFinanceiro.economiaTotal >= 0 
-                ? 'bg-green-100 dark:bg-green-900/50' 
-                : 'bg-red-100 dark:bg-red-900/50'
-            }`}>
-              <div className="flex flex-col">
-                <span className="font-bold text-base flex items-center gap-1">
-                  <Equal className="h-4 w-4" /> ECONOMIA TOTAL
-                </span>
-              </div>
-              <span className={`font-mono font-bold text-xl ${
-                resumoFinanceiro.economiaTotal >= 0 
-                  ? 'text-green-700 dark:text-green-300' 
-                  : 'text-red-700 dark:text-red-300'
-              }`}>
-                R$ {formatNumber(resumoFinanceiro.economiaTotal)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Saldos de Créditos */}
-        <div className="p-4 bg-muted/50 border rounded-lg space-y-4">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            <h3 className="font-medium">Saldo de Créditos (Fim do Ciclo)</h3>
-          </div>
-
-          {isGrupoA ? (
-            <>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Ponta (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.scee_saldo_kwh_p || ''}
-                    onChange={(e) => updateData({ scee_saldo_kwh_p: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Fora Ponta (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.scee_saldo_kwh_fp || ''}
-                    onChange={(e) => updateData({ scee_saldo_kwh_fp: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Reservado (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.scee_saldo_kwh_hr || ''}
-                    onChange={(e) => updateData({ scee_saldo_kwh_hr: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-amber-600">Expiram em 30 dias (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.scee_saldo_expirar_30d_kwh || ''}
-                    onChange={(e) => updateData({ scee_saldo_expirar_30d_kwh: parseFloat(e.target.value) || 0 })}
-                    className="border-amber-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Expiram em 60 dias (kWh)</Label>
-                  <Input
-                    type="number"
-                    value={data.scee_saldo_expirar_60d_kwh || ''}
-                    onChange={(e) => updateData({ scee_saldo_expirar_60d_kwh: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-
-              {data.scee_saldo_expirar_30d_kwh > 0 && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <AlertDescription>
-                    Atenção: {data.scee_saldo_expirar_30d_kwh.toLocaleString('pt-BR')} kWh de créditos 
-                    expiram nos próximos 30 dias.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </>
-          ) : (
             <div className="space-y-2">
-              <Label>Saldo Total (kWh)</Label>
-              <Input
+              <Label>Saldo Fora Ponta (kWh)</Label>
+              <Input 
                 type="number"
-                value={data.scee_saldo_kwh_fp || ''}
+                step="0.01"
+                value={data.scee_saldo_kwh_fp || ''} 
                 onChange={(e) => updateData({ scee_saldo_kwh_fp: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
               />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>Saldo HR (kWh)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.scee_saldo_kwh_hr || ''} 
+                onChange={(e) => updateData({ scee_saldo_kwh_hr: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Créditos a expirar em 30 dias (kWh)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.scee_saldo_expirar_30d_kwh || ''} 
+                onChange={(e) => updateData({ scee_saldo_expirar_30d_kwh: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+                className={(data.scee_saldo_expirar_30d_kwh || 0) > 0 ? 'border-amber-500' : ''}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Créditos a expirar em 60 dias (kWh)</Label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={data.scee_saldo_expirar_60d_kwh || ''} 
+                onChange={(e) => updateData({ scee_saldo_expirar_60d_kwh: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+          </div>
         </div>
+
       </CardContent>
     </Card>
   );
