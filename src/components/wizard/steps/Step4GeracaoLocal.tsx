@@ -4,11 +4,19 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useWizard } from '../WizardContext';
-import { Sun, Zap, ArrowRight, Info } from 'lucide-react';
+import { Sun, Zap, ArrowRight, Info, Calculator } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useTarifas } from '@/hooks/useTarifas';
 
 export function Step4GeracaoLocal() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
+  
+  // Buscar tarifa vigente
+  const { data: tarifa } = useTarifas(
+    data.concessionaria || null,
+    data.grupo_tarifario || null,
+    data.modalidade || null
+  );
 
   // Calcular totais automaticamente
   const totais = useMemo(() => {
@@ -42,6 +50,37 @@ export function Step4GeracaoLocal() {
       pctInjecao,
     };
   }, [data, isGrupoA]);
+
+  // Calcular valor de autoconsumo baseado na tarifa (TE + TUSD)
+  const valorAutoconsumoCalculado = useMemo(() => {
+    if (!tarifa || totais.autoconsumoTotal <= 0) return null;
+
+    if (isGrupoA) {
+      // Grupo A: soma por posto horário usando TE + TUSD
+      const valorPonta = data.autoconsumo_ponta_kwh * 
+        ((tarifa.te_ponta_rs_kwh || 0) + (tarifa.tusd_ponta_rs_kwh || 0));
+      const valorFP = data.autoconsumo_fp_kwh * 
+        ((tarifa.te_fora_ponta_rs_kwh || 0) + (tarifa.tusd_fora_ponta_rs_kwh || 0));
+      const valorHR = data.autoconsumo_hr_kwh * 
+        ((tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || 0) + 
+         (tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0));
+      
+      return valorPonta + valorFP + valorHR;
+    } else {
+      // Grupo B: tarifa única (TE + TUSD)
+      const teUnica = tarifa.te_unica_rs_kwh || 0;
+      const tusdUnica = tarifa.tusd_unica_rs_kwh || 0;
+      return totais.autoconsumoTotal * (teUnica + tusdUnica);
+    }
+  }, [tarifa, totais.autoconsumoTotal, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, isGrupoA]);
+
+  // Auto-atualizar valor do autoconsumo quando calculado
+  useEffect(() => {
+    if (valorAutoconsumoCalculado !== null && valorAutoconsumoCalculado > 0 && !data.autoconsumo_rs) {
+      updateData({ autoconsumo_rs: Math.round(valorAutoconsumoCalculado * 100) / 100 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valorAutoconsumoCalculado]);
 
   // Atualizar totais no contexto
   useEffect(() => {
@@ -180,7 +219,15 @@ export function Step4GeracaoLocal() {
           </div>
 
           <div className="space-y-2">
-            <Label>Valor Economizado (R$)</Label>
+            <div className="flex items-center justify-between">
+              <Label>Valor Economizado (R$)</Label>
+              {valorAutoconsumoCalculado !== null && (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Calculator className="h-3 w-3" />
+                  Calculado via tarifa
+                </Badge>
+              )}
+            </div>
             <Input
               type="number"
               step="0.01"
@@ -188,6 +235,15 @@ export function Step4GeracaoLocal() {
               onChange={(e) => updateData({ autoconsumo_rs: parseFloat(e.target.value) || 0 })}
               placeholder="Economia pelo autoconsumo"
             />
+            {tarifa && (
+              <p className="text-xs text-muted-foreground">
+                Tarifa TE+TUSD: R$ {(
+                  isGrupoA 
+                    ? (tarifa.te_fora_ponta_rs_kwh || 0) + (tarifa.tusd_fora_ponta_rs_kwh || 0)
+                    : (tarifa.te_unica_rs_kwh || 0) + (tarifa.tusd_unica_rs_kwh || 0)
+                ).toFixed(4)}/kWh {isGrupoA ? '(FP)' : ''}
+              </p>
+            )}
           </div>
         </div>
 
