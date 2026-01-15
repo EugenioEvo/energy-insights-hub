@@ -4,8 +4,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useWizard } from '../WizardContext';
-import { Calendar, AlertCircle } from 'lucide-react';
+import { Calendar, AlertCircle, Flag } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 export function Step1Cabecalho() {
   const { data, updateData, setCanProceed } = useWizard();
@@ -60,7 +61,7 @@ export function Step1Cabecalho() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label htmlFor="mes_ref">Mês de Referência *</Label>
             <Select value={data.mes_ref} onValueChange={(v) => updateData({ mes_ref: v })}>
@@ -85,6 +86,46 @@ export function Step1Cabecalho() {
               placeholder="37533.55"
               className={!data.valor_total_pagar ? 'border-destructive' : ''}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bandeira" className="flex items-center gap-2">
+              <Flag className="h-4 w-4" />
+              Bandeira Tarifária *
+            </Label>
+            <Select 
+              value={data.bandeira} 
+              onValueChange={(v: 'verde' | 'amarela' | 'vermelha1' | 'vermelha2') => updateData({ bandeira: v })}
+            >
+              <SelectTrigger id="bandeira">
+                <SelectValue placeholder="Selecione a bandeira" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="verde">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-green-500 hover:bg-green-500 text-white">Verde</Badge>
+                    <span className="text-muted-foreground text-xs">Sem acréscimo</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="amarela">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-yellow-500 hover:bg-yellow-500 text-white">Amarela</Badge>
+                    <span className="text-muted-foreground text-xs">Acréscimo moderado</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="vermelha1">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-red-400 hover:bg-red-400 text-white">Vermelha P1</Badge>
+                    <span className="text-muted-foreground text-xs">Acréscimo elevado</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="vermelha2">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-red-600 hover:bg-red-600 text-white">Vermelha P2</Badge>
+                    <span className="text-muted-foreground text-xs">Acréscimo máximo</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

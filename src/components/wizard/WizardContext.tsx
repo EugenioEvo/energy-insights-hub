@@ -36,6 +36,7 @@ export type FaturaWizardData = {
   proxima_leitura: string;
   vencimento: string;
   valor_total_pagar: number;
+  bandeira: 'verde' | 'amarela' | 'vermelha1' | 'vermelha2';
   
   // Passo 2 - Consumo (Grupo A: por posto / Grupo B: total)
   consumo_ponta_kwh: number;
@@ -148,6 +149,7 @@ export const initialWizardData: FaturaWizardData = {
   // Cabeçalho
   mes_ref: '',
   data_emissao: '',
+  bandeira: 'verde',
   data_apresentacao: '',
   leitura_anterior: '',
   leitura_atual: '',
