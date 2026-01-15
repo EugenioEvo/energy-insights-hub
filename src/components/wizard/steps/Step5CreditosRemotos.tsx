@@ -215,14 +215,26 @@ export function Step5CreditosRemotos() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <PlugZap className="h-5 w-5 text-blue-500" />
-          Passo 5 — Consumo SCEE (Compensação)
+          Passo 5 — Créditos Remotos (Injeção de outra UC)
         </CardTitle>
         <CardDescription>
-          Consumo compensado através de créditos de energia no Sistema de Compensação de Energia Elétrica (SCEE).
-          O cliente paga {percentualPago}% do valor compensado (desconto de {descontoPercent}%).
+          <strong>Créditos Remotos = Injeção com indicação de UC diferente.</strong> São créditos recebidos de outra 
+          UC (usina remota) via sistema de compensação. O cliente paga {percentualPago}% do valor ({descontoPercent}% desconto).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        
+        {/* Explicação conceitual */}
+        <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+          <Info className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200 text-sm">
+            <strong>Injeção na fatura:</strong>
+            <ul className="mt-1 list-disc list-inside space-y-1">
+              <li><strong>Sem UC indicada</strong> = Créditos próprios (da usina desta UC) → Step 4</li>
+              <li><strong>Com UC diferente</strong> = Créditos remotos (de outra usina) → Este step</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
         
         {/* Contrato Ativo */}
         {vinculo && (
