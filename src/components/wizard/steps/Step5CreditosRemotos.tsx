@@ -169,7 +169,8 @@ export function Step5CreditosRemotos() {
   // Cálculos de economia - melhorados para separar fluxo energético e financeiro
   const calculos = useMemo(() => {
     // === BALANÇO ENERGÉTICO ===
-    const consumoTotal = data.consumo_total_kwh;
+    // Consumo Total = Energia da Rede + Energia Simultânea (autoconsumo)
+    const consumoTotal = data.consumo_total_kwh + (data.autoconsumo_total_kwh || 0);
     const autoconsumoLocal = data.autoconsumo_total_kwh;
     const consumoResidual = data.consumo_residual_kwh;
     
