@@ -42,8 +42,22 @@ export function Step5ItensFatura() {
   const valoresCalculados = useMemo(() => {
     if (!tarifa) return null;
     
-    // Determinar bandeira atual (simplificado - usar verde como padrão)
-    const bandeiraTarifa = tarifa.bandeira_verde_rs_kwh || 0;
+    // Determinar bandeira atual baseada na seleção do usuário
+    let bandeiraTarifa = 0;
+    switch (data.bandeira) {
+      case 'verde':
+        bandeiraTarifa = tarifa.bandeira_verde_rs_kwh || 0;
+        break;
+      case 'amarela':
+        bandeiraTarifa = tarifa.bandeira_amarela_rs_kwh || 0;
+        break;
+      case 'vermelha1':
+        bandeiraTarifa = tarifa.bandeira_vermelha1_rs_kwh || 0;
+        break;
+      case 'vermelha2':
+        bandeiraTarifa = tarifa.bandeira_vermelha2_rs_kwh || 0;
+        break;
+    }
     
     if (isGrupoA) {
       return {
@@ -231,10 +245,22 @@ export function Step5ItensFatura() {
         {tarifa && valoresCalculados && (
           <Alert className="bg-primary/5 border-primary/20">
             <Sparkles className="h-4 w-4 text-primary" />
-            <AlertDescription className="flex items-center justify-between">
-              <span>
-                Valores calculados automaticamente com base na tarifa vigente e consumo informado.
-              </span>
+            <AlertDescription className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span>
+                  Valores calculados com tarifa vigente.
+                </span>
+                <Badge 
+                  className={
+                    data.bandeira === 'verde' ? 'bg-green-500 hover:bg-green-500' :
+                    data.bandeira === 'amarela' ? 'bg-yellow-500 hover:bg-yellow-500' :
+                    data.bandeira === 'vermelha1' ? 'bg-red-400 hover:bg-red-400' :
+                    'bg-red-600 hover:bg-red-600'
+                  }
+                >
+                  Bandeira {data.bandeira === 'vermelha1' ? 'Vermelha P1' : data.bandeira === 'vermelha2' ? 'Vermelha P2' : data.bandeira.charAt(0).toUpperCase() + data.bandeira.slice(1)}
+                </Badge>
+              </div>
               <Button
                 type="button"
                 variant="outline"
