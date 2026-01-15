@@ -1,14 +1,167 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useWizard } from '../WizardContext';
-import { Receipt, AlertCircle } from 'lucide-react';
+import { Receipt, AlertCircle, Sparkles, RefreshCw, Calculator } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { TarifaInfo, useTarifaAtual } from '../TarifaInfo';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function Step5ItensFatura() {
-  const { data, updateData, setCanProceed } = useWizard();
+  const { data, updateData, setCanProceed, isGrupoA } = useWizard();
+  const tarifa = useTarifaAtual();
+  
+  // Track which fields were auto-filled
+  const [autoFilled, setAutoFilled] = useState({
+    bandeira_te_p: false,
+    bandeira_te_fp: false,
+    bandeira_te_hr: false,
+    tusd_p: false,
+    tusd_fp: false,
+    tusd_hr: false,
+    te_p: false,
+    te_fp: false,
+    te_hr: false,
+  });
+
+  // Calcular consumo não compensado (consumo - autoconsumo - créditos remotos)
+  const consumoNaoCompensado = useMemo(() => {
+    // Consumo por posto
+    const ponta = Math.max(0, (data.consumo_ponta_kwh || 0) - (data.autoconsumo_ponta_kwh || 0) - (data.credito_remoto_ponta_kwh || 0));
+    const fp = Math.max(0, (data.consumo_fora_ponta_kwh || 0) - (data.autoconsumo_fp_kwh || 0) - (data.credito_remoto_fp_kwh || 0));
+    const hr = Math.max(0, (data.consumo_reservado_kwh || 0) - (data.autoconsumo_hr_kwh || 0) - (data.credito_remoto_hr_kwh || 0));
+    
+    return { ponta, fp, hr, total: ponta + fp + hr };
+  }, [data]);
+
+  // Calcular valores sugeridos baseado na tarifa
+  const valoresCalculados = useMemo(() => {
+    if (!tarifa) return null;
+    
+    // Determinar bandeira atual (simplificado - usar verde como padrão)
+    const bandeiraTarifa = tarifa.bandeira_verde_rs_kwh || 0;
+    
+    if (isGrupoA) {
+      return {
+        // Bandeiras - aplica sobre consumo total de cada posto
+        bandeira_te_p: (data.consumo_ponta_kwh || 0) * bandeiraTarifa,
+        bandeira_te_fp: (data.consumo_fora_ponta_kwh || 0) * bandeiraTarifa,
+        bandeira_te_hr: (data.consumo_reservado_kwh || 0) * bandeiraTarifa,
+        
+        // TUSD não compensado
+        tusd_p: consumoNaoCompensado.ponta * (tarifa.tusd_ponta_rs_kwh || 0),
+        tusd_fp: consumoNaoCompensado.fp * (tarifa.tusd_fora_ponta_rs_kwh || 0),
+        tusd_hr: consumoNaoCompensado.hr * (tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0),
+        
+        // TE não compensado
+        te_p: consumoNaoCompensado.ponta * (tarifa.te_ponta_rs_kwh || 0),
+        te_fp: consumoNaoCompensado.fp * (tarifa.te_fora_ponta_rs_kwh || 0),
+        te_hr: consumoNaoCompensado.hr * (tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || 0),
+      };
+    } else {
+      // Grupo B - tarifa única
+      const consumoTotal = data.consumo_total_kwh || 0;
+      return {
+        bandeira_te_p: 0,
+        bandeira_te_fp: consumoTotal * bandeiraTarifa,
+        bandeira_te_hr: 0,
+        tusd_p: 0,
+        tusd_fp: consumoNaoCompensado.total * (tarifa.tusd_unica_rs_kwh || 0),
+        tusd_hr: 0,
+        te_p: 0,
+        te_fp: consumoNaoCompensado.total * (tarifa.te_unica_rs_kwh || 0),
+        te_hr: 0,
+      };
+    }
+  }, [tarifa, data, consumoNaoCompensado, isGrupoA]);
+
+  // Auto-preencher valores quando tarifa disponível e campos vazios
+  useEffect(() => {
+    if (!valoresCalculados || !tarifa) return;
+    
+    const updates: Record<string, number> = {};
+    const newAutoFilled = { ...autoFilled };
+    
+    // Bandeiras
+    if (data.bandeira_te_p_rs === 0 && valoresCalculados.bandeira_te_p > 0) {
+      updates.bandeira_te_p_rs = parseFloat(valoresCalculados.bandeira_te_p.toFixed(2));
+      newAutoFilled.bandeira_te_p = true;
+    }
+    if (data.bandeira_te_fp_rs === 0 && valoresCalculados.bandeira_te_fp > 0) {
+      updates.bandeira_te_fp_rs = parseFloat(valoresCalculados.bandeira_te_fp.toFixed(2));
+      newAutoFilled.bandeira_te_fp = true;
+    }
+    if (data.bandeira_te_hr_rs === 0 && valoresCalculados.bandeira_te_hr > 0) {
+      updates.bandeira_te_hr_rs = parseFloat(valoresCalculados.bandeira_te_hr.toFixed(2));
+      newAutoFilled.bandeira_te_hr = true;
+    }
+    
+    // TUSD
+    if (data.nao_compensado_tusd_p_rs === 0 && valoresCalculados.tusd_p > 0) {
+      updates.nao_compensado_tusd_p_rs = parseFloat(valoresCalculados.tusd_p.toFixed(2));
+      newAutoFilled.tusd_p = true;
+    }
+    if (data.nao_compensado_tusd_fp_rs === 0 && valoresCalculados.tusd_fp > 0) {
+      updates.nao_compensado_tusd_fp_rs = parseFloat(valoresCalculados.tusd_fp.toFixed(2));
+      newAutoFilled.tusd_fp = true;
+    }
+    if (data.nao_compensado_tusd_hr_rs === 0 && valoresCalculados.tusd_hr > 0) {
+      updates.nao_compensado_tusd_hr_rs = parseFloat(valoresCalculados.tusd_hr.toFixed(2));
+      newAutoFilled.tusd_hr = true;
+    }
+    
+    // TE
+    if (data.nao_compensado_te_p_rs === 0 && valoresCalculados.te_p > 0) {
+      updates.nao_compensado_te_p_rs = parseFloat(valoresCalculados.te_p.toFixed(2));
+      newAutoFilled.te_p = true;
+    }
+    if (data.nao_compensado_te_fp_rs === 0 && valoresCalculados.te_fp > 0) {
+      updates.nao_compensado_te_fp_rs = parseFloat(valoresCalculados.te_fp.toFixed(2));
+      newAutoFilled.te_fp = true;
+    }
+    if (data.nao_compensado_te_hr_rs === 0 && valoresCalculados.te_hr > 0) {
+      updates.nao_compensado_te_hr_rs = parseFloat(valoresCalculados.te_hr.toFixed(2));
+      newAutoFilled.te_hr = true;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      updateData(updates);
+      setAutoFilled(newAutoFilled);
+    }
+  }, [valoresCalculados, tarifa]);
+
+  // Recalcular todos os valores
+  const recalcularTodos = useCallback(() => {
+    if (!valoresCalculados) return;
+    
+    updateData({
+      bandeira_te_p_rs: parseFloat(valoresCalculados.bandeira_te_p.toFixed(2)),
+      bandeira_te_fp_rs: parseFloat(valoresCalculados.bandeira_te_fp.toFixed(2)),
+      bandeira_te_hr_rs: parseFloat(valoresCalculados.bandeira_te_hr.toFixed(2)),
+      nao_compensado_tusd_p_rs: parseFloat(valoresCalculados.tusd_p.toFixed(2)),
+      nao_compensado_tusd_fp_rs: parseFloat(valoresCalculados.tusd_fp.toFixed(2)),
+      nao_compensado_tusd_hr_rs: parseFloat(valoresCalculados.tusd_hr.toFixed(2)),
+      nao_compensado_te_p_rs: parseFloat(valoresCalculados.te_p.toFixed(2)),
+      nao_compensado_te_fp_rs: parseFloat(valoresCalculados.te_fp.toFixed(2)),
+      nao_compensado_te_hr_rs: parseFloat(valoresCalculados.te_hr.toFixed(2)),
+    });
+    
+    setAutoFilled({
+      bandeira_te_p: true,
+      bandeira_te_fp: true,
+      bandeira_te_hr: true,
+      tusd_p: true,
+      tusd_fp: true,
+      tusd_hr: true,
+      te_p: true,
+      te_fp: true,
+      te_hr: true,
+    });
+  }, [valoresCalculados, updateData]);
 
   // Validação - sempre permite prosseguir
   useEffect(() => {
@@ -41,6 +194,25 @@ export function Step5ItensFatura() {
     (data.scee_injecao_fp_te_rs || 0) + 
     (data.scee_injecao_fp_tusd_rs || 0);
 
+  const AutoBadge = ({ show }: { show: boolean }) => {
+    if (!show) return null;
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" className="ml-2 gap-1 text-xs">
+              <Sparkles className="h-3 w-3" />
+              Auto
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Valor calculado automaticamente pela tarifa</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -53,6 +225,58 @@ export function Step5ItensFatura() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Info da Tarifa */}
+        <TarifaInfo compact />
+
+        {tarifa && valoresCalculados && (
+          <Alert className="bg-primary/5 border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                Valores calculados automaticamente com base na tarifa vigente e consumo informado.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={recalcularTodos}
+                className="ml-4"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Recalcular Todos
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Consumo não compensado info */}
+        {consumoNaoCompensado.total > 0 && (
+          <div className="bg-muted/50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Calculator className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Consumo Não Compensado (kWh)</span>
+            </div>
+            <div className="grid grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Ponta</span>
+                <p className="font-semibold">{consumoNaoCompensado.ponta.toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Fora Ponta</span>
+                <p className="font-semibold">{consumoNaoCompensado.fp.toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Reservado</span>
+                <p className="font-semibold">{consumoNaoCompensado.hr.toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Total</span>
+                <p className="font-semibold text-primary">{consumoNaoCompensado.total.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 5A - Bandeiras TE */}
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
@@ -60,34 +284,67 @@ export function Step5ItensFatura() {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Bandeira TE Ponta</Label>
+              <div className="flex items-center">
+                <Label>Bandeira TE Ponta</Label>
+                <AutoBadge show={autoFilled.bandeira_te_p} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.bandeira_te_p_rs || ''} 
-                onChange={(e) => updateData({ bandeira_te_p_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ bandeira_te_p_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, bandeira_te_p: false }));
+                }}
                 placeholder="348.34"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.bandeira_te_p)}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Bandeira TE Fora Ponta</Label>
+              <div className="flex items-center">
+                <Label>Bandeira TE Fora Ponta</Label>
+                <AutoBadge show={autoFilled.bandeira_te_fp} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.bandeira_te_fp_rs || ''} 
-                onChange={(e) => updateData({ bandeira_te_fp_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ bandeira_te_fp_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, bandeira_te_fp: false }));
+                }}
                 placeholder="803.49"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.bandeira_te_fp)}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Bandeira TE HR</Label>
+              <div className="flex items-center">
+                <Label>Bandeira TE HR</Label>
+                <AutoBadge show={autoFilled.bandeira_te_hr} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.bandeira_te_hr_rs || ''} 
-                onChange={(e) => updateData({ bandeira_te_hr_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ bandeira_te_hr_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, bandeira_te_hr: false }));
+                }}
                 placeholder="50.70"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.bandeira_te_hr)}
+                </p>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
@@ -104,34 +361,67 @@ export function Step5ItensFatura() {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>TUSD Ponta</Label>
+              <div className="flex items-center">
+                <Label>TUSD Ponta</Label>
+                <AutoBadge show={autoFilled.tusd_p} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.nao_compensado_tusd_p_rs || ''} 
-                onChange={(e) => updateData({ nao_compensado_tusd_p_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ nao_compensado_tusd_p_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, tusd_p: false }));
+                }}
                 placeholder="13161.92"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.tusd_p)}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>TUSD Fora Ponta</Label>
+              <div className="flex items-center">
+                <Label>TUSD Fora Ponta</Label>
+                <AutoBadge show={autoFilled.tusd_fp} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.nao_compensado_tusd_fp_rs || ''} 
-                onChange={(e) => updateData({ nao_compensado_tusd_fp_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ nao_compensado_tusd_fp_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, tusd_fp: false }));
+                }}
                 placeholder="1762.35"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.tusd_fp)}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>TUSD HR</Label>
+              <div className="flex items-center">
+                <Label>TUSD HR</Label>
+                <AutoBadge show={autoFilled.tusd_hr} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.nao_compensado_tusd_hr_rs || ''} 
-                onChange={(e) => updateData({ nao_compensado_tusd_hr_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ nao_compensado_tusd_hr_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, tusd_hr: false }));
+                }}
                 placeholder="111.21"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.tusd_hr)}
+                </p>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
@@ -148,34 +438,67 @@ export function Step5ItensFatura() {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>TE Ponta</Label>
+              <div className="flex items-center">
+                <Label>TE Ponta</Label>
+                <AutoBadge show={autoFilled.te_p} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.nao_compensado_te_p_rs || ''} 
-                onChange={(e) => updateData({ nao_compensado_te_p_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ nao_compensado_te_p_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, te_p: false }));
+                }}
                 placeholder="3264.26"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.te_p)}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>TE Fora Ponta</Label>
+              <div className="flex items-center">
+                <Label>TE Fora Ponta</Label>
+                <AutoBadge show={autoFilled.te_fp} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.nao_compensado_te_fp_rs || ''} 
-                onChange={(e) => updateData({ nao_compensado_te_fp_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ nao_compensado_te_fp_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, te_fp: false }));
+                }}
                 placeholder="4615.01"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.te_fp)}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>TE HR</Label>
+              <div className="flex items-center">
+                <Label>TE HR</Label>
+                <AutoBadge show={autoFilled.te_hr} />
+              </div>
               <Input 
                 type="number"
                 step="0.01"
                 value={data.nao_compensado_te_hr_rs || ''} 
-                onChange={(e) => updateData({ nao_compensado_te_hr_rs: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  updateData({ nao_compensado_te_hr_rs: parseFloat(e.target.value) || 0 });
+                  setAutoFilled(prev => ({ ...prev, te_hr: false }));
+                }}
                 placeholder="291.22"
               />
+              {valoresCalculados && tarifa && (
+                <p className="text-xs text-muted-foreground">
+                  Sugerido: {formatCurrency(valoresCalculados.te_hr)}
+                </p>
+              )}
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
@@ -290,6 +613,40 @@ export function Step5ItensFatura() {
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Resumo */}
+        <div className="bg-muted/50 rounded-lg p-4">
+          <h5 className="font-medium mb-3">Resumo de Itens de Fatura</h5>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Bandeiras TE</span>
+              <span className="font-medium">{formatCurrency(totalBandeiras)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">TUSD Não Compensado</span>
+              <span className="font-medium">{formatCurrency(totalNaoCompensadoTUSD)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">TE Não Compensado</span>
+              <span className="font-medium">{formatCurrency(totalNaoCompensadoTE)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">SCEE Compensação</span>
+              <span className="font-medium">{formatCurrency(totalSCEE)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">UFER + CIP</span>
+              <span className="font-medium">{formatCurrency((data.ufer_fp_rs || 0) + (data.cip_rs || 0))}</span>
+            </div>
+            <Separator className="my-2" />
+            <div className="flex justify-between text-base">
+              <span className="font-medium">Total Itens (sem tributos)</span>
+              <span className="font-bold text-primary">
+                {formatCurrency(totalBandeiras + totalNaoCompensadoTUSD + totalNaoCompensadoTE + totalSCEE + (data.ufer_fp_rs || 0) + (data.cip_rs || 0))}
+              </span>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
