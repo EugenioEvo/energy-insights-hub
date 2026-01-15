@@ -73,27 +73,69 @@ export function Step5CreditosRemotos() {
     }
   }, [isGrupoA, data.consumo_ponta_kwh, data.consumo_fora_ponta_kwh, data.consumo_reservado_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, updateData]);
 
-  // Calcular valor compensado baseado na tarifa (TUSD para GD)
+  // Impostos padrão caso não estejam configurados na tarifa
+  const IMPOSTOS_DEFAULT = {
+    icms: 0.17,    // 17%
+    pis: 0.0076,   // 0.76%
+    cofins: 0.0352 // 3.52%
+  };
+
+  // Função para obter impostos (da tarifa ou padrão)
+  const obterImpostos = (tarifa: any) => {
+    return {
+      icms: (tarifa?.icms_percent || IMPOSTOS_DEFAULT.icms * 100) / 100,
+      pis: (tarifa?.pis_percent || IMPOSTOS_DEFAULT.pis * 100) / 100,
+      cofins: (tarifa?.cofins_percent || IMPOSTOS_DEFAULT.cofins * 100) / 100,
+    };
+  };
+
+  // Calcular valor compensado baseado na tarifa (TUSD + Encargos + impostos "por dentro")
+  // Alinhado com a metodologia de cost avoidance do autoconsumo
   const valorCompensadoCalculado = useMemo(() => {
     if (!tarifa || !data.credito_remoto_kwh) return null;
 
+    // Se modalidade PPA, usar tarifa fixa do contrato
+    if (vinculo?.modalidade_economia === 'ppa_tarifa' && vinculo?.tarifa_ppa_rs_kwh) {
+      return data.credito_remoto_kwh * vinculo.tarifa_ppa_rs_kwh;
+    }
+
+    const encargos = tarifa.tusd_encargos_rs_kwh || 0;
+    const impostos = obterImpostos(tarifa);
+    // Fator de impostos "por dentro" (cost avoidance)
+    const fatorImpostos = 1 - (impostos.icms + impostos.pis + impostos.cofins);
+
     if (isGrupoA) {
-      // Grupo A (Binômia): soma por posto horário usando TUSD (GD só compensa TUSD)
+      // Grupo A (Binômia): soma por posto horário usando TUSD + Encargos
       const energiaPonta = data.credito_remoto_ponta_kwh || 0;
       const energiaFP = data.credito_remoto_fp_kwh || 0;
       const energiaHR = data.credito_remoto_hr_kwh || 0;
       
-      const valorPonta = energiaPonta * (tarifa.tusd_ponta_rs_kwh || 0);
-      const valorFP = energiaFP * (tarifa.tusd_fora_ponta_rs_kwh || 0);
-      const valorHR = energiaHR * (tarifa.tusd_reservado_rs_kwh || 0);
+      // Ponta
+      const tusdPonta = tarifa.tusd_ponta_rs_kwh || 0;
+      const tarifaPonta = tusdPonta + encargos;
+      const valorPonta = energiaPonta * tarifaPonta;
       
-      return valorPonta + valorFP + valorHR;
+      // Fora Ponta
+      const tusdFP = tarifa.tusd_fora_ponta_rs_kwh || 0;
+      const tarifaFP = tusdFP + encargos;
+      const valorFP = energiaFP * tarifaFP;
+      
+      // Horário Reservado
+      const tusdHR = tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0;
+      const tarifaHR = tusdHR + encargos;
+      const valorHR = energiaHR * tarifaHR;
+      
+      // Soma base e aplica impostos "por dentro"
+      const valorBase = valorPonta + valorFP + valorHR;
+      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     } else {
-      // Grupo B (Monômia): tarifa única
+      // Grupo B (Monômia): tarifa única + encargos
       const tusdUnica = tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0;
-      return data.credito_remoto_kwh * tusdUnica;
+      const tarifaBase = tusdUnica + encargos;
+      const valorBase = data.credito_remoto_kwh * tarifaBase;
+      return fatorImpostos > 0 ? valorBase / fatorImpostos : valorBase;
     }
-  }, [tarifa, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA]);
+  }, [tarifa, vinculo, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, isGrupoA]);
 
   // Percentual de desconto: usa o valor do vínculo ou 15% como padrão
   const descontoPercent = vinculo?.desconto_garantido_percent ?? 15;
@@ -360,7 +402,15 @@ export function Step5CreditosRemotos() {
             />
             {tarifa && (
               <p className="text-xs text-muted-foreground">
-                Tarifa TUSD: R$ {(tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0).toFixed(4)}/kWh
+                {isGrupoA ? (
+                  <>
+                    TUSD: Ponta R$ {(tarifa.tusd_ponta_rs_kwh || 0).toFixed(4)} | 
+                    FP R$ {(tarifa.tusd_fora_ponta_rs_kwh || 0).toFixed(4)} | 
+                    Encargos R$ {(tarifa.tusd_encargos_rs_kwh || 0).toFixed(4)}/kWh + impostos
+                  </>
+                ) : (
+                  <>Tarifa TUSD: R$ {(tarifa.tusd_unica_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || 0).toFixed(4)}/kWh + encargos + impostos</>
+                )}
               </p>
             )}
           </div>
