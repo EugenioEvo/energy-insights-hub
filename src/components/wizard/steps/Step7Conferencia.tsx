@@ -1,10 +1,13 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWizard, FaturaWizardData } from '../WizardContext';
-import { ClipboardCheck, AlertTriangle, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { ClipboardCheck, AlertTriangle, CheckCircle2, XCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { calcularComponentesFatura, validarCruzado, ComponentesFatura, ValidacaoCruzada } from '@/lib/faturaCalculations';
 
 type AlertaWizard = { tipo: string; mensagem: string; severidade: 'info' | 'warning' | 'error' };
 
@@ -80,58 +83,43 @@ function calcularRecomendacoes(alertas: AlertaWizard[]): string[] {
 
 export function Step7Conferencia() {
   const { data, updateData, setCanProceed } = useWizard();
+  const [detalhesAberto, setDetalhesAberto] = useState(false);
 
-  // Calcular soma dos componentes
-  const somaComponentes = useMemo(() => {
-    return (
-      (data.bandeira_te_p_rs || 0) +
-      (data.bandeira_te_fp_rs || 0) +
-      (data.bandeira_te_hr_rs || 0) +
-      (data.nao_compensado_tusd_p_rs || 0) +
-      (data.nao_compensado_tusd_fp_rs || 0) +
-      (data.nao_compensado_tusd_hr_rs || 0) +
-      (data.nao_compensado_te_p_rs || 0) +
-      (data.nao_compensado_te_fp_rs || 0) +
-      (data.nao_compensado_te_hr_rs || 0) +
-      (data.scee_consumo_fp_tusd_rs || 0) +
-      (data.scee_parcela_te_fp_rs || 0) +
-      (data.scee_injecao_fp_te_rs || 0) +
-      (data.scee_injecao_fp_tusd_rs || 0) +
-      (data.valor_demanda_rs || 0) +
-      (data.valor_demanda_ultrapassagem_rs || 0) +
-      (data.ufer_fp_rs || 0) +
-      (data.cip_rs || 0) +
-      (data.pis_rs || 0) +
-      (data.cofins_rs || 0) +
-      (data.icms_rs || 0)
-    );
-  }, [data]);
-
-  const diferenca = Math.abs(somaComponentes - data.valor_total_pagar);
-  const percentDiferenca = data.valor_total_pagar > 0 
-    ? (diferenca / data.valor_total_pagar) * 100 
-    : 0;
-  const diferencaOk = percentDiferenca <= 0.5;
-
-  // Gerar alertas e recomendações
-  const alertas = useMemo(() => calcularAlertas(data), [data]);
-  const recomendacoes = useMemo(() => calcularRecomendacoes(alertas), [alertas]);
-
-  // Atualizar dados com alertas e recomendações
-  useEffect(() => {
-    updateData({ alertas, recomendacoes });
-  }, [alertas, recomendacoes, updateData]);
-
-  // Validação - bloquear se diferença > 0.5%
-  useEffect(() => {
-    setCanProceed(diferencaOk || somaComponentes === 0);
-  }, [diferencaOk, somaComponentes, setCanProceed]);
+  // Calcular componentes usando função centralizada
+  const componentes = useMemo(() => calcularComponentesFatura(data), [data]);
+  
+  // Validação cruzada
+  const validacao = useMemo(() => validarCruzado(data, componentes), [data, componentes]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const temAlertasCriticos = alertas.some(a => a.severidade === 'error');
+  // Gerar alertas e recomendações
+  const alertasOperacionais = useMemo(() => calcularAlertas(data), [data]);
+  const recomendacoes = useMemo(() => calcularRecomendacoes(alertasOperacionais), [alertasOperacionais]);
+
+  // Combinar alertas de validação com alertas operacionais
+  const todosAlertas = useMemo(() => {
+    const alertasValidacaoConvertidos: AlertaWizard[] = validacao.alertasValidacao.map(a => ({
+      tipo: a.campo.toLowerCase(),
+      mensagem: a.mensagem,
+      severidade: a.severidade,
+    }));
+    return [...alertasValidacaoConvertidos, ...alertasOperacionais];
+  }, [validacao.alertasValidacao, alertasOperacionais]);
+
+  // Atualizar dados com alertas e recomendações
+  useEffect(() => {
+    updateData({ alertas: todosAlertas, recomendacoes });
+  }, [todosAlertas, recomendacoes, updateData]);
+
+  // Validação - bloquear se diferença > 0.5%
+  useEffect(() => {
+    setCanProceed(validacao.isValid);
+  }, [validacao.isValid, setCanProceed]);
+
+  const temAlertasCriticos = todosAlertas.some(a => a.severidade === 'error');
 
   return (
     <Card>
@@ -157,18 +145,18 @@ export function Step7Conferencia() {
             </div>
             <div className="flex justify-between items-center">
               <span>Soma dos Componentes:</span>
-              <span className="font-bold text-lg">{formatCurrency(somaComponentes)}</span>
+              <span className="font-bold text-lg">{formatCurrency(componentes.totalGeral)}</span>
             </div>
             <Separator />
             <div className="flex justify-between items-center">
               <span>Diferença:</span>
               <div className="flex items-center gap-2">
-                <span className={`font-bold ${diferencaOk ? 'text-primary' : 'text-destructive'}`}>
-                  {formatCurrency(diferenca)} ({percentDiferenca.toFixed(2)}%)
+                <span className={`font-bold ${validacao.isValid ? 'text-primary' : 'text-destructive'}`}>
+                  {formatCurrency(validacao.diferencaAbsoluta)} ({validacao.percentualDiferenca.toFixed(2)}%)
                 </span>
-                {somaComponentes === 0 ? (
+                {componentes.totalGeral === 0 ? (
                   <Info className="h-5 w-5 text-muted-foreground" />
-                ) : diferencaOk ? (
+                ) : validacao.isValid ? (
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                 ) : (
                   <XCircle className="h-5 w-5 text-destructive" />
@@ -176,8 +164,119 @@ export function Step7Conferencia() {
               </div>
             </div>
           </div>
+
+          {/* Detalhamento dos Componentes */}
+          <Collapsible open={detalhesAberto} onOpenChange={setDetalhesAberto} className="mt-4">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full flex items-center justify-between">
+                <span>Detalhamento por Categoria ({validacao.componentesPreenchidos}/7 preenchidos)</span>
+                {detalhesAberto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3">
+              <div className="bg-muted/30 rounded-lg p-4 space-y-4 text-sm">
+                {/* Bandeiras */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Bandeiras (TE)</span>
+                    {componentes.bandeiras.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.bandeiras.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.bandeiras.total)}
+                  </span>
+                </div>
+
+                {/* TUSD */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">TUSD (Não Compensado)</span>
+                    {componentes.tusd.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.tusd.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.tusd.total)}
+                  </span>
+                </div>
+
+                {/* TE */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">TE (Não Compensado)</span>
+                    {componentes.te.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.te.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.te.total)}
+                  </span>
+                </div>
+
+                {/* SCEE */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">SCEE (Compensação)</span>
+                    {componentes.scee.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.scee.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.scee.total)}
+                  </span>
+                </div>
+
+                {/* Demanda */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Demanda</span>
+                    {componentes.demanda.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.demanda.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.demanda.total)}
+                  </span>
+                </div>
+
+                {/* Outros */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Outros (UFER + CIP)</span>
+                    {componentes.outros.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.outros.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.outros.total)}
+                  </span>
+                </div>
+
+                {/* Tributos */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Tributos (PIS/COFINS/ICMS)</span>
+                    {componentes.tributos.total === 0 && (
+                      <Badge variant="outline" className="text-xs">vazio</Badge>
+                    )}
+                  </div>
+                  <span className={componentes.tributos.total > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    {formatCurrency(componentes.tributos.total)}
+                  </span>
+                </div>
+
+                <Separator />
+
+                <div className="flex justify-between items-center font-bold">
+                  <span>Total</span>
+                  <span>{formatCurrency(componentes.totalGeral)}</span>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
           
-          {!diferencaOk && somaComponentes > 0 && (
+          {!validacao.isValid && componentes.totalGeral > 0 && (
             <Alert variant="destructive" className="mt-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Diferença acima de 0.5%</AlertTitle>
@@ -188,11 +287,20 @@ export function Step7Conferencia() {
             </Alert>
           )}
 
-          {somaComponentes === 0 && (
+          {componentes.totalGeral === 0 && (
             <Alert className="mt-4">
               <Info className="h-4 w-4" />
               <AlertDescription>
                 Nenhum componente de fatura foi lançado. A verificação será ignorada.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {validacao.componentesVazios.length > 0 && componentes.totalGeral > 0 && (
+            <Alert className="mt-4">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Componentes não preenchidos: {validacao.componentesVazios.join(', ')}
               </AlertDescription>
             </Alert>
           )}
@@ -203,17 +311,17 @@ export function Step7Conferencia() {
         {/* Alertas Gerados */}
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-            Alertas Gerados ({alertas.length})
+            Alertas Gerados ({todosAlertas.length})
           </h4>
           
-          {alertas.length === 0 ? (
+          {todosAlertas.length === 0 ? (
             <div className="bg-primary/10 rounded-lg p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-primary" />
               <span className="text-primary font-medium">Nenhum alerta identificado</span>
             </div>
           ) : (
             <div className="space-y-3">
-              {alertas.map((alerta, index) => (
+              {todosAlertas.map((alerta, index) => (
                 <Alert 
                   key={index} 
                   variant={alerta.severidade === 'error' ? 'destructive' : 'default'}
@@ -268,7 +376,7 @@ export function Step7Conferencia() {
               variant={temAlertasCriticos ? 'destructive' : 'default'}
               className="text-sm"
             >
-              {temAlertasCriticos ? 'CRÍTICO' : alertas.length > 0 ? 'ATENÇÃO' : 'OK'}
+              {temAlertasCriticos ? 'CRÍTICO' : todosAlertas.length > 0 ? 'ATENÇÃO' : 'OK'}
             </Badge>
           </div>
         </div>
