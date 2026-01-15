@@ -12,6 +12,7 @@ import LancarDados from "./pages/admin/LancarDados";
 import Clientes from "./pages/admin/Clientes";
 import GerenciarFaturas from "./pages/admin/GerenciarFaturas";
 import UsinasRemotas from "./pages/admin/UsinasRemotas";
+import Tarifas from "./pages/admin/Tarifas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/admin/clientes" element={<Clientes />} />
             <Route path="/admin/faturas" element={<GerenciarFaturas />} />
             <Route path="/admin/usinas" element={<UsinasRemotas />} />
+            <Route path="/admin/tarifas" element={<Tarifas />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
