@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useWizard } from '../WizardContext';
-import { PlugZap, ArrowDownRight, Wallet, TrendingUp, Info, AlertTriangle, Calculator, FileText } from 'lucide-react';
+import { PlugZap, ArrowDownRight, Wallet, TrendingUp, Info, AlertTriangle, Calculator, FileText, Zap, Minus, Plus, Equal, ArrowRight, CircleDollarSign, Battery } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useVinculoByUC } from '@/hooks/useClienteUsinaVinculo';
 import { useTarifas } from '@/hooks/useTarifas';
@@ -166,19 +166,70 @@ export function Step5CreditosRemotos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [custoAssinaturaCalculado]);
 
-  // Cálculos de economia
+  // Cálculos de economia - melhorados para separar fluxo energético e financeiro
   const calculos = useMemo(() => {
-    const economiaLiquida = data.credito_remoto_compensado_rs - data.custo_assinatura_rs;
-    const creditosUtilizados = Math.min(data.credito_remoto_kwh, data.consumo_residual_kwh);
-    const consumoFinal = Math.max(0, data.consumo_residual_kwh - creditosUtilizados);
-    const descontoEfetivo = data.credito_remoto_compensado_rs > 0
-      ? ((economiaLiquida / data.credito_remoto_compensado_rs) * 100).toFixed(1)
+    // === BALANÇO ENERGÉTICO ===
+    const consumoTotal = data.consumo_total_kwh;
+    const autoconsumoLocal = data.autoconsumo_total_kwh;
+    const consumoResidual = data.consumo_residual_kwh;
+    
+    // Geração e injeção (do Step4)
+    const geracaoLocal = data.geracao_local_total_kwh || 0;
+    const injecaoLocal = data.injecao_total_kwh || 0;
+    
+    // === COMPENSAÇÃO DE CRÉDITOS ===
+    // Créditos locais (injeção) podem compensar consumo residual primeiro
+    const creditosLocaisDisponiveis = injecaoLocal;
+    const creditosRemotosDisponiveis = data.credito_remoto_kwh || 0;
+    
+    // Prioridade: usar créditos locais primeiro, depois remotos
+    const creditosLocaisUsados = Math.min(creditosLocaisDisponiveis, consumoResidual);
+    const consumoAposLocais = Math.max(0, consumoResidual - creditosLocaisUsados);
+    const creditosRemotosUsados = Math.min(creditosRemotosDisponiveis, consumoAposLocais);
+    const consumoFinal = Math.max(0, consumoAposLocais - creditosRemotosUsados);
+    
+    // === ECONOMIA FINANCEIRA ===
+    // Economia do autoconsumo (tarifa cheia evitada)
+    const economiaAutoconsumo = data.autoconsumo_rs || 0;
+    
+    // Economia dos créditos remotos (compensação TUSD)
+    const economiaCreditosRemotos = data.credito_remoto_compensado_rs || 0;
+    
+    // Economia bruta = autoconsumo + créditos remotos
+    const economiaBruta = economiaAutoconsumo + economiaCreditosRemotos;
+    
+    // Custo da assinatura
+    const custoAssinatura = data.custo_assinatura_rs || 0;
+    
+    // Economia líquida = bruta - custo assinatura
+    const economiaLiquida = economiaCreditosRemotos - custoAssinatura;
+    
+    // Economia total = autoconsumo + economia líquida dos remotos
+    const economiaTotal = economiaAutoconsumo + economiaLiquida;
+    
+    // Desconto efetivo sobre o valor compensado
+    const descontoEfetivo = economiaCreditosRemotos > 0
+      ? ((economiaLiquida / economiaCreditosRemotos) * 100).toFixed(1)
       : '0';
 
     return {
-      economiaLiquida,
-      creditosUtilizados,
+      // Balanço energético
+      consumoTotal,
+      autoconsumoLocal,
+      consumoResidual,
+      geracaoLocal,
+      injecaoLocal,
+      // Compensação
+      creditosLocaisUsados,
+      creditosRemotosUsados,
       consumoFinal,
+      // Economia
+      economiaAutoconsumo,
+      economiaCreditosRemotos,
+      economiaBruta,
+      custoAssinatura,
+      economiaLiquida,
+      economiaTotal,
       descontoEfetivo,
     };
   }, [data]);
@@ -575,67 +626,201 @@ export function Step5CreditosRemotos() {
           </div>
         )}
 
-        {/* Resumo Final */}
-        <div className="p-4 bg-muted rounded-lg space-y-3">
-          <h3 className="font-medium">Fluxo de Compensação e Economia</h3>
+        {/* SEÇÃO 1: Balanço Energético da UC (kWh) */}
+        <div className="p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border rounded-lg space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-amber-100 dark:bg-amber-900 rounded">
+              <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h3 className="font-semibold">Balanço Energético da UC</h3>
+            <Badge variant="outline" className="text-xs">kWh</Badge>
+          </div>
           
-          {/* Fluxo de Energia (kWh) */}
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between font-medium border-b pb-1">
-              <span>Energia (kWh)</span>
-              <span></span>
+          <div className="grid gap-2 text-sm">
+            {/* Consumo */}
+            <div className="flex justify-between items-center py-1">
+              <span className="text-muted-foreground">Consumo Total UC</span>
+              <span className="font-mono font-medium">{calculos.consumoTotal.toLocaleString('pt-BR')} kWh</span>
             </div>
-            <div className="flex justify-between text-green-600">
-              <span>Autoconsumo (simultaneidade):</span>
-              <span className="font-medium">{data.autoconsumo_total_kwh.toLocaleString('pt-BR')} kWh</span>
+            <div className="flex justify-between items-center py-1 pl-4 text-green-600 dark:text-green-400">
+              <span className="flex items-center gap-1">
+                <Minus className="h-3 w-3" /> Autoconsumo Local
+              </span>
+              <span className="font-mono font-medium">−{calculos.autoconsumoLocal.toLocaleString('pt-BR')} kWh</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">(+) Consumo Residual (corpo fatura):</span>
-              <span className="font-medium">{data.consumo_residual_kwh.toLocaleString('pt-BR')} kWh</span>
+            <div className="flex justify-between items-center py-2 border-t border-dashed font-medium">
+              <span className="flex items-center gap-1">
+                <Equal className="h-3 w-3" /> Consumo Residual
+              </span>
+              <span className="font-mono">{calculos.consumoResidual.toLocaleString('pt-BR')} kWh</span>
             </div>
-            <div className="flex justify-between font-bold border-t pt-1">
-              <span>(=) Consumo Total UC:</span>
-              <span>{data.consumo_total_kwh.toLocaleString('pt-BR')} kWh</span>
-            </div>
+            
+            {/* Geração (se houver) */}
+            {calculos.geracaoLocal > 0 && (
+              <>
+                <div className="border-t pt-2 mt-1" />
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-muted-foreground">Geração Local</span>
+                  <span className="font-mono font-medium">{calculos.geracaoLocal.toLocaleString('pt-BR')} kWh</span>
+                </div>
+                <div className="flex justify-between items-center py-1 pl-4 text-green-600 dark:text-green-400">
+                  <span className="flex items-center gap-1">
+                    <Minus className="h-3 w-3" /> Autoconsumo
+                  </span>
+                  <span className="font-mono font-medium">−{calculos.autoconsumoLocal.toLocaleString('pt-BR')} kWh</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-t border-dashed font-medium text-blue-600 dark:text-blue-400">
+                  <span className="flex items-center gap-1">
+                    <Equal className="h-3 w-3" /> Injeção (créditos gerados)
+                  </span>
+                  <span className="font-mono">{calculos.injecaoLocal.toLocaleString('pt-BR')} kWh</span>
+                </div>
+              </>
+            )}
           </div>
+        </div>
 
-          {/* Compensação */}
-          <div className="space-y-2 text-sm pt-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Consumo Residual:</span>
-              <span className="font-medium">{data.consumo_residual_kwh.toLocaleString('pt-BR')} kWh</span>
+        {/* SEÇÃO 2: Compensação de Créditos (kWh) */}
+        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded">
+              <Battery className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="flex justify-between text-blue-600">
-              <span>(−) Créditos Remotos Utilizados:</span>
-              <span className="font-medium">{calculos.creditosUtilizados.toLocaleString('pt-BR')} kWh</span>
-            </div>
-            <div className="flex justify-between font-bold border-t pt-1">
-              <span>(=) Consumo Final (a pagar):</span>
-              <span className="text-primary">{calculos.consumoFinal.toLocaleString('pt-BR')} kWh</span>
-            </div>
+            <h3 className="font-semibold">Compensação de Créditos</h3>
+            <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 dark:text-blue-300">kWh</Badge>
           </div>
-
-          {/* Fluxo de Valores (R$) */}
-          <div className="space-y-2 text-sm pt-3 border-t">
-            <div className="flex justify-between font-medium pb-1">
-              <span>Economia Total (R$)</span>
-              <span></span>
+          
+          <div className="grid gap-2 text-sm">
+            <div className="flex justify-between items-center py-1">
+              <span className="text-muted-foreground">Consumo Residual</span>
+              <span className="font-mono font-medium">{calculos.consumoResidual.toLocaleString('pt-BR')} kWh</span>
             </div>
-            <div className="flex justify-between text-green-600">
-              <span>Autoconsumo (economia 100%):</span>
-              <span className="font-medium">R$ {data.autoconsumo_rs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            
+            {calculos.creditosLocaisUsados > 0 && (
+              <div className="flex justify-between items-center py-1 pl-4 text-green-600 dark:text-green-400">
+                <span className="flex items-center gap-1">
+                  <Minus className="h-3 w-3" /> Créditos Locais Usados
+                </span>
+                <span className="font-mono font-medium">−{calculos.creditosLocaisUsados.toLocaleString('pt-BR')} kWh</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between items-center py-1 pl-4 text-blue-600 dark:text-blue-400">
+              <span className="flex items-center gap-1">
+                <Minus className="h-3 w-3" /> Créditos Remotos Usados
+              </span>
+              <span className="font-mono font-medium">−{calculos.creditosRemotosUsados.toLocaleString('pt-BR')} kWh</span>
             </div>
-            <div className="flex justify-between text-blue-600">
-              <span>(+) Créditos Remotos Compensados:</span>
-              <span className="font-medium">R$ {data.credito_remoto_compensado_rs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between font-bold border-t pt-1 text-lg">
-              <span>(=) Valor Total Economia:</span>
-              <span className="text-green-600">
-                R$ {(data.autoconsumo_rs + data.credito_remoto_compensado_rs).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            
+            <div className="flex justify-between items-center py-2 border-t-2 border-blue-300 dark:border-blue-700 font-bold">
+              <span className="flex items-center gap-1">
+                <Equal className="h-3 w-3" /> Consumo a Pagar
+              </span>
+              <span className={`font-mono text-lg ${calculos.consumoFinal === 0 ? 'text-green-600 dark:text-green-400' : 'text-primary'}`}>
+                {calculos.consumoFinal.toLocaleString('pt-BR')} kWh
               </span>
             </div>
           </div>
+          
+          {calculos.consumoFinal === 0 && (
+            <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+              ✓ Consumo 100% compensado
+            </Badge>
+          )}
+        </div>
+
+        {/* SEÇÃO 3: Economia Gerada (R$) */}
+        <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border border-green-200 dark:border-green-800 rounded-lg space-y-3">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 bg-green-100 dark:bg-green-900 rounded">
+              <CircleDollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="font-semibold">Economia Gerada</h3>
+            <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-300">R$</Badge>
+          </div>
+          
+          <div className="grid gap-2 text-sm">
+            {/* Autoconsumo */}
+            <div className="flex justify-between items-center py-1">
+              <div className="flex flex-col">
+                <span className="text-green-700 dark:text-green-300 font-medium flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" /> Autoconsumo (tarifa cheia)
+                </span>
+                <span className="text-xs text-muted-foreground pl-4">
+                  {calculos.autoconsumoLocal.toLocaleString('pt-BR')} kWh × tarifa completa
+                </span>
+              </div>
+              <span className="font-mono font-medium text-green-600 dark:text-green-400">
+                R$ {calculos.economiaAutoconsumo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            
+            {/* Créditos Remotos */}
+            <div className="flex justify-between items-center py-1">
+              <div className="flex flex-col">
+                <span className="text-blue-700 dark:text-blue-300 font-medium flex items-center gap-1">
+                  <Plus className="h-3 w-3" /> Créditos Remotos Compensados
+                </span>
+                <span className="text-xs text-muted-foreground pl-4">
+                  {calculos.creditosRemotosUsados.toLocaleString('pt-BR')} kWh × TUSD+impostos
+                </span>
+              </div>
+              <span className="font-mono font-medium text-blue-600 dark:text-blue-400">
+                R$ {calculos.economiaCreditosRemotos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            
+            {/* Subtotal - Economia Bruta */}
+            <div className="flex justify-between items-center py-2 border-t border-dashed">
+              <span className="font-medium flex items-center gap-1">
+                <Equal className="h-3 w-3" /> ECONOMIA BRUTA
+              </span>
+              <span className="font-mono font-medium">
+                R$ {calculos.economiaBruta.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            
+            {/* Custo Assinatura */}
+            <div className="flex justify-between items-center py-1 pl-4">
+              <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                <Minus className="h-3 w-3" /> Custo Assinatura Usina
+              </span>
+              <span className="font-mono font-medium text-red-600 dark:text-red-400">
+                −R$ {calculos.custoAssinatura.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            
+            {/* Economia Líquida - Destaque */}
+            <div className={`flex justify-between items-center py-3 px-3 -mx-3 rounded-lg mt-2 ${
+              calculos.economiaTotal >= 0 
+                ? 'bg-green-100 dark:bg-green-900/50' 
+                : 'bg-red-100 dark:bg-red-900/50'
+            }`}>
+              <div className="flex flex-col">
+                <span className="font-bold text-base flex items-center gap-1">
+                  <Equal className="h-4 w-4" /> ECONOMIA TOTAL
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Autoconsumo + Economia Líquida Remotos
+                </span>
+              </div>
+              <span className={`font-mono font-bold text-xl ${
+                calculos.economiaTotal >= 0 
+                  ? 'text-green-700 dark:text-green-300' 
+                  : 'text-red-700 dark:text-red-300'
+              }`}>
+                R$ {calculos.economiaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+          
+          {/* Info sobre desconto efetivo nos créditos remotos */}
+          {calculos.economiaCreditosRemotos > 0 && (
+            <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+              <strong>Créditos Remotos:</strong> Economia líquida de R$ {calculos.economiaLiquida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+              {' '}({calculos.descontoEfetivo}% de desconto efetivo sobre R$ {calculos.economiaCreditosRemotos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
