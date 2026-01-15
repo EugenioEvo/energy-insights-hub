@@ -341,87 +341,132 @@ export function FileImportCard({ onImport }: FileImportCardProps) {
   );
 }
 
+// Achatar estrutura aninhada da IA para estrutura plana
+function flattenAiResponse(data: any): Record<string, any> {
+  if (!data || typeof data !== 'object') return {};
+  
+  const flat: Record<string, any> = {};
+  
+  // Categorias conhecidas da resposta da IA
+  const knownCategories = [
+    'IDENTIFICAÇÃO', 'IDENTIFICACAO',
+    'CABEÇALHO', 'CABECALHO',
+    'CONSUMO',
+    'DEMANDA',
+    'GERAÇÃO_DISTRIBUÍDA_SCEE', 'GERACAO_DISTRIBUIDA_SCEE', 'SCEE', 'GERACAO_LOCAL',
+    'COMPONENTES_DA_FATURA', 'ITENS_FATURA',
+    'TRIBUTOS'
+  ];
+  
+  // Verificar se é estrutura aninhada (tem pelo menos uma categoria conhecida)
+  const hasCategories = Object.keys(data).some(key => 
+    knownCategories.includes(key.toUpperCase().replace(/[ÇÃ]/g, match => match === 'Ç' ? 'C' : 'A'))
+  );
+  
+  if (hasCategories) {
+    // Estrutura aninhada - extrair campos de cada categoria
+    for (const [category, fields] of Object.entries(data)) {
+      if (fields && typeof fields === 'object' && !Array.isArray(fields)) {
+        for (const [field, value] of Object.entries(fields as Record<string, any>)) {
+          if (value !== null && value !== undefined) {
+            flat[field] = value;
+          }
+        }
+      }
+    }
+  } else {
+    // Estrutura já plana - usar diretamente
+    Object.assign(flat, data);
+  }
+  
+  console.log('Dados achatados:', flat);
+  return flat;
+}
+
 // Mapear dados do PDF para formato do wizard
 function mapPdfDataToWizard(data: any): Partial<FaturaWizardData> {
   if (!data) return {};
   
+  // Primeiro, achatar a estrutura aninhada da IA
+  const flatData = flattenAiResponse(data);
+  
   const mapped: Partial<FaturaWizardData> = {};
   
   // Identificação
-  if (data.uc_numero) mapped.uc_numero = String(data.uc_numero);
-  if (data.mes_ref) mapped.mes_ref = data.mes_ref;
-  if (data.grupo_tarifario === 'A' || data.grupo_tarifario === 'B') {
-    mapped.grupo_tarifario = data.grupo_tarifario;
+  if (flatData.uc_numero) mapped.uc_numero = String(flatData.uc_numero);
+  if (flatData.mes_ref) mapped.mes_ref = flatData.mes_ref;
+  if (flatData.grupo_tarifario === 'A' || flatData.grupo_tarifario === 'B') {
+    mapped.grupo_tarifario = flatData.grupo_tarifario;
   }
-  if (data.modalidade) mapped.modalidade = data.modalidade;
-  if (data.classe_tarifaria) mapped.classe_tarifaria = data.classe_tarifaria;
-  if (data.concessionaria) mapped.concessionaria = data.concessionaria;
+  if (flatData.modalidade) mapped.modalidade = flatData.modalidade;
+  if (flatData.classe_tarifaria) mapped.classe_tarifaria = flatData.classe_tarifaria;
+  if (flatData.concessionaria) mapped.concessionaria = flatData.concessionaria;
   
   // Cabeçalho
-  if (data.data_emissao) mapped.data_emissao = data.data_emissao;
-  if (data.data_apresentacao) mapped.data_apresentacao = data.data_apresentacao;
-  if (data.vencimento) mapped.vencimento = data.vencimento;
-  if (data.leitura_anterior) mapped.leitura_anterior = data.leitura_anterior;
-  if (data.leitura_atual) mapped.leitura_atual = data.leitura_atual;
-  if (data.dias_faturados != null) mapped.dias_faturados = Number(data.dias_faturados);
-  if (data.proxima_leitura) mapped.proxima_leitura = data.proxima_leitura;
-  if (data.valor_total_pagar != null) mapped.valor_total_pagar = Number(data.valor_total_pagar);
+  if (flatData.data_emissao) mapped.data_emissao = flatData.data_emissao;
+  if (flatData.data_apresentacao) mapped.data_apresentacao = flatData.data_apresentacao;
+  if (flatData.vencimento) mapped.vencimento = flatData.vencimento;
+  if (flatData.leitura_anterior) mapped.leitura_anterior = flatData.leitura_anterior;
+  if (flatData.leitura_atual) mapped.leitura_atual = flatData.leitura_atual;
+  if (flatData.dias_faturados != null) mapped.dias_faturados = Number(flatData.dias_faturados);
+  if (flatData.proxima_leitura) mapped.proxima_leitura = flatData.proxima_leitura;
+  if (flatData.valor_total_pagar != null) mapped.valor_total_pagar = Number(flatData.valor_total_pagar);
   
   // Consumo
-  if (data.consumo_ponta_kwh != null) mapped.consumo_ponta_kwh = Number(data.consumo_ponta_kwh);
-  if (data.consumo_fora_ponta_kwh != null) mapped.consumo_fora_ponta_kwh = Number(data.consumo_fora_ponta_kwh);
-  if (data.consumo_reservado_kwh != null) mapped.consumo_reservado_kwh = Number(data.consumo_reservado_kwh);
-  if (data.consumo_total_kwh != null) mapped.consumo_total_kwh = Number(data.consumo_total_kwh);
+  if (flatData.consumo_ponta_kwh != null) mapped.consumo_ponta_kwh = Number(flatData.consumo_ponta_kwh);
+  if (flatData.consumo_fora_ponta_kwh != null) mapped.consumo_fora_ponta_kwh = Number(flatData.consumo_fora_ponta_kwh);
+  if (flatData.consumo_reservado_kwh != null) mapped.consumo_reservado_kwh = Number(flatData.consumo_reservado_kwh);
+  if (flatData.consumo_total_kwh != null) mapped.consumo_total_kwh = Number(flatData.consumo_total_kwh);
   
   // Demanda
-  if (data.demanda_contratada_kw != null) mapped.demanda_contratada_kw = Number(data.demanda_contratada_kw);
-  if (data.demanda_medida_kw != null) mapped.demanda_medida_kw = Number(data.demanda_medida_kw);
-  if (data.demanda_ultrapassagem_kw != null) mapped.demanda_ultrapassagem_kw = Number(data.demanda_ultrapassagem_kw);
-  if (data.valor_demanda_rs != null) mapped.valor_demanda_rs = Number(data.valor_demanda_rs);
-  if (data.valor_demanda_ultrapassagem_rs != null) mapped.valor_demanda_ultrapassagem_rs = Number(data.valor_demanda_ultrapassagem_rs);
+  if (flatData.demanda_contratada_kw != null) mapped.demanda_contratada_kw = Number(flatData.demanda_contratada_kw);
+  if (flatData.demanda_medida_kw != null) mapped.demanda_medida_kw = Number(flatData.demanda_medida_kw);
+  if (flatData.demanda_ultrapassagem_kw != null) mapped.demanda_ultrapassagem_kw = Number(flatData.demanda_ultrapassagem_kw);
+  if (flatData.valor_demanda_rs != null) mapped.valor_demanda_rs = Number(flatData.valor_demanda_rs);
+  if (flatData.valor_demanda_ultrapassagem_rs != null) mapped.valor_demanda_ultrapassagem_rs = Number(flatData.valor_demanda_ultrapassagem_rs);
   
   // Geração Local
-  if (data.geracao_local_total_kwh != null) mapped.geracao_local_total_kwh = Number(data.geracao_local_total_kwh);
-  if (data.autoconsumo_ponta_kwh != null) mapped.autoconsumo_ponta_kwh = Number(data.autoconsumo_ponta_kwh);
-  if (data.autoconsumo_fp_kwh != null) mapped.autoconsumo_fp_kwh = Number(data.autoconsumo_fp_kwh);
-  if (data.autoconsumo_hr_kwh != null) mapped.autoconsumo_hr_kwh = Number(data.autoconsumo_hr_kwh);
-  if (data.autoconsumo_total_kwh != null) mapped.autoconsumo_total_kwh = Number(data.autoconsumo_total_kwh);
-  if (data.injecao_ponta_kwh != null) mapped.injecao_ponta_kwh = Number(data.injecao_ponta_kwh);
-  if (data.injecao_fp_kwh != null) mapped.injecao_fp_kwh = Number(data.injecao_fp_kwh);
-  if (data.injecao_hr_kwh != null) mapped.injecao_hr_kwh = Number(data.injecao_hr_kwh);
-  if (data.injecao_total_kwh != null) mapped.injecao_total_kwh = Number(data.injecao_total_kwh);
+  if (flatData.geracao_local_total_kwh != null) mapped.geracao_local_total_kwh = Number(flatData.geracao_local_total_kwh);
+  if (flatData.autoconsumo_ponta_kwh != null) mapped.autoconsumo_ponta_kwh = Number(flatData.autoconsumo_ponta_kwh);
+  if (flatData.autoconsumo_fp_kwh != null) mapped.autoconsumo_fp_kwh = Number(flatData.autoconsumo_fp_kwh);
+  if (flatData.autoconsumo_hr_kwh != null) mapped.autoconsumo_hr_kwh = Number(flatData.autoconsumo_hr_kwh);
+  if (flatData.autoconsumo_total_kwh != null) mapped.autoconsumo_total_kwh = Number(flatData.autoconsumo_total_kwh);
+  if (flatData.injecao_ponta_kwh != null) mapped.injecao_ponta_kwh = Number(flatData.injecao_ponta_kwh);
+  if (flatData.injecao_fp_kwh != null) mapped.injecao_fp_kwh = Number(flatData.injecao_fp_kwh);
+  if (flatData.injecao_hr_kwh != null) mapped.injecao_hr_kwh = Number(flatData.injecao_hr_kwh);
+  if (flatData.injecao_total_kwh != null) mapped.injecao_total_kwh = Number(flatData.injecao_total_kwh);
   
   // SCEE/Saldos
-  if (data.scee_credito_recebido_kwh != null) mapped.scee_credito_recebido_kwh = Number(data.scee_credito_recebido_kwh);
-  if (data.scee_saldo_kwh_p != null) mapped.scee_saldo_kwh_p = Number(data.scee_saldo_kwh_p);
-  if (data.scee_saldo_kwh_fp != null) mapped.scee_saldo_kwh_fp = Number(data.scee_saldo_kwh_fp);
-  if (data.scee_saldo_kwh_hr != null) mapped.scee_saldo_kwh_hr = Number(data.scee_saldo_kwh_hr);
-  if (data.scee_saldo_expirar_30d_kwh != null) mapped.scee_saldo_expirar_30d_kwh = Number(data.scee_saldo_expirar_30d_kwh);
-  if (data.scee_saldo_expirar_60d_kwh != null) mapped.scee_saldo_expirar_60d_kwh = Number(data.scee_saldo_expirar_60d_kwh);
+  if (flatData.scee_credito_recebido_kwh != null) mapped.scee_credito_recebido_kwh = Number(flatData.scee_credito_recebido_kwh);
+  if (flatData.scee_saldo_kwh_p != null) mapped.scee_saldo_kwh_p = Number(flatData.scee_saldo_kwh_p);
+  if (flatData.scee_saldo_kwh_fp != null) mapped.scee_saldo_kwh_fp = Number(flatData.scee_saldo_kwh_fp);
+  if (flatData.scee_saldo_kwh_hr != null) mapped.scee_saldo_kwh_hr = Number(flatData.scee_saldo_kwh_hr);
+  if (flatData.scee_saldo_expirar_30d_kwh != null) mapped.scee_saldo_expirar_30d_kwh = Number(flatData.scee_saldo_expirar_30d_kwh);
+  if (flatData.scee_saldo_expirar_60d_kwh != null) mapped.scee_saldo_expirar_60d_kwh = Number(flatData.scee_saldo_expirar_60d_kwh);
   
   // Itens Fatura
-  if (data.bandeira_te_p_rs != null) mapped.bandeira_te_p_rs = Number(data.bandeira_te_p_rs);
-  if (data.bandeira_te_fp_rs != null) mapped.bandeira_te_fp_rs = Number(data.bandeira_te_fp_rs);
-  if (data.bandeira_te_hr_rs != null) mapped.bandeira_te_hr_rs = Number(data.bandeira_te_hr_rs);
-  if (data.nao_compensado_tusd_p_rs != null) mapped.nao_compensado_tusd_p_rs = Number(data.nao_compensado_tusd_p_rs);
-  if (data.nao_compensado_tusd_fp_rs != null) mapped.nao_compensado_tusd_fp_rs = Number(data.nao_compensado_tusd_fp_rs);
-  if (data.nao_compensado_tusd_hr_rs != null) mapped.nao_compensado_tusd_hr_rs = Number(data.nao_compensado_tusd_hr_rs);
-  if (data.nao_compensado_te_p_rs != null) mapped.nao_compensado_te_p_rs = Number(data.nao_compensado_te_p_rs);
-  if (data.nao_compensado_te_fp_rs != null) mapped.nao_compensado_te_fp_rs = Number(data.nao_compensado_te_fp_rs);
-  if (data.nao_compensado_te_hr_rs != null) mapped.nao_compensado_te_hr_rs = Number(data.nao_compensado_te_hr_rs);
-  if (data.ufer_fp_kvarh != null) mapped.ufer_fp_kvarh = Number(data.ufer_fp_kvarh);
-  if (data.ufer_fp_rs != null) mapped.ufer_fp_rs = Number(data.ufer_fp_rs);
-  if (data.cip_rs != null) mapped.cip_rs = Number(data.cip_rs);
+  if (flatData.bandeira_te_p_rs != null) mapped.bandeira_te_p_rs = Number(flatData.bandeira_te_p_rs);
+  if (flatData.bandeira_te_fp_rs != null) mapped.bandeira_te_fp_rs = Number(flatData.bandeira_te_fp_rs);
+  if (flatData.bandeira_te_hr_rs != null) mapped.bandeira_te_hr_rs = Number(flatData.bandeira_te_hr_rs);
+  if (flatData.nao_compensado_tusd_p_rs != null) mapped.nao_compensado_tusd_p_rs = Number(flatData.nao_compensado_tusd_p_rs);
+  if (flatData.nao_compensado_tusd_fp_rs != null) mapped.nao_compensado_tusd_fp_rs = Number(flatData.nao_compensado_tusd_fp_rs);
+  if (flatData.nao_compensado_tusd_hr_rs != null) mapped.nao_compensado_tusd_hr_rs = Number(flatData.nao_compensado_tusd_hr_rs);
+  if (flatData.nao_compensado_te_p_rs != null) mapped.nao_compensado_te_p_rs = Number(flatData.nao_compensado_te_p_rs);
+  if (flatData.nao_compensado_te_fp_rs != null) mapped.nao_compensado_te_fp_rs = Number(flatData.nao_compensado_te_fp_rs);
+  if (flatData.nao_compensado_te_hr_rs != null) mapped.nao_compensado_te_hr_rs = Number(flatData.nao_compensado_te_hr_rs);
+  if (flatData.ufer_fp_kvarh != null) mapped.ufer_fp_kvarh = Number(flatData.ufer_fp_kvarh);
+  if (flatData.ufer_fp_rs != null) mapped.ufer_fp_rs = Number(flatData.ufer_fp_rs);
+  if (flatData.cip_rs != null) mapped.cip_rs = Number(flatData.cip_rs);
   
   // Tributos
-  if (data.base_pis_cofins_rs != null) mapped.base_pis_cofins_rs = Number(data.base_pis_cofins_rs);
-  if (data.pis_aliquota_percent != null) mapped.pis_aliquota_percent = Number(data.pis_aliquota_percent);
-  if (data.pis_rs != null) mapped.pis_rs = Number(data.pis_rs);
-  if (data.cofins_aliquota_percent != null) mapped.cofins_aliquota_percent = Number(data.cofins_aliquota_percent);
-  if (data.cofins_rs != null) mapped.cofins_rs = Number(data.cofins_rs);
-  if (data.base_icms_rs != null) mapped.base_icms_rs = Number(data.base_icms_rs);
-  if (data.icms_aliquota_percent != null) mapped.icms_aliquota_percent = Number(data.icms_aliquota_percent);
-  if (data.icms_rs != null) mapped.icms_rs = Number(data.icms_rs);
+  if (flatData.base_pis_cofins_rs != null) mapped.base_pis_cofins_rs = Number(flatData.base_pis_cofins_rs);
+  if (flatData.pis_aliquota_percent != null) mapped.pis_aliquota_percent = Number(flatData.pis_aliquota_percent);
+  if (flatData.pis_rs != null) mapped.pis_rs = Number(flatData.pis_rs);
+  if (flatData.cofins_aliquota_percent != null) mapped.cofins_aliquota_percent = Number(flatData.cofins_aliquota_percent);
+  if (flatData.cofins_rs != null) mapped.cofins_rs = Number(flatData.cofins_rs);
+  if (flatData.base_icms_rs != null) mapped.base_icms_rs = Number(flatData.base_icms_rs);
+  if (flatData.icms_aliquota_percent != null) mapped.icms_aliquota_percent = Number(flatData.icms_aliquota_percent);
+  if (flatData.icms_rs != null) mapped.icms_rs = Number(flatData.icms_rs);
   
   // Detectar geração
   if (mapped.geracao_local_total_kwh && mapped.geracao_local_total_kwh > 0) {
