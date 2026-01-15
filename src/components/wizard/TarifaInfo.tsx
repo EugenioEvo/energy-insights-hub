@@ -1,12 +1,12 @@
+import { useState, useRef, useEffect } from 'react';
 import { useTarifas, useTarifasDisponiveis, TarifaConcessionaria } from '@/hooks/useTarifas';
 import { useWizard } from './WizardContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Info, AlertTriangle, CheckCircle, Database, MousePointerClick } from 'lucide-react';
+import { Loader2, Info, AlertTriangle, CheckCircle, Database, MousePointerClick, ChevronUp, ChevronDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 
 interface TarifaInfoProps {
@@ -64,14 +64,51 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
     );
   }
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const checkScroll = () => {
+    const el = scrollRef.current;
+    if (el) {
+      setCanScrollUp(el.scrollTop > 0);
+      setCanScrollDown(el.scrollTop < el.scrollHeight - el.clientHeight - 1);
+    }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', checkScroll);
+      return () => el.removeEventListener('scroll', checkScroll);
+    }
+  }, [tarifasDisponiveis]);
+
+  const scrollBy = (amount: number) => {
+    scrollRef.current?.scrollBy({ top: amount, behavior: 'smooth' });
+  };
+
   return (
     <div className="mt-3 space-y-2">
       <div className="flex items-center gap-2 text-sm">
         <MousePointerClick className="h-4 w-4 text-primary" />
         <span className="text-muted-foreground">Clique em uma tarifa para aplicá-la:</span>
       </div>
-      <Card className="border-muted">
-        <ScrollArea className="max-h-48">
+      <Card className="border-muted relative">
+        {/* Scroll Up Button */}
+        {canScrollUp && (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute top-1 right-1 z-10 h-6 w-6 rounded-full shadow-md opacity-90 hover:opacity-100"
+            onClick={() => scrollBy(-80)}
+          >
+            <ChevronUp className="h-4 w-4" />
+          </Button>
+        )}
+        
+        <div ref={scrollRef} className="max-h-48 overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -124,7 +161,19 @@ function TarifasFallback({ concessionaria, grupoTarifario, modalidade }: {
               })}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
+
+        {/* Scroll Down Button */}
+        {canScrollDown && (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute bottom-1 right-1 z-10 h-6 w-6 rounded-full shadow-md opacity-90 hover:opacity-100"
+            onClick={() => scrollBy(80)}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        )}
       </Card>
       <p className="text-xs text-muted-foreground">
         💡 Ao selecionar, o Grupo Tarifário e Modalidade da fatura serão atualizados automaticamente.
