@@ -214,8 +214,10 @@ export function useTarifas(
         .order('vigencia_inicio', { ascending: false })
         .limit(1);
       
-      if (modalidade) {
-        query = query.eq('modalidade', modalidade);
+      // Para Grupo A, filtra por modalidade (case-insensitive)
+      // Para Grupo B, não filtra por modalidade pois geralmente é convencional
+      if (modalidade && grupoTarifario === 'A') {
+        query = query.ilike('modalidade', modalidade);
       }
       
       const { data, error } = await query;
