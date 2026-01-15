@@ -252,7 +252,7 @@ export default function LancarDados() {
       title={initialFatura ? "Editar Fatura" : "Lançar Dados"}
       subtitle="Wizard de Lançamento Mensal — Fatura de Energia com Geração Distribuída"
     >
-      <WizardProvider initialFatura={initialFatura}>
+      <WizardProvider key={initialFatura?.uc_id ?? 'new'} initialFatura={initialFatura}>
         <WizardContent />
       </WizardProvider>
     </DashboardLayout>
