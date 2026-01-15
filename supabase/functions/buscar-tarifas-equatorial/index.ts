@@ -35,7 +35,9 @@ serve(async (req) => {
   }
 
   try {
+    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+    
     if (!PERPLEXITY_API_KEY) {
       throw new Error("PERPLEXITY_API_KEY não configurada");
     }
@@ -44,33 +46,133 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log("Buscando tarifas da Equatorial Goiás via Perplexity...");
+    console.log("=== INICIANDO BUSCA DE TARIFAS ===");
+    console.log(`Firecrawl disponível: ${!!FIRECRAWL_API_KEY}`);
 
-    const prompt = `Preciso das tarifas de energia elétrica da Equatorial Goiás (CELG-D) homologadas pela ANEEL, vigentes a partir de outubro/2025.
+    let extractedContent = "";
+    let pdfLinks: string[] = [];
+    let fontes = {
+      firecrawl_usado: false,
+      equatorial_page: false,
+      pdfs_encontrados: 0,
+      aneel_content: false,
+    };
 
-Busque os valores EXATOS em R$/kWh e R$/kW das seguintes tarifas:
+    // PASSO 1: Usar Firecrawl para extrair dados (se disponível)
+    if (FIRECRAWL_API_KEY) {
+      fontes.firecrawl_usado = true;
+      
+      // 1a. Scrape da página principal de tarifas da Equatorial
+      console.log("Firecrawl: Fazendo scrape da página de tarifas Equatorial...");
+      try {
+        const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: "https://go.equatorialenergia.com.br/valor-de-tarifas-e-servicos/",
+            formats: ["markdown", "links"],
+            onlyMainContent: true,
+            waitFor: 3000,
+          }),
+        });
 
-GRUPO A (subgrupo A4, modalidade Verde):
-- TE Ponta: valor em R$/kWh
-- TE Fora Ponta: valor em R$/kWh  
-- TUSD Ponta: valor em R$/kWh
-- TUSD Fora Ponta: valor em R$/kWh
-- Demanda: valor em R$/kW
+        const scrapeData = await scrapeResponse.json();
+        
+        if (scrapeData.success && scrapeData.data?.markdown) {
+          extractedContent += `\n\n=== PÁGINA EQUATORIAL GOIÁS ===\n${scrapeData.data.markdown}`;
+          fontes.equatorial_page = true;
+          console.log(`Conteúdo Equatorial extraído: ${scrapeData.data.markdown.length} chars`);
+          
+          // Buscar links de PDFs
+          const allLinks = scrapeData.data?.links || [];
+          pdfLinks = allLinks.filter((link: string) => 
+            link.toLowerCase().includes(".pdf") && 
+            (link.toLowerCase().includes("tarif") || 
+             link.toLowerCase().includes("resoluc") ||
+             link.toLowerCase().includes("energia"))
+          );
+          fontes.pdfs_encontrados = pdfLinks.length;
+          console.log(`PDFs encontrados: ${pdfLinks.length}`);
+        }
+      } catch (e) {
+        console.error("Erro ao fazer scrape Equatorial:", e);
+      }
 
-GRUPO A (subgrupo A4, modalidade Azul):
-- TE Ponta: valor em R$/kWh
-- TE Fora Ponta: valor em R$/kWh
-- TUSD Ponta: valor em R$/kWh
-- TUSD Fora Ponta: valor em R$/kWh
-- Demanda Ponta: valor em R$/kW
-- Demanda Fora Ponta: valor em R$/kW
+      // 1b. Tentar extrair conteúdo dos PDFs encontrados
+      for (const pdfUrl of pdfLinks.slice(0, 2)) {
+        console.log(`Firecrawl: Extraindo PDF: ${pdfUrl.substring(0, 60)}...`);
+        try {
+          const pdfScrape = await fetch("https://api.firecrawl.dev/v1/scrape", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              url: pdfUrl,
+              formats: ["markdown"],
+            }),
+          });
+          
+          const pdfData = await pdfScrape.json();
+          if (pdfData.success && pdfData.data?.markdown) {
+            extractedContent += `\n\n=== PDF: ${pdfUrl.split('/').pop()} ===\n${pdfData.data.markdown}`;
+            console.log(`PDF extraído: ${pdfData.data.markdown.length} chars`);
+          }
+        } catch (e) {
+          console.log(`Erro ao extrair PDF: ${e}`);
+        }
+      }
 
-GRUPO B3 Comercial:
-- TE: valor em R$/kWh
-- TUSD: valor em R$/kWh
+      // 1c. Buscar dados abertos da ANEEL
+      console.log("Firecrawl: Buscando dados ANEEL...");
+      try {
+        const aneelResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: "https://portalrelatorios.aneel.gov.br/luznatarifa/tarifas",
+            formats: ["markdown"],
+            onlyMainContent: true,
+            waitFor: 5000,
+          }),
+        });
 
-Informe a Resolução Homologatória ANEEL e data de vigência.
-Os valores devem ser numéricos (ex: 0.45678), SEM impostos.`;
+        const aneelData = await aneelResponse.json();
+        if (aneelData.success && aneelData.data?.markdown) {
+          extractedContent += `\n\n=== ANEEL - LUZ NA TARIFA ===\n${aneelData.data.markdown}`;
+          fontes.aneel_content = true;
+          console.log(`Conteúdo ANEEL extraído: ${aneelData.data.markdown.length} chars`);
+        }
+      } catch (e) {
+        console.error("Erro ao buscar ANEEL:", e);
+      }
+    }
+
+    // PASSO 2: Usar Perplexity para analisar o conteúdo e/ou buscar informações
+    console.log("Analisando dados com Perplexity...");
+    
+    const basePrompt = `Preciso das tarifas de energia elétrica da Equatorial Goiás (CELG-D) homologadas pela ANEEL.
+
+${extractedContent ? `CONTEÚDO EXTRAÍDO DAS FONTES OFICIAIS:\n${extractedContent.substring(0, 20000)}\n\n` : ""}
+
+Com base no conteúdo acima E em sua pesquisa na web, extraia os valores EXATOS das tarifas vigentes:
+
+GRUPO A (Alta Tensão) - subgrupos A1, A2, A3, A3a, A4, AS:
+- Para modalidade Verde: TE Ponta, TE Fora Ponta, TUSD Ponta, TUSD Fora Ponta, Demanda única
+- Para modalidade Azul: TE Ponta, TE Fora Ponta, TUSD Ponta, TUSD Fora Ponta, Demanda Ponta, Demanda Fora Ponta
+
+GRUPO B (Baixa Tensão) - subgrupos B1-Residencial, B2-Rural, B3-Comercial:
+- TE única e TUSD única
+
+Valores em R$/kWh e R$/kW (formato numérico: 0.xxxxx), SEM impostos.
+Informe a Resolução Homologatória ANEEL e data de início de vigência.`;
 
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -83,11 +185,11 @@ Os valores devem ser numéricos (ex: 0.45678), SEM impostos.`;
         messages: [
           {
             role: "system",
-            content: "Você é um especialista em tarifas de energia elétrica do Brasil. Busque as tarifas mais recentes homologadas pela ANEEL. Retorne os dados em formato JSON estruturado."
+            content: "Você é um especialista em tarifas de energia elétrica do Brasil. Analise o conteúdo fornecido e complemente com pesquisa web para obter os valores mais recentes. Retorne JSON estruturado."
           },
           {
             role: "user",
-            content: prompt
+            content: basePrompt
           }
         ],
         response_format: {
@@ -136,14 +238,8 @@ Os valores devem ser numéricos (ex: 0.45678), SEM impostos.`;
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }),
+          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos.", success: false }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos à sua conta." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
@@ -168,43 +264,36 @@ Os valores devem ser numéricos (ex: 0.45678), SEM impostos.`;
 
     console.log(`Encontradas ${parsedData.tarifas.length} tarifas`);
 
-    // Desativar tarifas antigas da Equatorial Goiás
+    // Desativar tarifas antigas
     const { error: updateError } = await supabase
       .from("tarifas_concessionaria")
       .update({ ativo: false })
-      .eq("concessionaria", "Equatorial Goiás");
+      .eq("concessionaria", "Equatorial GO");
 
     if (updateError) {
       console.error("Erro ao desativar tarifas antigas:", updateError);
     }
 
-    // Parsear data brasileira para ISO
+    // Parsear data
     const parseDate = (dateStr: string): string => {
       if (!dateStr) return new Date().toISOString().split("T")[0];
-      
-      // Tenta DD/MM/YYYY
       const brMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (brMatch) {
         const [, day, month, year] = brMatch;
         return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
-      
-      // Tenta YYYY-MM-DD (já está no formato correto)
-      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        return dateStr;
-      }
-      
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
       return new Date().toISOString().split("T")[0];
     };
 
     const vigenciaISO = parseDate(parsedData.vigencia_inicio);
-    console.log(`Vigência parseada: ${parsedData.vigencia_inicio} -> ${vigenciaISO}`);
+    console.log(`Vigência: ${parsedData.vigencia_inicio} -> ${vigenciaISO}`);
 
     // Inserir novas tarifas
     const tarifasParaInserir = parsedData.tarifas.map((t) => {
       const isGrupoA = t.subgrupo.startsWith("A");
       return {
-        concessionaria: "Equatorial Goiás",
+        concessionaria: "Equatorial GO",
         grupo_tarifario: isGrupoA ? "A" : "B",
         subgrupo: t.subgrupo,
         modalidade: t.modalidade,
@@ -243,9 +332,10 @@ Os valores devem ser numéricos (ex: 0.45678), SEM impostos.`;
         message: `${insertedData?.length} tarifas atualizadas com sucesso`,
         resolucao: parsedData.resolucao_aneel,
         vigencia: parsedData.vigencia_inicio,
-        fonte: parsedData.fonte || "Equatorial Goiás - Site Oficial",
+        fonte: parsedData.fonte || "Equatorial GO - ANEEL",
         citations: data.citations || [],
         tarifas_count: insertedData?.length || 0,
+        fontes_utilizadas: fontes,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
