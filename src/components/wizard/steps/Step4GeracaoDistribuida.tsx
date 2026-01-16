@@ -21,15 +21,15 @@ import { obterPercentualFioB } from '@/lib/lei14300';
 export function Step4GeracaoDistribuida() {
   const { data, updateData, setCanProceed, isGrupoA, tarifa, tarifaLoading, calculosAuto } = useWizard();
 
-  // Classificação GD
+  // Classificação GD (usa valor do wizard ou padrão GD1)
   const classificacaoGD = useMemo(() => {
     const anoRef = data.mes_ref 
       ? parseInt(data.mes_ref.split('-')[0]) 
       : new Date().getFullYear();
     const percentualFioB = obterPercentualFioB(anoRef);
-    const tipo: 'gd1' | 'gd2' = 'gd2'; // TODO: buscar da UC
+    const tipo: 'gd1' | 'gd2' = (data.classificacao_gd_aplicada as 'gd1' | 'gd2') || 'gd1';
     return { tipo, percentualFioB, anoRef };
-  }, [data.mes_ref]);
+  }, [data.mes_ref, data.classificacao_gd_aplicada]);
 
   // Cálculos consolidados
   const calculos = useMemo(() => {
@@ -192,30 +192,53 @@ export function Step4GeracaoDistribuida() {
           </Alert>
         )}
 
-        {/* Classificação GD */}
-        {(() => {
-          const isGD1 = classificacaoGD.tipo === ('gd1' as 'gd1' | 'gd2');
-          return (
-            <Alert className={isGD1 
-              ? "bg-green-50 border-green-300 dark:bg-green-950/30"
-              : "bg-amber-50 border-amber-300 dark:bg-amber-950/30"
-            }>
-              <Shield className={`h-4 w-4 ${isGD1 ? 'text-green-600' : 'text-amber-600'}`} />
-              <AlertDescription>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <strong>{classificacaoGD.tipo.toUpperCase()}</strong> — Ano {classificacaoGD.anoRef}
-                  </div>
-                  <div className="text-sm">
-                    {isGD1 
-                      ? 'Compensação integral (TE + TUSD + Encargos)'
-                      : `Fio B não compensável: ${classificacaoGD.percentualFioB}%`}
-                  </div>
-                </div>
-              </AlertDescription>
-            </Alert>
-          );
-        })()}
+        {/* Classificação GD - Selecionável */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Classificação GD</Label>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => updateData({ classificacao_gd_aplicada: 'gd1' })}
+              className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                classificacaoGD.tipo === 'gd1'
+                  ? 'border-green-500 bg-green-50 dark:bg-green-950/30'
+                  : 'border-muted hover:border-green-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 justify-center">
+                <Shield className={`h-4 w-4 ${classificacaoGD.tipo === 'gd1' ? 'text-green-600' : 'text-muted-foreground'}`} />
+                <span className={`font-semibold ${classificacaoGD.tipo === 'gd1' ? 'text-green-700 dark:text-green-300' : ''}`}>
+                  GD1
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Compensação integral (TE + TUSD + Encargos)
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => updateData({ classificacao_gd_aplicada: 'gd2' })}
+              className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                classificacaoGD.tipo === 'gd2'
+                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30'
+                  : 'border-muted hover:border-amber-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 justify-center">
+                <Shield className={`h-4 w-4 ${classificacaoGD.tipo === 'gd2' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                <span className={`font-semibold ${classificacaoGD.tipo === 'gd2' ? 'text-amber-700 dark:text-amber-300' : ''}`}>
+                  GD2
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Fio B não compensável: {classificacaoGD.percentualFioB}%
+              </p>
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Ano de referência: {classificacaoGD.anoRef}
+          </p>
+        </div>
 
         {/* Switches para habilitar seções */}
         <div className="flex flex-wrap gap-6">
