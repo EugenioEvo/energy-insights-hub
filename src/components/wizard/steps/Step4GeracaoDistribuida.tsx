@@ -63,6 +63,42 @@ export function Step4GeracaoDistribuida() {
     };
   }, [data, isGrupoA]);
 
+  // Cálculo de valores R$ por posto horário para créditos remotos
+  const valoresPorPosto = useMemo(() => {
+    if (!tarifa) return null;
+
+    // Tarifas por posto (TE + TUSD)
+    const tarifaPonta = (tarifa.te_ponta_rs_kwh || 0) + (tarifa.tusd_ponta_rs_kwh || 0);
+    const tarifaFP = (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0) + 
+                     (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+    const tarifaHR = (tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0) + 
+                     (tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+
+    // Créditos alocados por posto
+    const creditoPonta = data.credito_remoto_ponta_kwh || 0;
+    const creditoFP = data.credito_remoto_fp_kwh || 0;
+    const creditoHR = data.credito_remoto_hr_kwh || 0;
+
+    // Valores compensados
+    const valorPonta = creditoPonta * tarifaPonta;
+    const valorFP = creditoFP * tarifaFP;
+    const valorHR = creditoHR * tarifaHR;
+    const valorTotal = valorPonta + valorFP + valorHR;
+
+    return {
+      tarifaPonta,
+      tarifaFP,
+      tarifaHR,
+      creditoPonta,
+      creditoFP,
+      creditoHR,
+      valorPonta,
+      valorFP,
+      valorHR,
+      valorTotal,
+    };
+  }, [tarifa, data.credito_remoto_ponta_kwh, data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh]);
+
   // Auto-calcular injeção quando geração e autoconsumo mudam
   useEffect(() => {
     if (data.geracao_local_total_kwh > 0) {
@@ -516,6 +552,16 @@ export function Step4GeracaoDistribuida() {
                         onChange={(e) => updateData({ credito_remoto_ponta_kwh: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
                       />
+                      {valoresPorPosto && (data.credito_remoto_ponta_kwh || 0) > 0 && (
+                        <div className="text-xs space-y-0.5">
+                          <div className="text-green-600 font-medium">
+                            {formatReais(valoresPorPosto.valorPonta)}
+                          </div>
+                          <div className="text-muted-foreground">
+                            Tarifa: {valoresPorPosto.tarifaPonta.toFixed(5)} R$/kWh
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Fora Ponta (kWh)</Label>
@@ -526,6 +572,16 @@ export function Step4GeracaoDistribuida() {
                         onChange={(e) => updateData({ credito_remoto_fp_kwh: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
                       />
+                      {valoresPorPosto && (data.credito_remoto_fp_kwh || 0) > 0 && (
+                        <div className="text-xs space-y-0.5">
+                          <div className="text-green-600 font-medium">
+                            {formatReais(valoresPorPosto.valorFP)}
+                          </div>
+                          <div className="text-muted-foreground">
+                            Tarifa: {valoresPorPosto.tarifaFP.toFixed(5)} R$/kWh
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Reservado (kWh)</Label>
@@ -536,8 +592,32 @@ export function Step4GeracaoDistribuida() {
                         onChange={(e) => updateData({ credito_remoto_hr_kwh: parseFloat(e.target.value) || 0 })}
                         placeholder="0"
                       />
+                      {valoresPorPosto && (data.credito_remoto_hr_kwh || 0) > 0 && (
+                        <div className="text-xs space-y-0.5">
+                          <div className="text-green-600 font-medium">
+                            {formatReais(valoresPorPosto.valorHR)}
+                          </div>
+                          <div className="text-muted-foreground">
+                            Tarifa: {valoresPorPosto.tarifaHR.toFixed(5)} R$/kWh
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Total compensado por posto */}
+                  {valoresPorPosto && valoresPorPosto.valorTotal > 0 && (
+                    <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-green-700 dark:text-green-300">
+                          Total Compensado (por posto):
+                        </span>
+                        <span className="font-bold text-green-600">
+                          {formatReais(valoresPorPosto.valorTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Validação de alocação */}
                   {(() => {
