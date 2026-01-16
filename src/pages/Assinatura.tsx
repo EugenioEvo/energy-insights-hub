@@ -1,277 +1,277 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { SubscriptionChart } from '@/components/charts/SubscriptionChart';
-import { useEnergy } from '@/contexts/EnergyContext';
-import { formatCurrency, formatNumber, formatPercent } from '@/data/mockData';
-import { calcularKPIsMensais } from '@/lib/calculations';
-import { FaturaMensal, GeracaoMensal, AssinaturaMensal } from '@/types/energy';
-import { FileText, TrendingUp, AlertCircle, Percent } from 'lucide-react';
+import { useFaturas } from '@/hooks/useFaturas';
+import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
+import { FileText, TrendingUp, AlertCircle, Zap, Sun, Building2, Receipt, Percent } from 'lucide-react';
+import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const formatCurrency = (value: number) => 
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const formatNumber = (value: number) => 
+  value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+
+const formatPercent = (value: number) => 
+  value.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
 
 export default function Assinatura() {
-  const { faturas, geracoes, assinaturas, mesAtual } = useEnergy();
+  const { data: faturas, isLoading: faturasLoading } = useFaturas();
+  const { data: ucs } = useUnidadesConsumidoras();
 
-  const faturaMesAtual = faturas.find(f => f.mes_ref === mesAtual);
-  const geracaoMesAtual = geracoes.find(g => g.mes_ref === mesAtual);
-  const assinaturaMesAtual = assinaturas.find(a => a.mes_ref === mesAtual);
+  // Faturas fechadas ordenadas por mês
+  const faturasFechadas = useMemo(() => {
+    if (!faturas) return [];
+    return faturas
+      .filter(f => f.status === 'fechado')
+      .sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
+  }, [faturas]);
 
-  // Convert to calculation types
-  const faturaMesAtualCalc: FaturaMensal | null = faturaMesAtual ? {
-    id: faturaMesAtual.id,
-    ucId: faturaMesAtual.uc_id,
-    mesRef: faturaMesAtual.mes_ref,
-    consumoTotalKwh: Number(faturaMesAtual.consumo_total_kwh),
-    pontaKwh: Number(faturaMesAtual.ponta_kwh),
-    foraPontaKwh: Number(faturaMesAtual.fora_ponta_kwh),
-    demandaContratadaKw: Number(faturaMesAtual.demanda_contratada_kw),
-    demandaMedidaKw: Number(faturaMesAtual.demanda_medida_kw),
-    valorTotal: Number(faturaMesAtual.valor_total),
-    valorTe: Number(faturaMesAtual.valor_te),
-    valorTusd: Number(faturaMesAtual.valor_tusd),
-    bandeiras: faturaMesAtual.bandeiras as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
-    multaDemanda: Number(faturaMesAtual.multa_demanda),
-    multaReativo: Number(faturaMesAtual.multa_reativo),
-    outrosEncargos: Number(faturaMesAtual.outros_encargos),
-  } : null;
+  const faturaAtual = faturasFechadas[0];
+  const ucAtual = ucs?.find(uc => uc.id === faturaAtual?.uc_id);
 
-  const geracaoMesAtualCalc: GeracaoMensal | null = geracaoMesAtual ? {
-    id: geracaoMesAtual.id,
-    ucId: geracaoMesAtual.uc_id,
-    mesRef: geracaoMesAtual.mes_ref,
-    geracaoTotalKwh: Number(geracaoMesAtual.geracao_total_kwh),
-    autoconsumoKwh: Number(geracaoMesAtual.autoconsumo_kwh),
-    injecaoKwh: Number(geracaoMesAtual.injecao_kwh),
-    compensacaoKwh: Number(geracaoMesAtual.compensacao_kwh),
-    disponibilidadePercent: Number(geracaoMesAtual.disponibilidade_percent),
-    perdasEstimadasKwh: Number(geracaoMesAtual.perdas_estimadas_kwh),
-  } : null;
+  // Cálculos agregados dos últimos 6 meses
+  const resumo = useMemo(() => {
+    const ultimas6 = faturasFechadas.slice(0, 6);
+    
+    if (ultimas6.length === 0) return null;
 
-  const assinaturaMesAtualCalc: AssinaturaMensal | null = assinaturaMesAtual ? {
-    id: assinaturaMesAtual.id,
-    ucId: assinaturaMesAtual.uc_id,
-    mesRef: assinaturaMesAtual.mes_ref,
-    ucRemota: assinaturaMesAtual.uc_remota,
-    energiaContratadaKwh: Number(assinaturaMesAtual.energia_contratada_kwh),
-    energiaAlocadaKwh: Number(assinaturaMesAtual.energia_alocada_kwh),
-    valorAssinatura: Number(assinaturaMesAtual.valor_assinatura),
-    economiaPrometidaPercent: Number(assinaturaMesAtual.economia_prometida_percent),
-  } : null;
+    const totalCompensado = ultimas6.reduce((acc, f) => 
+      acc + (Number(f.autoconsumo_rs) || 0) + (Number(f.credito_remoto_compensado_rs) || 0), 0);
+    
+    const totalAssinatura = ultimas6.reduce((acc, f) => 
+      acc + (Number(f.custo_assinatura_rs) || 0), 0);
+    
+    const totalEconomia = ultimas6.reduce((acc, f) => 
+      acc + (Number(f.economia_liquida_rs) || 0), 0);
+    
+    const totalFaturas = ultimas6.reduce((acc, f) => 
+      acc + (Number(f.valor_total) || 0), 0);
 
-  const kpisMensais = faturaMesAtualCalc && geracaoMesAtualCalc && assinaturaMesAtualCalc
-    ? calcularKPIsMensais(faturaMesAtualCalc, geracaoMesAtualCalc, assinaturaMesAtualCalc)
-    : null;
+    const mediaEconomiaPercent = totalFaturas > 0 
+      ? ((totalCompensado - totalAssinatura) / totalFaturas) * 100 
+      : 0;
 
-  // Prepare subscription chart data
-  const subscriptionData = assinaturas
-    .slice(0, 6)
-    .map(assinatura => ({
-      mesRef: assinatura.mes_ref,
-      contratada: Number(assinatura.energia_contratada_kwh),
-      alocada: Number(assinatura.energia_alocada_kwh),
-    }))
-    .reverse();
+    return {
+      totalCompensado,
+      totalAssinatura,
+      totalEconomia,
+      totalFaturas,
+      mediaEconomiaPercent,
+      meses: ultimas6.length,
+    };
+  }, [faturasFechadas]);
 
-  const utilizacao = assinaturaMesAtualCalc
-    ? (assinaturaMesAtualCalc.energiaAlocadaKwh / assinaturaMesAtualCalc.energiaContratadaKwh) * 100
-    : 0;
+  // Dados para o gráfico
+  const chartData = useMemo(() => {
+    return faturasFechadas.slice(0, 6).map(f => ({
+      mesRef: f.mes_ref,
+      contratada: Number(f.credito_remoto_kwh) || 0,
+      alocada: Number(f.autoconsumo_total_kwh) || 0 + Number(f.credito_remoto_kwh) || 0,
+    })).reverse();
+  }, [faturasFechadas]);
 
-  // Check for recurring underutilization
-  const ultimas3Assinaturas = assinaturas.slice(0, 3);
-  const mediaUtilizacao = ultimas3Assinaturas.length > 0
-    ? ultimas3Assinaturas.reduce((acc, a) => 
-        acc + (Number(a.energia_alocada_kwh) / Number(a.energia_contratada_kwh)), 0) / ultimas3Assinaturas.length * 100
-    : 100;
+  if (faturasLoading) {
+    return (
+      <DashboardLayout title="Assinatura" subtitle="Gestão do contrato de energia por assinatura">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  const subutilizacaoRecorrente = mediaUtilizacao < 85;
+  if (!faturaAtual) {
+    return (
+      <DashboardLayout title="Assinatura" subtitle="Gestão do contrato de energia por assinatura">
+        <div className="text-center py-12 text-muted-foreground">
+          <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Nenhuma fatura fechada encontrada.</p>
+          <p className="text-sm">Lance dados no wizard para visualizar o dashboard.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  // Calculate real vs promised economy
-  const economiaRealPercent = kpisMensais 
-    ? (kpisMensais.economiaMensalRs / (faturaMesAtualCalc?.valorTotal || 1)) * 100
-    : 0;
-  
-  const economiaPrometida = assinaturaMesAtualCalc?.economiaPrometidaPercent || 0;
-  const diferencaEconomia = economiaRealPercent - economiaPrometida;
+  // Valores da fatura atual
+  const autoconsumoRs = Number(faturaAtual.autoconsumo_rs) || 0;
+  const creditoRemotoRs = Number(faturaAtual.credito_remoto_compensado_rs) || 0;
+  const totalCompensado = autoconsumoRs + creditoRemotoRs;
+  const custoAssinatura = totalCompensado * 0.85;
+  const economiaLiquida = totalCompensado * 0.15;
+  const valorFatura = Number(faturaAtual.valor_total) || 0;
+  const economiaPercent = valorFatura > 0 ? (economiaLiquida / valorFatura) * 100 : 0;
+
+  // Energia
+  const consumoTotal = Number(faturaAtual.consumo_total_kwh) || 0;
+  const autoconsumoKwh = Number(faturaAtual.autoconsumo_total_kwh) || 0;
+  const creditoRemotoKwh = Number(faturaAtual.credito_remoto_kwh) || 0;
+  const geracaoLocal = Number(faturaAtual.geracao_local_total_kwh) || 0;
 
   return (
-    <DashboardLayout title="Assinatura" subtitle="Gestão do contrato de energia por assinatura">
+    <DashboardLayout title="Assinatura" subtitle={`Fatura ${faturaAtual.mes_ref} • ${ucAtual?.numero || 'UC não identificada'}`}>
       <div className="space-y-6">
-        {/* KPIs */}
+        {/* KPIs Principais */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
-            title="Valor da Assinatura"
-            value={formatCurrency(assinaturaMesAtualCalc?.valorAssinatura || 0)}
-            subtitle={`UC Remota: ${assinaturaMesAtualCalc?.ucRemota || '-'}`}
+            title="Total Compensado"
+            value={formatCurrency(totalCompensado)}
+            subtitle={`Autoconsumo + Créditos Remotos`}
+            icon={<Zap className="h-6 w-6" />}
+            variant="success"
+          />
+
+          <KPICard
+            title="Custo Assinatura (85%)"
+            value={formatCurrency(custoAssinatura)}
+            subtitle="Valor pago à usina"
+            icon={<Building2 className="h-6 w-6" />}
+          />
+
+          <KPICard
+            title="Economia Líquida (15%)"
+            value={formatCurrency(economiaLiquida)}
+            subtitle={`${formatPercent(economiaPercent)} da fatura`}
+            icon={<TrendingUp className="h-6 w-6" />}
+            variant="success"
+          />
+
+          <KPICard
+            title="Valor da Fatura"
+            value={formatCurrency(valorFatura)}
+            subtitle={`Bandeira: ${faturaAtual.bandeiras}`}
             icon={<FileText className="h-6 w-6" />}
           />
-
-          <KPICard
-            title="Utilização"
-            value={formatPercent(utilizacao)}
-            subtitle={`${formatNumber(assinaturaMesAtualCalc?.energiaAlocadaKwh || 0)} de ${formatNumber(assinaturaMesAtualCalc?.energiaContratadaKwh || 0)} kWh`}
-            icon={<Percent className="h-6 w-6" />}
-            variant={utilizacao >= 90 ? 'success' : utilizacao >= 70 ? 'warning' : 'danger'}
-          />
-
-          <KPICard
-            title="Economia Real"
-            value={formatPercent(economiaRealPercent)}
-            subtitle={`Prometida: ${formatPercent(economiaPrometida)}`}
-            trend={{
-              value: diferencaEconomia,
-              label: 'vs prometido',
-              isPositive: diferencaEconomia >= 0,
-            }}
-            icon={<TrendingUp className="h-6 w-6" />}
-            variant={diferencaEconomia >= 0 ? 'success' : 'warning'}
-          />
-
-          <KPICard
-            title="Perda de Assinatura"
-            value={formatCurrency(kpisMensais?.custoPerdaAssinatura || 0)}
-            subtitle={`${formatNumber(kpisMensais?.perdaAssinatura || 0)} kWh não utilizados`}
-            icon={<AlertCircle className="h-6 w-6" />}
-            variant={(kpisMensais?.perdaAssinatura || 0) > 0 ? 'warning' : 'success'}
-          />
         </div>
 
-        {/* Subscription Chart */}
-        <SubscriptionChart
-          data={subscriptionData}
-          title="Energia Contratada vs Alocada"
-        />
-
-        {/* Details Grid */}
+        {/* Detalhamento de Compensação */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Contract Details */}
+          {/* Card: Geração e Compensação */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="section-title">Detalhes do Contrato</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+              <Sun className="h-4 w-4" />
+              Geração Distribuída — {faturaAtual.mes_ref}
+            </h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">UC Remota</span>
-                <span className="font-medium">{assinaturaMesAtualCalc?.ucRemota || '-'}</span>
+                <span className="text-muted-foreground">Geração Local</span>
+                <span className="font-medium">{formatNumber(geracaoLocal)} kWh</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Energia Contratada</span>
-                <span className="font-medium">{formatNumber(assinaturaMesAtualCalc?.energiaContratadaKwh || 0)} kWh</span>
+                <span className="text-muted-foreground">Autoconsumo (Simultaneidade)</span>
+                <div className="text-right">
+                  <span className="font-medium">{formatNumber(autoconsumoKwh)} kWh</span>
+                  <span className="text-sm text-green-600 ml-2">{formatCurrency(autoconsumoRs)}</span>
+                </div>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Energia Alocada</span>
-                <span className="font-medium">{formatNumber(assinaturaMesAtualCalc?.energiaAlocadaKwh || 0)} kWh</span>
+                <span className="text-muted-foreground">Créditos Remotos</span>
+                <div className="text-right">
+                  <span className="font-medium">{formatNumber(creditoRemotoKwh)} kWh</span>
+                  <span className="text-sm text-green-600 ml-2">{formatCurrency(creditoRemotoRs)}</span>
+                </div>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Energia Não Utilizada</span>
-                <span className={`font-medium ${(kpisMensais?.perdaAssinatura || 0) > 0 ? 'text-warning' : ''}`}>
-                  {formatNumber(kpisMensais?.perdaAssinatura || 0)} kWh
+                <span className="text-muted-foreground">Consumo Total</span>
+                <span className="font-medium">{formatNumber(consumoTotal)} kWh</span>
+              </div>
+              <div className="flex justify-between items-center py-3 -mx-6 px-6 bg-green-50 dark:bg-green-950/30 rounded-lg mt-2">
+                <span className="font-semibold">Total Compensado</span>
+                <span className="font-bold text-lg text-green-600">{formatCurrency(totalCompensado)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card: Resumo Financeiro */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Resumo Financeiro — {faturaAtual.mes_ref}
+            </h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-muted-foreground">Valor Bruto Fatura</span>
+                <span className="font-medium">{formatCurrency(valorFatura)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-muted-foreground">(-) Total Compensado</span>
+                <span className="font-medium text-green-600">- {formatCurrency(totalCompensado)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-muted-foreground">(+) Custo Assinatura (85%)</span>
+                <span className="font-medium text-amber-600">+ {formatCurrency(custoAssinatura)}</span>
+              </div>
+              <div className="flex justify-between items-center py-3 -mx-6 px-6 bg-green-50 dark:bg-green-950/30 rounded-lg mt-2">
+                <span className="font-semibold">Economia Líquida</span>
+                <span className="font-bold text-lg text-green-600">{formatCurrency(economiaLiquida)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 text-sm">
+                <span className="text-muted-foreground">Classificação GD</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  faturaAtual.classificacao_gd_aplicada === 'gd1' 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                }`}>
+                  {faturaAtual.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Economia Prometida</span>
-                <span className="font-medium">{formatPercent(assinaturaMesAtualCalc?.economiaPrometidaPercent || 0)}</span>
-              </div>
-              <div className={`flex justify-between items-center py-3 -mx-6 px-6 rounded-lg mt-4 ${
-                utilizacao >= 90 ? 'bg-success/10' : 'bg-warning/10'
-              }`}>
-                <span className="font-semibold">Taxa de Utilização</span>
-                <span className="font-bold text-lg">{formatPercent(utilizacao)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Recommendations */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="section-title">Análise e Recomendações</h3>
-            <div className="space-y-4">
-              {subutilizacaoRecorrente ? (
-                <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
-                  <p className="font-medium text-warning">⚠ Recomendação: Ajustar Contrato</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Subutilização recorrente detectada (média de {formatPercent(mediaUtilizacao)} nos últimos 3 meses).
-                    Considere renegociar o volume contratado para otimizar custos.
-                  </p>
-                  <div className="mt-3 p-3 bg-card rounded border border-border">
-                    <p className="text-sm font-medium">Sugestão de novo volume:</p>
-                    <p className="text-lg font-bold text-accent">
-                      {formatNumber(Math.round((assinaturaMesAtualCalc?.energiaContratadaKwh || 0) * (mediaUtilizacao / 100) * 1.05))} kWh
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Baseado na média de utilização + 5% de margem de segurança
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 bg-success/10 rounded-lg border border-success/20">
-                  <p className="font-medium text-success">✓ Contrato bem dimensionado</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    A utilização está dentro do esperado. O volume contratado está adequado ao consumo.
-                  </p>
-                </div>
-              )}
-
-              {diferencaEconomia >= 0 ? (
-                <div className="p-4 bg-success/10 rounded-lg border border-success/20">
-                  <p className="font-medium text-success">✓ Economia acima do prometido</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Você está economizando {formatPercent(Math.abs(diferencaEconomia))} a mais do que o previsto no contrato.
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
-                  <p className="font-medium text-warning">⚠ Economia abaixo do prometido</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    A economia está {formatPercent(Math.abs(diferencaEconomia))} abaixo do previsto. 
-                    Verifique condições do contrato ou alterações no perfil de consumo.
-                  </p>
-                </div>
-              )}
-
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="font-medium text-foreground">Custo da Energia por Assinatura</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Custo por kWh da assinatura: 
-                  <span className="font-medium text-foreground ml-1">
-                    R$ {((assinaturaMesAtualCalc?.valorAssinatura || 0) / (assinaturaMesAtualCalc?.energiaContratadaKwh || 1)).toFixed(4)}
-                  </span>
-                </p>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Historical Utilization */}
+        {/* Gráfico de Evolução */}
+        {chartData.length > 1 && (
+          <SubscriptionChart
+            data={chartData}
+            title="Evolução de Créditos (kWh)"
+          />
+        )}
+
+        {/* Histórico de Faturas Fechadas */}
         <div className="bg-card rounded-xl border border-border p-6">
-          <h3 className="section-title">Histórico de Utilização</h3>
+          <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">
+            Histórico de Faturas Fechadas
+          </h3>
           <div className="overflow-x-auto">
-            <table className="data-table">
+            <table className="w-full text-sm">
               <thead>
-                <tr>
-                  <th>Mês</th>
-                  <th className="text-right">Contratada</th>
-                  <th className="text-right">Alocada</th>
-                  <th className="text-right">Não Utilizada</th>
-                  <th className="text-right">Utilização</th>
-                  <th className="text-right">Valor</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Mês</th>
+                  <th className="text-right py-3 px-2 font-medium text-muted-foreground">Consumo</th>
+                  <th className="text-right py-3 px-2 font-medium text-muted-foreground">Autoconsumo</th>
+                  <th className="text-right py-3 px-2 font-medium text-muted-foreground">Créditos</th>
+                  <th className="text-right py-3 px-2 font-medium text-muted-foreground">Compensado</th>
+                  <th className="text-right py-3 px-2 font-medium text-muted-foreground">Economia</th>
+                  <th className="text-right py-3 px-2 font-medium text-muted-foreground">GD</th>
                 </tr>
               </thead>
               <tbody>
-                {assinaturas.slice(0, 6).map((assinatura) => {
-                  const util = (Number(assinatura.energia_alocada_kwh) / Number(assinatura.energia_contratada_kwh)) * 100;
-                  const naoUtilizada = Number(assinatura.energia_contratada_kwh) - Number(assinatura.energia_alocada_kwh);
+                {faturasFechadas.slice(0, 6).map((fatura) => {
+                  const autoRs = Number(fatura.autoconsumo_rs) || 0;
+                  const credRs = Number(fatura.credito_remoto_compensado_rs) || 0;
+                  const compTotal = autoRs + credRs;
+                  const ecoLiq = compTotal * 0.15;
+                  
                   return (
-                    <tr key={assinatura.id}>
-                      <td className="font-medium">{assinatura.mes_ref}</td>
-                      <td className="text-right">{formatNumber(Number(assinatura.energia_contratada_kwh))} kWh</td>
-                      <td className="text-right">{formatNumber(Number(assinatura.energia_alocada_kwh))} kWh</td>
-                      <td className={`text-right ${naoUtilizada > 0 ? 'text-warning' : ''}`}>
-                        {formatNumber(naoUtilizada)} kWh
-                      </td>
-                      <td className="text-right">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          util >= 90 ? 'bg-success/10 text-success' :
-                          util >= 70 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
+                    <tr key={fatura.id} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className="py-3 px-2 font-medium">{fatura.mes_ref}</td>
+                      <td className="text-right py-3 px-2">{formatNumber(Number(fatura.consumo_total_kwh))} kWh</td>
+                      <td className="text-right py-3 px-2">{formatCurrency(autoRs)}</td>
+                      <td className="text-right py-3 px-2">{formatCurrency(credRs)}</td>
+                      <td className="text-right py-3 px-2 font-medium text-green-600">{formatCurrency(compTotal)}</td>
+                      <td className="text-right py-3 px-2 font-bold text-green-600">{formatCurrency(ecoLiq)}</td>
+                      <td className="text-right py-3 px-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          fatura.classificacao_gd_aplicada === 'gd1' 
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30' 
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
                         }`}>
-                          {formatPercent(util)}
+                          {fatura.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
                         </span>
                       </td>
-                      <td className="text-right font-medium">{formatCurrency(Number(assinatura.valor_assinatura))}</td>
                     </tr>
                   );
                 })}
@@ -279,6 +279,33 @@ export default function Assinatura() {
             </table>
           </div>
         </div>
+
+        {/* Resumo Acumulado */}
+        {resumo && resumo.meses > 1 && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border border-green-200 dark:border-green-800 p-6">
+            <h3 className="text-sm font-medium uppercase tracking-wider text-green-800 dark:text-green-200 mb-4">
+              Resumo Acumulado ({resumo.meses} meses)
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Compensado</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(resumo.totalCompensado)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Custo Assinaturas</p>
+                <p className="text-xl font-bold text-amber-600">{formatCurrency(resumo.totalAssinatura)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Economia Total</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(resumo.totalEconomia)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">% Médio Economia</p>
+                <p className="text-xl font-bold text-green-600">{formatPercent(resumo.mediaEconomiaPercent)}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
