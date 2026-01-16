@@ -678,16 +678,47 @@ export function Step4GeracaoDistribuida() {
               {(data.credito_remoto_kwh || 0) > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-blue-700 dark:text-blue-300">Valor Compensado:</span>
-                    <span className="font-semibold">{formatReais(data.credito_remoto_compensado_rs || 0)}</span>
+                    <span className="text-blue-700 dark:text-blue-300">Valor Compensado (Remotos):</span>
+                    <span className="font-semibold">{formatReais(valoresPorPosto?.valorTotal || data.credito_remoto_compensado_rs || 0)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-blue-700 dark:text-blue-300">Custo (85%):</span>
+                    <span className="text-blue-700 dark:text-blue-300">Custo Assinatura (85%):</span>
                     <span className="font-semibold">{formatReais(data.custo_assinatura_rs || 0)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-green-600">
-                    <span>Economia (15%):</span>
+                    <span>Economia Assinatura (15%):</span>
                     <span className="font-bold">{formatReais(data.economia_liquida_rs || 0)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Resumo TOTAL de compensação (local + remota) */}
+              {(data.tem_geracao_local || data.tem_usina_remota) && (
+                <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-300 space-y-3">
+                  <h5 className="text-sm font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Valor Total Compensado
+                  </h5>
+                  <div className="space-y-2 text-sm">
+                    {data.tem_geracao_local && (data.autoconsumo_rs || 0) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Autoconsumo Local:</span>
+                        <span className="font-medium">{formatReais(data.autoconsumo_rs || 0)}</span>
+                      </div>
+                    )}
+                    {data.tem_usina_remota && (valoresPorPosto?.valorTotal || data.credito_remoto_compensado_rs || 0) > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Créditos Remotos:</span>
+                        <span className="font-medium">{formatReais(valoresPorPosto?.valorTotal || data.credito_remoto_compensado_rs || 0)}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex items-center justify-between text-green-700 dark:text-green-300">
+                      <span className="font-semibold">Total Compensado:</span>
+                      <span className="font-bold text-lg">
+                        {formatReais((data.autoconsumo_rs || 0) + (valoresPorPosto?.valorTotal || data.credito_remoto_compensado_rs || 0))}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
