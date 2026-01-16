@@ -83,8 +83,8 @@ export function Step5ItensFatura() {
     }
     
     // Consumo por posto (usando campos corretos do wizard)
-    const pontaConsumo = data.ponta_kwh || 0;
-    const fpConsumo = data.fora_ponta_kwh || 0;
+    const pontaConsumo = data.consumo_ponta_kwh || 0;
+    const fpConsumo = data.consumo_fora_ponta_kwh || 0;
     const ponta = Math.max(0, pontaConsumo - (data.autoconsumo_ponta_kwh || 0));
     const fp = Math.max(0, fpConsumo - (data.autoconsumo_fp_kwh || 0));
     const hr = Math.max(0, (data.consumo_reservado_kwh || 0) - (data.autoconsumo_hr_kwh || 0));
@@ -108,7 +108,7 @@ export function Step5ItensFatura() {
     if (!tarifa) return null;
     
     // Determinar bandeira atual baseada na seleção do usuário
-    const bandeira = data.bandeiras || 'verde';
+    const bandeira = data.bandeira || 'verde';
     let bandeiraTarifa = 0;
     switch (bandeira) {
       case 'verde':
@@ -136,8 +136,8 @@ export function Step5ItensFatura() {
     const scee_injecao_fp_tusd = -(injecaoTotal * (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0));
     
     if (isGrupoA) {
-      const pontaConsumo = data.ponta_kwh || 0;
-      const fpConsumo = data.fora_ponta_kwh || 0;
+      const pontaConsumo = data.consumo_ponta_kwh || 0;
+      const fpConsumo = data.consumo_fora_ponta_kwh || 0;
       return {
         // Bandeiras - aplica sobre consumo total de cada posto
         bandeira_te_p: pontaConsumo * bandeiraTarifa,
@@ -456,13 +456,13 @@ export function Step5ItensFatura() {
                 </span>
               <Badge 
                   className={
-                    data.bandeiras === 'verde' ? 'bg-green-500 hover:bg-green-500' :
-                    data.bandeiras === 'amarela' ? 'bg-yellow-500 hover:bg-yellow-500' :
-                    data.bandeiras === 'vermelha1' ? 'bg-red-400 hover:bg-red-400' :
+                    data.bandeira === 'verde' ? 'bg-green-500 hover:bg-green-500' :
+                    data.bandeira === 'amarela' ? 'bg-yellow-500 hover:bg-yellow-500' :
+                    data.bandeira === 'vermelha1' ? 'bg-red-400 hover:bg-red-400' :
                     'bg-red-600 hover:bg-red-600'
                   }
                 >
-                  Bandeira {data.bandeiras === 'vermelha1' ? 'Vermelha P1' : data.bandeiras === 'vermelha2' ? 'Vermelha P2' : String(data.bandeiras || 'verde').charAt(0).toUpperCase() + String(data.bandeiras || 'verde').slice(1)}
+                  Bandeira {data.bandeira === 'vermelha1' ? 'Vermelha P1' : data.bandeira === 'vermelha2' ? 'Vermelha P2' : String(data.bandeira || 'verde').charAt(0).toUpperCase() + String(data.bandeira || 'verde').slice(1)}
                 </Badge>
               </div>
               <Button
