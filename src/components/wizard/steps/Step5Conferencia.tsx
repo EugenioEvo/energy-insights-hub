@@ -95,26 +95,37 @@ export function Step5Conferencia() {
   // Usar calculosAuto do contexto
   const calculos = calculosAuto;
 
-  // Resumo financeiro consolidado
+  // Resumo financeiro consolidado (mesma lógica do Step4)
   const resumoFinanceiro = useMemo(() => {
-    const faturaConcessionaria = data.valor_total_pagar || 0;
-    const custoAssinatura = data.custo_assinatura_rs || 0;
-    const totalAPagar = faturaConcessionaria + custoAssinatura;
+    // Total compensado = autoconsumo + créditos remotos
+    const autoconsumoRs = data.autoconsumo_rs || data.energia_simultanea_rs || 0;
+    const creditoRemotoRs = data.credito_remoto_compensado_rs || 0;
+    const totalCompensado = autoconsumoRs + creditoRemotoRs;
     
-    const economiaAutoconsumo = data.autoconsumo_rs || 0;
-    const valorCreditosCompensados = data.credito_remoto_compensado_rs || 0;
-    const economiaCreditos = valorCreditosCompensados * 0.15;
-    const economiaTotal = economiaAutoconsumo + economiaCreditos;
+    // Custo assinatura = 85% do total compensado (quando tem usina remota)
+    const custoAssinatura = data.tem_usina_remota ? totalCompensado * 0.85 : 0;
+    
+    // Economia líquida = 15% do total compensado (+ autoconsumo integral se não tem usina)
+    const economiaLiquida = data.tem_usina_remota 
+      ? totalCompensado * 0.15 
+      : totalCompensado; // Se não tem usina, todo autoconsumo é economia
+    
+    // Fatura concessionária (valor informado ou calculado)
+    const faturaConcessionaria = data.valor_total_pagar || 0;
+    
+    // Total a pagar = fatura + custo assinatura
+    const totalAPagar = faturaConcessionaria + custoAssinatura;
 
     return {
-      faturaConcessionaria,
+      autoconsumoRs,
+      creditoRemotoRs,
+      totalCompensado,
       custoAssinatura,
+      economiaLiquida,
+      faturaConcessionaria,
       totalAPagar,
-      economiaAutoconsumo,
-      economiaCreditos,
-      economiaTotal,
-      valorCreditosCompensados,
       consumoNaoCompensado: balanco.consumoNaoCompensado,
+      creditoRemotoKwh: data.credito_remoto_kwh || 0,
     };
   }, [data, balanco]);
 
@@ -227,34 +238,44 @@ export function Step5Conferencia() {
               </div>
             </div>
 
-            {/* Fatura Usina */}
+            {/* Fatura Usina / Resumo Compensação */}
             <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Factory className="h-5 w-5 text-green-600" />
-                <span className="font-medium text-green-800 dark:text-green-200">Fatura Usina (Assinatura)</span>
+                <span className="font-medium text-green-800 dark:text-green-200">Compensação (Cost Avoidance)</span>
               </div>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Créditos compensados:</span>
-                  <span>{formatarKwh(data.credito_remoto_kwh || 0)} kWh</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Valor compensado:</span>
-                  <span>{formatarReais(resumoFinanceiro.valorCreditosCompensados)}</span>
-                </div>
-                {resumoFinanceiro.economiaCreditos > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span className="text-muted-foreground">Desconto (15%):</span>
-                    <span>- {formatarReais(resumoFinanceiro.economiaCreditos)}</span>
+                {data.tem_geracao_local && resumoFinanceiro.autoconsumoRs > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Geração Simultânea:</span>
+                    <span className="font-medium">{formatarReais(resumoFinanceiro.autoconsumoRs)}</span>
+                  </div>
+                )}
+                {data.tem_usina_remota && resumoFinanceiro.creditoRemotoRs > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Créditos Alocados ({formatarKwh(resumoFinanceiro.creditoRemotoKwh)}):</span>
+                    <span className="font-medium">{formatarReais(resumoFinanceiro.creditoRemotoRs)}</span>
                   </div>
                 )}
                 <Separator className="bg-green-200 dark:bg-green-800" />
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Total a pagar:</span>
-                  <span className="text-xl font-bold text-green-700 dark:text-green-300">
-                    {formatarReais(resumoFinanceiro.custoAssinatura)}
+                  <span className="font-medium">Total Compensado:</span>
+                  <span className="text-lg font-bold text-green-600">
+                    {formatarReais(resumoFinanceiro.totalCompensado)}
                   </span>
                 </div>
+                {data.tem_usina_remota && resumoFinanceiro.custoAssinatura > 0 && (
+                  <>
+                    <div className="flex justify-between text-amber-600">
+                      <span className="text-muted-foreground">Custo Assinatura (85%):</span>
+                      <span className="font-medium">- {formatarReais(resumoFinanceiro.custoAssinatura)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-green-600">
+                      <span className="font-semibold">Economia Líquida (15%):</span>
+                      <span className="font-bold">{formatarReais(resumoFinanceiro.economiaLiquida)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -273,34 +294,32 @@ export function Step5Conferencia() {
           </div>
 
           {/* Economia */}
-          {resumoFinanceiro.economiaTotal > 0 && (
+          {resumoFinanceiro.economiaLiquida > 0 && (
             <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <TrendingDown className="h-5 w-5 text-emerald-600" />
                 <span className="font-medium text-emerald-800 dark:text-emerald-200">Economia do Mês</span>
               </div>
               <div className="space-y-2 text-sm">
-                {resumoFinanceiro.economiaAutoconsumo > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Compensado:</span>
+                  <span className="text-emerald-600 font-medium">
+                    {formatarReais(resumoFinanceiro.totalCompensado)}
+                  </span>
+                </div>
+                {data.tem_usina_remota && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Autoconsumo simultâneo:</span>
-                    <span className="text-emerald-600 font-medium">
-                      + {formatarReais(resumoFinanceiro.economiaAutoconsumo)}
-                    </span>
-                  </div>
-                )}
-                {resumoFinanceiro.economiaCreditos > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Desconto assinatura (15%):</span>
-                    <span className="text-emerald-600 font-medium">
-                      + {formatarReais(resumoFinanceiro.economiaCreditos)}
+                    <span className="text-muted-foreground">(-) Custo Assinatura (85%):</span>
+                    <span className="text-amber-600 font-medium">
+                      - {formatarReais(resumoFinanceiro.custoAssinatura)}
                     </span>
                   </div>
                 )}
                 <Separator className="bg-emerald-200 dark:bg-emerald-800" />
                 <div className="flex justify-between items-center">
-                  <span className="font-bold">ECONOMIA TOTAL:</span>
+                  <span className="font-bold">ECONOMIA LÍQUIDA:</span>
                   <span className="text-xl font-bold text-emerald-600">
-                    {formatarReais(resumoFinanceiro.economiaTotal)}
+                    {formatarReais(resumoFinanceiro.economiaLiquida)}
                   </span>
                 </div>
               </div>
