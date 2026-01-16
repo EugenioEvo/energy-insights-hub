@@ -3,10 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useWizard } from '../WizardContext';
-import { Calendar, AlertCircle, Flag } from 'lucide-react';
+import { useWizard, FaturaWizardData } from '../WizardContext';
+import { Calendar, AlertCircle, Flag, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { FaturaImportCard } from '../FaturaImportCard';
+import { GeracaoImportCard } from '../GeracaoImportCard';
+import { Separator } from '@/components/ui/separator';
 
 export function Step1Cabecalho() {
   const { data, updateData, setCanProceed } = useWizard();
@@ -49,18 +52,45 @@ export function Step1Cabecalho() {
 
   const diasFora = data.dias_faturados > 0 && (data.dias_faturados < 25 || data.dias_faturados > 35);
 
+  const handleImport = (importedData: Partial<FaturaWizardData>) => {
+    updateData(importedData);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Passo 1 — Cabeçalho da Fatura
-        </CardTitle>
-        <CardDescription>
-          Identificação do mês de referência e datas da fatura
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className="space-y-6">
+      {/* Cards de Importação Automática */}
+      <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Importação Automática com IA
+          </CardTitle>
+          <CardDescription>
+            Importe PDF da fatura ou CSV de geração para preenchimento automático
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FaturaImportCard onImport={handleImport} />
+            <GeracaoImportCard onImport={handleImport} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator className="my-4" />
+
+      {/* Formulário Manual */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Passo 1 — Cabeçalho da Fatura
+          </CardTitle>
+          <CardDescription>
+            Identificação do mês de referência e datas da fatura
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label htmlFor="mes_ref">Mês de Referência *</Label>
@@ -220,7 +250,8 @@ export function Step1Cabecalho() {
             </AlertDescription>
           </Alert>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
