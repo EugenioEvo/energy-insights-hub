@@ -389,16 +389,52 @@ export function Step4GeracaoDistribuida() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm text-muted-foreground">Alocação por Posto Horário</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Distribua os créditos remotos entre os postos horários conforme a compensação desejada ou informada na fatura.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const totalCreditos = data.credito_remoto_kwh || 0;
+                          const consumoP = data.consumo_ponta_kwh || 0;
+                          const consumoFP = data.consumo_fora_ponta_kwh || 0;
+                          const consumoHR = data.consumo_reservado_kwh || 0;
+                          const totalConsumo = consumoP + consumoFP + consumoHR;
+                          
+                          if (totalConsumo > 0) {
+                            // Distribuir proporcionalmente ao consumo de cada posto
+                            const creditoP = Math.min(consumoP, Math.round((consumoP / totalConsumo) * totalCreditos));
+                            const creditoFP = Math.min(consumoFP, Math.round((consumoFP / totalConsumo) * totalCreditos));
+                            const creditoHR = Math.min(consumoHR, totalCreditos - creditoP - creditoFP);
+                            
+                            updateData({
+                              credito_remoto_ponta_kwh: creditoP,
+                              credito_remoto_fp_kwh: creditoFP,
+                              credito_remoto_hr_kwh: Math.max(0, creditoHR)
+                            });
+                          } else {
+                            // Se não há consumo por posto, alocar tudo em FP
+                            updateData({
+                              credito_remoto_ponta_kwh: 0,
+                              credito_remoto_fp_kwh: totalCreditos,
+                              credito_remoto_hr_kwh: 0
+                            });
+                          }
+                        }}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Zap className="h-3 w-3" />
+                        Auto-distribuir
+                      </button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Distribua os créditos remotos entre os postos horários conforme a compensação desejada ou informada na fatura.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
