@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import type { Tables } from '@/integrations/supabase/types';
+import { calcularFaturaCompleta, CalculosCompletos, TarifaSimplificada } from '@/lib/calculosBackground';
+import { useTarifas } from '@/hooks/useTarifas';
 
 export type GrupoTarifario = 'A' | 'B';
 
@@ -57,7 +59,7 @@ export type FaturaWizardData = {
   autoconsumo_hr_kwh: number;
   autoconsumo_total_kwh: number;
   autoconsumo_rs: number;
-  tarifa_liquida_fp_rs_kwh: number; // Tarifa líquida FP (R$/kWh) para cálculo do autoconsumo
+  tarifa_liquida_fp_rs_kwh: number;
   injecao_ponta_kwh: number;
   injecao_fp_kwh: number;
   injecao_hr_kwh: number;
@@ -413,6 +415,10 @@ interface WizardContextType {
   isGrupoA: boolean;
   isGrupoB: boolean;
   isEditing: boolean;
+  // Motor de cálculos
+  calculosAuto: CalculosCompletos | null;
+  tarifa: TarifaSimplificada | null;
+  tarifaLoading: boolean;
 }
 
 interface WizardProviderProps {
@@ -447,6 +453,47 @@ export function WizardProvider({ children, initialFatura }: WizardProviderProps)
 
   const totalSteps = steps.length;
   const currentStepId = steps[currentStep]?.id || 'contexto';
+
+  // === BUSCAR TARIFA ===
+  const { data: tarifaData, isLoading: tarifaLoading } = useTarifas(
+    data.concessionaria || null,
+    data.grupo_tarifario || null,
+    data.modalidade || null
+  );
+
+  // Converter tarifa para tipo simplificado
+  const tarifa: TarifaSimplificada | null = useMemo(() => {
+    if (!tarifaData) return null;
+    return {
+      te_ponta_rs_kwh: tarifaData.te_ponta_rs_kwh,
+      te_fora_ponta_rs_kwh: tarifaData.te_fora_ponta_rs_kwh,
+      te_reservado_rs_kwh: tarifaData.te_reservado_rs_kwh,
+      te_unica_rs_kwh: tarifaData.te_unica_rs_kwh,
+      tusd_ponta_rs_kwh: tarifaData.tusd_ponta_rs_kwh,
+      tusd_fora_ponta_rs_kwh: tarifaData.tusd_fora_ponta_rs_kwh,
+      tusd_reservado_rs_kwh: tarifaData.tusd_reservado_rs_kwh,
+      tusd_unica_rs_kwh: tarifaData.tusd_unica_rs_kwh,
+      tusd_fio_a_rs_kwh: tarifaData.tusd_fio_a_rs_kwh,
+      tusd_fio_b_rs_kwh: tarifaData.tusd_fio_b_rs_kwh,
+      tusd_encargos_rs_kwh: tarifaData.tusd_encargos_rs_kwh,
+      bandeira_verde_rs_kwh: tarifaData.bandeira_verde_rs_kwh,
+      bandeira_amarela_rs_kwh: tarifaData.bandeira_amarela_rs_kwh,
+      bandeira_vermelha1_rs_kwh: tarifaData.bandeira_vermelha1_rs_kwh,
+      bandeira_vermelha2_rs_kwh: tarifaData.bandeira_vermelha2_rs_kwh,
+      demanda_ponta_rs_kw: tarifaData.demanda_ponta_rs_kw,
+      demanda_fora_ponta_rs_kw: tarifaData.demanda_fora_ponta_rs_kw,
+      demanda_unica_rs_kw: tarifaData.demanda_unica_rs_kw,
+      pis_percent: tarifaData.pis_percent,
+      cofins_percent: tarifaData.cofins_percent,
+      icms_percent: tarifaData.icms_percent,
+    };
+  }, [tarifaData]);
+
+  // === MOTOR DE CÁLCULOS EM BACKGROUND ===
+  const calculosAuto = useMemo(() => {
+    if (!data.mes_ref || data.consumo_total_kwh <= 0) return null;
+    return calcularFaturaCompleta(data, tarifa, isGrupoA);
+  }, [data, tarifa, isGrupoA]);
 
   const updateData = useCallback((updates: Partial<FaturaWizardData>) => {
     setData(prev => ({ ...prev, ...updates }));
@@ -497,6 +544,9 @@ export function WizardProvider({ children, initialFatura }: WizardProviderProps)
         isGrupoA,
         isGrupoB,
         isEditing,
+        calculosAuto,
+        tarifa,
+        tarifaLoading,
       }}
     >
       {children}
@@ -504,10 +554,10 @@ export function WizardProvider({ children, initialFatura }: WizardProviderProps)
   );
 }
 
-export function useWizard() {
+export function useWizard(): WizardContextType {
   const context = useContext(WizardContext);
   if (!context) {
-    throw new Error('useWizard must be used within WizardProvider');
+    throw new Error('useWizard must be used within a WizardProvider');
   }
   return context;
 }
