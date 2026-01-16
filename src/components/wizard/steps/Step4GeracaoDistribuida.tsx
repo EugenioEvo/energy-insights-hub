@@ -432,7 +432,7 @@ export function Step4GeracaoDistribuida() {
               </div>
 
               {/* Alocação por posto horário - apenas Grupo A */}
-              {isGrupoA && (data.credito_remoto_kwh || 0) > 0 && (
+              {isGrupoA && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <Label className="text-sm text-muted-foreground">Alocação por Posto Horário</Label>
