@@ -131,6 +131,9 @@ export type FaturaWizardData = {
   status: 'rascunho' | 'fechado';
   alertas: AlertaWizard[];
   recomendacoes: string[];
+  
+  // Classificação GD
+  classificacao_gd_aplicada: 'gd1' | 'gd2' | null;
 };
 
 export const initialWizardData: FaturaWizardData = {
@@ -253,6 +256,9 @@ export const initialWizardData: FaturaWizardData = {
   status: 'rascunho',
   alertas: [],
   recomendacoes: [],
+  
+  // Classificação GD
+  classificacao_gd_aplicada: 'gd1',
 };
 
 // Definição de passos por grupo tarifário
