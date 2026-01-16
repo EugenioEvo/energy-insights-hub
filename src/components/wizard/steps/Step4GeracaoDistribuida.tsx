@@ -355,6 +355,34 @@ export function Step4GeracaoDistribuida() {
                 </h4>
               </div>
 
+              {/* Indicador de UC Geradora detectada na fatura */}
+              {data.scee_uc_geradora && (
+                <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-sm">
+                    <strong>UC Geradora detectada:</strong> {data.scee_uc_geradora}
+                    {data.scee_uc_geradora !== data.uc_numero && (
+                      <span className="text-muted-foreground ml-2">(diferente da UC {data.uc_numero})</span>
+                    )}
+                    {(() => {
+                      const totalSCEE = (data.scee_geracao_ciclo_ponta_kwh || 0) + 
+                                       (data.scee_geracao_ciclo_fp_kwh || 0) + 
+                                       (data.scee_geracao_ciclo_hr_kwh || 0);
+                      if (totalSCEE > 0) {
+                        return (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Injeção: P {data.scee_geracao_ciclo_ponta_kwh || 0} | 
+                            FP {data.scee_geracao_ciclo_fp_kwh || 0} | 
+                            HR {data.scee_geracao_ciclo_hr_kwh || 0} kWh
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Total de créditos recebidos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">

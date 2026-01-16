@@ -50,7 +50,15 @@ CAMPOS A EXTRAIR:
 - geracao_local_total_kwh
 - autoconsumo_ponta_kwh, autoconsumo_fp_kwh, autoconsumo_hr_kwh, autoconsumo_total_kwh
 - injecao_ponta_kwh, injecao_fp_kwh, injecao_hr_kwh, injecao_total_kwh
-- scee_credito_recebido_kwh
+
+IMPORTANTE - SCEE com UC diferente (geração remota):
+Na seção SCEE/compensação, procure por linhas com "UC" seguido de um número DIFERENTE do uc_numero do cabeçalho.
+Isso indica créditos de uma usina remota. Extraia:
+- scee_uc_geradora: número da UC que está INJETANDO energia (diferente da UC consumidora)
+- scee_geracao_ciclo_ponta_kwh: injeção no posto PONTA vinda da UC geradora
+- scee_geracao_ciclo_fp_kwh: injeção no posto FORA PONTA vinda da UC geradora  
+- scee_geracao_ciclo_hr_kwh: injeção no posto RESERVADO vinda da UC geradora
+- scee_credito_recebido_kwh: total de créditos recebidos
 - scee_saldo_kwh_p, scee_saldo_kwh_fp, scee_saldo_kwh_hr
 - scee_saldo_expirar_30d_kwh, scee_saldo_expirar_60d_kwh
 

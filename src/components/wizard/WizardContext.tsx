@@ -79,6 +79,7 @@ export type FaturaWizardData = {
   consumo_final_kwh: number;
   
   // Saldos de créditos (próprios + remotos)
+  scee_uc_geradora: string; // UC diferente que está injetando energia
   scee_geracao_ciclo_ponta_kwh: number;
   scee_geracao_ciclo_fp_kwh: number;
   scee_geracao_ciclo_hr_kwh: number;
@@ -200,6 +201,7 @@ export const initialWizardData: FaturaWizardData = {
   consumo_final_kwh: 0,
   
   // SCEE/Saldos
+  scee_uc_geradora: '',
   scee_geracao_ciclo_ponta_kwh: 0,
   scee_geracao_ciclo_fp_kwh: 0,
   scee_geracao_ciclo_hr_kwh: 0,
