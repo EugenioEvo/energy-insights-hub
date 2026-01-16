@@ -711,24 +711,28 @@ export function Step4GeracaoDistribuida() {
                       </span>
                     </div>
                     
-                    {/* Custo da Assinatura (apenas remotos) */}
-                    {data.tem_usina_remota && (data.custo_assinatura_rs || 0) > 0 && (
-                      <>
-                        <Separator />
-                        <div className="flex items-center justify-between text-amber-700 dark:text-amber-300">
-                          <span>Custo Assinatura Usina (85%):</span>
-                          <span className="font-medium">- {formatReais(data.custo_assinatura_rs || 0)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-green-600 font-semibold">
-                          <span>Economia Líquida:</span>
-                          <span className="font-bold">
-                            {formatReais(
-                              (data.autoconsumo_rs || data.energia_simultanea_rs || 0) + 
-                              (data.economia_liquida_rs || 0)
-                            )}
-                          </span>
-                        </div>
-                      </>
+                    {/* Custo da Assinatura (85% do total compensado) */}
+                    {data.tem_usina_remota && (
+                      (() => {
+                        const totalCompensado = (data.autoconsumo_rs || data.energia_simultanea_rs || 0) + 
+                                               (valoresPorPosto?.valorTotal || data.credito_remoto_compensado_rs || 0);
+                        const custoAssinatura = totalCompensado * 0.85;
+                        const economiaLiquida = totalCompensado * 0.15;
+                        
+                        return totalCompensado > 0 ? (
+                          <>
+                            <Separator />
+                            <div className="flex items-center justify-between text-amber-700 dark:text-amber-300">
+                              <span>Custo Assinatura (85% do total):</span>
+                              <span className="font-medium">- {formatReais(custoAssinatura)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-green-600 font-semibold">
+                              <span>Economia Líquida (15%):</span>
+                              <span className="font-bold">{formatReais(economiaLiquida)}</span>
+                            </div>
+                          </>
+                        ) : null;
+                      })()
                     )}
                   </div>
                 </div>
