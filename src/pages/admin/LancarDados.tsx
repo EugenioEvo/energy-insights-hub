@@ -10,7 +10,7 @@ import { Step0ContextoUC } from '@/components/wizard/steps/Step0ContextoUC';
 import { Step1Cabecalho } from '@/components/wizard/steps/Step1Cabecalho';
 import { Step3ConsumoDemanda } from '@/components/wizard/steps/Step3ConsumoDemanda';
 import { Step4GeracaoDistribuida } from '@/components/wizard/steps/Step4GeracaoDistribuida';
-import { Step7Conferencia } from '@/components/wizard/steps/Step7Conferencia';
+import { Step5Conferencia } from '@/components/wizard/steps/Step5Conferencia';
 import { Step2ConsumoSimples } from '@/components/wizard/steps/grupoB/Step2ConsumoSimples';
 import { useToast } from '@/hooks/use-toast';
 import { useUpsertFatura } from '@/hooks/useFaturas';
@@ -144,7 +144,7 @@ function WizardContent() {
       case 'geracao':
         return <Step4GeracaoDistribuida />;
       case 'conferencia':
-        return <Step7Conferencia />;
+        return <Step5Conferencia />;
       default:
         return <Step0ContextoUC />;
     }

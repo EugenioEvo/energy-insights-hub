@@ -25,8 +25,12 @@ export interface BalancoEnergetico {
   
   // Compensação do consumo da rede
   consumoAposAutoconsumo: number;  // = consumoDaRede (já é o residual, fatura da concessionária)
+  creditosProprios: number;        // Créditos da injeção local
   creditosRemotosAlocados: number; // Créditos remotos usados para compensar
+  totalCreditos: number;           // creditosProprios + creditosRemotosAlocados
+  consumoCompensado: number;       // Quanto foi compensado pelos créditos
   consumoNaoCompensado: number;    // Consumo que não foi compensado (paga na fatura)
+  creditosSobrando: number;        // Créditos que sobram após compensar
   
   // Para legado/compatibilidade
   energiaDaRede: number;
@@ -45,7 +49,9 @@ export interface BalancoEnergetico {
  * 
  * FLUXO:
  * 1. UC consome energia = parte da rede + parte da usina própria (autoconsumo)
- * 2. O que veio da rede pode ser compensado por créditos remotos (assinatura)
+ * 2. O que veio da rede pode ser compensado por:
+ *    a) Créditos próprios (injeção da usina local)
+ *    b) Créditos remotos (assinatura de usina remota)
  * 3. O que não for compensado é pago na fatura da concessionária
  * 4. Autoconsumo + Créditos Remotos são pagos via "fatura da usina" (com 15% desconto)
  */
@@ -73,11 +79,23 @@ export function calcularBalancoEnergetico(data: FaturaWizardData, isGrupoA: bool
   // O consumo da rede precisa ser compensado (ou pago na fatura)
   const consumoAposAutoconsumo = consumoDaRede; // Já é o residual
   
+  // Créditos próprios (injeção local) - CORREÇÃO: Agora incluídos na compensação
+  const creditosProprios = injecaoLocal;
+  
   // Créditos remotos alocados (da assinatura ou SCEE)
   const creditosRemotosAlocados = data.credito_remoto_kwh || 0;
   
+  // Total de créditos disponíveis para compensar
+  const totalCreditos = creditosProprios + creditosRemotosAlocados;
+  
+  // Quanto foi compensado
+  const consumoCompensado = Math.min(consumoAposAutoconsumo, totalCreditos);
+  
   // Consumo não compensado = o que vai pagar na fatura da concessionária
-  const consumoNaoCompensado = Math.max(0, consumoAposAutoconsumo - creditosRemotosAlocados);
+  const consumoNaoCompensado = Math.max(0, consumoAposAutoconsumo - totalCreditos);
+  
+  // Créditos que sobram
+  const creditosSobrando = Math.max(0, totalCreditos - consumoAposAutoconsumo);
 
   // === LEGADO (compatibilidade) ===
   const saldoCreditosLocais = (data.scee_saldo_kwh_p || 0) + 
@@ -92,8 +110,12 @@ export function calcularBalancoEnergetico(data: FaturaWizardData, isGrupoA: bool
     geracaoLocal,
     injecaoLocal,
     consumoAposAutoconsumo,
+    creditosProprios,
     creditosRemotosAlocados,
+    totalCreditos,
+    consumoCompensado,
     consumoNaoCompensado,
+    creditosSobrando,
     
     // Campos legados (manter compatibilidade)
     energiaDaRede: consumoDaRede,
@@ -102,8 +124,8 @@ export function calcularBalancoEnergetico(data: FaturaWizardData, isGrupoA: bool
     saldoCreditosLocais,
     creditosRemotosDisponiveis: creditosRemotosAlocados,
     baseCompensacao: consumoAposAutoconsumo,
-    creditosLocaisUsados: 0, // Não estamos usando créditos locais separadamente aqui
-    creditosRemotosUsados: creditosRemotosAlocados,
+    creditosLocaisUsados: Math.min(creditosProprios, consumoAposAutoconsumo),
+    creditosRemotosUsados: Math.min(creditosRemotosAlocados, Math.max(0, consumoAposAutoconsumo - creditosProprios)),
     consumoFinal: consumoNaoCompensado,
   };
 }

@@ -1,6 +1,7 @@
 /**
  * PASSO 4 — GERAÇÃO DISTRIBUÍDA (Consolidado)
  * Unifica geração local (autoconsumo/injeção) + créditos remotos
+ * Calcula automaticamente valores financeiros usando tarifa do contexto
  */
 
 import { useEffect, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useWizard } from '../WizardContext';
-import { Sun, Zap, ArrowRight, ArrowDown, Building2, Calculator, Info, Shield } from 'lucide-react';
+import { Sun, Zap, ArrowRight, ArrowDown, Building2, Calculator, Info, Shield, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { obterPercentualFioB } from '@/lib/lei14300';
 
 export function Step4GeracaoDistribuida() {
-  const { data, updateData, setCanProceed, isGrupoA } = useWizard();
+  const { data, updateData, setCanProceed, isGrupoA, tarifa, tarifaLoading, calculosAuto } = useWizard();
 
   // Classificação GD
   const classificacaoGD = useMemo(() => {
@@ -32,23 +33,17 @@ export function Step4GeracaoDistribuida() {
 
   // Cálculos consolidados
   const calculos = useMemo(() => {
-    // Geração local
     const geracaoLocal = data.geracao_local_total_kwh || 0;
     
-    // Autoconsumo
     const autoconsumoTotal = isGrupoA
       ? (data.autoconsumo_ponta_kwh || 0) + (data.autoconsumo_fp_kwh || 0) + (data.autoconsumo_hr_kwh || 0)
       : (data.autoconsumo_total_kwh || 0);
     
-    // Injeção (créditos próprios)
     const injecaoTotal = isGrupoA
       ? (data.injecao_ponta_kwh || 0) + (data.injecao_fp_kwh || 0) + (data.injecao_hr_kwh || 0)
       : (data.injecao_total_kwh || 0);
     
-    // Créditos remotos
     const creditosRemotos = data.credito_remoto_kwh || 0;
-    
-    // Totais
     const totalCreditos = injecaoTotal + creditosRemotos;
     const consumoRede = data.consumo_total_kwh || 0;
     const consumoCompensado = Math.min(consumoRede, totalCreditos);
@@ -83,13 +78,61 @@ export function Step4GeracaoDistribuida() {
     }
   }, [data.geracao_local_total_kwh, data.autoconsumo_total_kwh, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, isGrupoA]);
 
+  // Auto-calcular valores financeiros quando tarifa está disponível
+  useEffect(() => {
+    if (!tarifa) return;
+
+    const updates: Partial<typeof data> = {};
+    
+    // Calcular autoconsumo_rs (valor do autoconsumo em R$)
+    const tarifaLiquida = (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0) + 
+                          (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+    
+    const autoconsumoTotal = isGrupoA
+      ? (data.autoconsumo_ponta_kwh || 0) + (data.autoconsumo_fp_kwh || 0) + (data.autoconsumo_hr_kwh || 0)
+      : (data.autoconsumo_total_kwh || 0);
+    
+    const autoconsumoRsCalculado = autoconsumoTotal * tarifaLiquida;
+    if (Math.abs((data.autoconsumo_rs || 0) - autoconsumoRsCalculado) > 0.01) {
+      updates.autoconsumo_rs = parseFloat(autoconsumoRsCalculado.toFixed(2));
+      updates.tarifa_liquida_fp_rs_kwh = tarifaLiquida;
+    }
+
+    // Calcular credito_remoto_compensado_rs
+    const creditosRemotos = data.credito_remoto_kwh || 0;
+    const consumoRede = data.consumo_total_kwh || 0;
+    const creditoUsado = Math.min(creditosRemotos, consumoRede);
+    const creditoCompensadoRs = creditoUsado * tarifaLiquida;
+    
+    if (creditosRemotos > 0 && Math.abs((data.credito_remoto_compensado_rs || 0) - creditoCompensadoRs) > 0.01) {
+      updates.credito_remoto_compensado_rs = parseFloat(creditoCompensadoRs.toFixed(2));
+    }
+
+    // Calcular custo_assinatura_rs (85% do compensado)
+    const custoAssinaturaCalculado = creditoCompensadoRs * 0.85;
+    if (creditosRemotos > 0 && Math.abs((data.custo_assinatura_rs || 0) - custoAssinaturaCalculado) > 0.01) {
+      updates.custo_assinatura_rs = parseFloat(custoAssinaturaCalculado.toFixed(2));
+    }
+
+    // Calcular economia_liquida_rs (15% de desconto)
+    const economiaCalculada = creditoCompensadoRs * 0.15;
+    if (creditosRemotos > 0 && Math.abs((data.economia_liquida_rs || 0) - economiaCalculada) > 0.01) {
+      updates.economia_liquida_rs = parseFloat(economiaCalculada.toFixed(2));
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updateData(updates);
+    }
+  }, [tarifa, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, 
+      data.autoconsumo_total_kwh, data.credito_remoto_kwh, data.consumo_total_kwh, isGrupoA]);
+
   // Validação
   useEffect(() => {
-    // Sempre pode prosseguir (geração é opcional)
     setCanProceed(true);
   }, [setCanProceed]);
 
   const formatKwh = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' kWh';
+  const formatReais = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatPercent = (value: number) => value.toFixed(1) + '%';
 
   return (
@@ -104,6 +147,14 @@ export function Step4GeracaoDistribuida() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+
+        {/* Status da Tarifa */}
+        {tarifaLoading && (
+          <Alert>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <AlertDescription>Carregando tarifas para cálculos automáticos...</AlertDescription>
+          </Alert>
+        )}
 
         {/* Classificação GD */}
         {(() => {
@@ -121,7 +172,7 @@ export function Step4GeracaoDistribuida() {
                   </div>
                   <div className="text-sm">
                     {isGD1 
-                      ? 'Compensação integral (TE + TUSD)'
+                      ? 'Compensação integral (TE + TUSD + Encargos)'
                       : `Fio B não compensável: ${classificacaoGD.percentualFioB}%`}
                   </div>
                 </div>
@@ -276,6 +327,18 @@ export function Step4GeracaoDistribuida() {
                   </div>
                 </div>
               )}
+
+              {/* Valor do Autoconsumo */}
+              {calculos.autoconsumoTotal > 0 && (
+                <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-green-700 dark:text-green-300">
+                      Economia do Autoconsumo (tarifa evitada):
+                    </span>
+                    <span className="font-bold text-green-600">{formatReais(data.autoconsumo_rs || 0)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -304,7 +367,10 @@ export function Step4GeracaoDistribuida() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Custo Assinatura (R$)</Label>
+                  <Label className="flex items-center gap-2">
+                    Custo Assinatura (R$)
+                    <Badge variant="outline" className="text-xs">Calculado (85%)</Badge>
+                  </Label>
                   <Input 
                     type="number"
                     min="0"
@@ -312,9 +378,28 @@ export function Step4GeracaoDistribuida() {
                     value={data.custo_assinatura_rs || ''} 
                     onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
                     placeholder="Valor pago à usina"
+                    className="bg-muted/50"
                   />
                 </div>
               </div>
+
+              {/* Resumo financeiro dos créditos */}
+              {(data.credito_remoto_kwh || 0) > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-blue-700 dark:text-blue-300">Valor Compensado:</span>
+                    <span className="font-semibold">{formatReais(data.credito_remoto_compensado_rs || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-blue-700 dark:text-blue-300">Custo (85%):</span>
+                    <span className="font-semibold">{formatReais(data.custo_assinatura_rs || 0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-green-600">
+                    <span>Economia (15%):</span>
+                    <span className="font-bold">{formatReais(data.economia_liquida_rs || 0)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
