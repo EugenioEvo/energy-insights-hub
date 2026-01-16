@@ -355,33 +355,52 @@ export function Step4GeracaoDistribuida() {
                 </h4>
               </div>
 
-              {/* Indicador de UC Geradora detectada na fatura */}
-              {data.scee_uc_geradora && (
-                <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200">
-                  <Building2 className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-sm">
-                    <strong>UC Geradora detectada:</strong> {data.scee_uc_geradora}
-                    {data.scee_uc_geradora !== data.uc_numero && (
-                      <span className="text-muted-foreground ml-2">(diferente da UC {data.uc_numero})</span>
-                    )}
-                    {(() => {
-                      const totalSCEE = (data.scee_geracao_ciclo_ponta_kwh || 0) + 
-                                       (data.scee_geracao_ciclo_fp_kwh || 0) + 
-                                       (data.scee_geracao_ciclo_hr_kwh || 0);
-                      if (totalSCEE > 0) {
-                        return (
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Injeção: P {data.scee_geracao_ciclo_ponta_kwh || 0} | 
-                            FP {data.scee_geracao_ciclo_fp_kwh || 0} | 
-                            HR {data.scee_geracao_ciclo_hr_kwh || 0} kWh
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </AlertDescription>
-                </Alert>
-              )}
+              {/* Campo UC Geradora - editável manualmente */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  UC Geradora (Usina Remota)
+                  {data.scee_uc_geradora && data.scee_uc_geradora !== data.uc_numero && (
+                    <Badge variant="secondary" className="text-xs">Detectada</Badge>
+                  )}
+                </Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="text"
+                    value={data.scee_uc_geradora || ''} 
+                    onChange={(e) => updateData({ scee_uc_geradora: e.target.value })}
+                    placeholder="Número da UC que está injetando energia"
+                    className={data.scee_uc_geradora ? "border-blue-300 bg-blue-50/50 dark:bg-blue-950/20" : ""}
+                  />
+                </div>
+                {data.scee_uc_geradora && data.scee_uc_geradora !== data.uc_numero && (
+                  <p className="text-xs text-muted-foreground">
+                    UC diferente da consumidora ({data.uc_numero}) - créditos de geração remota
+                  </p>
+                )}
+              </div>
+
+              {/* Indicador com valores de injeção detectados */}
+              {data.scee_uc_geradora && (() => {
+                const totalSCEE = (data.scee_geracao_ciclo_ponta_kwh || 0) + 
+                                 (data.scee_geracao_ciclo_fp_kwh || 0) + 
+                                 (data.scee_geracao_ciclo_hr_kwh || 0);
+                if (totalSCEE > 0) {
+                  return (
+                    <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200">
+                      <Building2 className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-sm">
+                        <strong>Injeção detectada na fatura:</strong>
+                        <div className="mt-1 text-xs">
+                          Ponta: {data.scee_geracao_ciclo_ponta_kwh || 0} kWh | 
+                          Fora Ponta: {data.scee_geracao_ciclo_fp_kwh || 0} kWh | 
+                          Reservado: {data.scee_geracao_ciclo_hr_kwh || 0} kWh
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Total de créditos recebidos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
