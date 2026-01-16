@@ -97,18 +97,20 @@ export function Step5Conferencia() {
 
   // Resumo financeiro consolidado (mesma lógica do Step4)
   const resumoFinanceiro = useMemo(() => {
-    // Total compensado = autoconsumo + créditos remotos
+    // Autoconsumo (geração local) - 100% é economia do cliente
     const autoconsumoRs = data.autoconsumo_rs || data.energia_simultanea_rs || 0;
+    
+    // Créditos remotos (assinatura usina)
     const creditoRemotoRs = data.credito_remoto_compensado_rs || 0;
+    
+    // Total compensado = autoconsumo + créditos remotos
     const totalCompensado = autoconsumoRs + creditoRemotoRs;
     
-    // Custo assinatura = 85% do total compensado (quando tem usina remota)
-    const custoAssinatura = data.tem_usina_remota ? totalCompensado * 0.85 : 0;
+    // Custo assinatura = 85% APENAS dos créditos remotos (não inclui autoconsumo)
+    const custoAssinatura = data.tem_usina_remota ? creditoRemotoRs * 0.85 : 0;
     
-    // Economia líquida = 15% do total compensado (+ autoconsumo integral se não tem usina)
-    const economiaLiquida = data.tem_usina_remota 
-      ? totalCompensado * 0.15 
-      : totalCompensado; // Se não tem usina, todo autoconsumo é economia
+    // Economia líquida = 100% autoconsumo + 15% dos créditos remotos
+    const economiaLiquida = autoconsumoRs + (data.tem_usina_remota ? creditoRemotoRs * 0.15 : creditoRemotoRs);
     
     // Fatura concessionária (valor informado ou calculado)
     const faturaConcessionaria = data.valor_total_pagar || 0;
