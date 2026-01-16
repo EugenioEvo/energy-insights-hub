@@ -355,9 +355,10 @@ export function Step4GeracaoDistribuida() {
                 </h4>
               </div>
 
+              {/* Total de créditos recebidos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Créditos Recebidos (kWh)</Label>
+                  <Label>Total Créditos Recebidos (kWh)</Label>
                   <Input 
                     type="number"
                     min="0"
@@ -382,6 +383,88 @@ export function Step4GeracaoDistribuida() {
                   />
                 </div>
               </div>
+
+              {/* Alocação por posto horário - apenas Grupo A */}
+              {isGrupoA && (data.credito_remoto_kwh || 0) > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm text-muted-foreground">Alocação por Posto Horário</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Distribua os créditos remotos entre os postos horários conforme a compensação desejada ou informada na fatura.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Ponta (kWh)</Label>
+                      <Input 
+                        type="number"
+                        min="0"
+                        value={data.credito_remoto_ponta_kwh || ''} 
+                        onChange={(e) => updateData({ credito_remoto_ponta_kwh: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Fora Ponta (kWh)</Label>
+                      <Input 
+                        type="number"
+                        min="0"
+                        value={data.credito_remoto_fp_kwh || ''} 
+                        onChange={(e) => updateData({ credito_remoto_fp_kwh: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Reservado (kWh)</Label>
+                      <Input 
+                        type="number"
+                        min="0"
+                        value={data.credito_remoto_hr_kwh || ''} 
+                        onChange={(e) => updateData({ credito_remoto_hr_kwh: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validação de alocação */}
+                  {(() => {
+                    const totalAlocado = (data.credito_remoto_ponta_kwh || 0) + (data.credito_remoto_fp_kwh || 0) + (data.credito_remoto_hr_kwh || 0);
+                    const totalRecebido = data.credito_remoto_kwh || 0;
+                    const diferenca = totalRecebido - totalAlocado;
+
+                    if (totalAlocado > 0 && Math.abs(diferenca) > 0.1) {
+                      return (
+                        <Alert variant={diferenca > 0 ? "default" : "destructive"} className="py-2">
+                          <Info className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            {diferenca > 0 
+                              ? `Faltam ${formatKwh(diferenca)} para alocar`
+                              : `Alocação excede em ${formatKwh(Math.abs(diferenca))} o total recebido`
+                            }
+                          </AlertDescription>
+                        </Alert>
+                      );
+                    }
+                    if (totalAlocado > 0 && Math.abs(diferenca) <= 0.1) {
+                      return (
+                        <div className="flex items-center gap-2 text-xs text-green-600">
+                          <Zap className="h-3 w-3" />
+                          <span>Alocação completa: {formatKwh(totalAlocado)}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              )}
 
               {/* Resumo financeiro dos créditos */}
               {(data.credito_remoto_kwh || 0) > 0 && (
