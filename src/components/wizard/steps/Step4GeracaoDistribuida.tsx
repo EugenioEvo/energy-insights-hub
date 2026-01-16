@@ -387,9 +387,36 @@ export function Step4GeracaoDistribuida() {
               {/* Alocação por posto horário - apenas Grupo A */}
               {isGrupoA && (data.credito_remoto_kwh || 0) > 0 && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <Label className="text-sm text-muted-foreground">Alocação por Posto Horário</Label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
+                      {/* Botão: Usar dados SCEE da fatura */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Usar campos de injeção SCEE (geração de UC diferente na fatura)
+                          const injecaoP = data.scee_geracao_ciclo_ponta_kwh || 0;
+                          const injecaoFP = data.scee_geracao_ciclo_fp_kwh || 0;
+                          const injecaoHR = data.scee_geracao_ciclo_hr_kwh || 0;
+                          const totalInjecao = injecaoP + injecaoFP + injecaoHR;
+                          
+                          if (totalInjecao > 0) {
+                            updateData({
+                              credito_remoto_ponta_kwh: injecaoP,
+                              credito_remoto_fp_kwh: injecaoFP,
+                              credito_remoto_hr_kwh: injecaoHR,
+                              credito_remoto_kwh: totalInjecao
+                            });
+                          }
+                        }}
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                        title="Usar valores de injeção SCEE da fatura (UC diferente)"
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                        Usar SCEE Fatura
+                      </button>
+                      
+                      {/* Botão: Distribuir proporcional ao consumo */}
                       <button
                         type="button"
                         onClick={() => {
@@ -399,38 +426,33 @@ export function Step4GeracaoDistribuida() {
                           const consumoHR = data.consumo_reservado_kwh || 0;
                           const totalConsumo = consumoP + consumoFP + consumoHR;
                           
-                          if (totalConsumo > 0) {
-                            // Distribuir proporcionalmente ao consumo de cada posto
+                          if (totalConsumo > 0 && totalCreditos > 0) {
                             const creditoP = Math.min(consumoP, Math.round((consumoP / totalConsumo) * totalCreditos));
                             const creditoFP = Math.min(consumoFP, Math.round((consumoFP / totalConsumo) * totalCreditos));
-                            const creditoHR = Math.min(consumoHR, totalCreditos - creditoP - creditoFP);
+                            const creditoHR = Math.max(0, totalCreditos - creditoP - creditoFP);
                             
                             updateData({
                               credito_remoto_ponta_kwh: creditoP,
                               credito_remoto_fp_kwh: creditoFP,
-                              credito_remoto_hr_kwh: Math.max(0, creditoHR)
-                            });
-                          } else {
-                            // Se não há consumo por posto, alocar tudo em FP
-                            updateData({
-                              credito_remoto_ponta_kwh: 0,
-                              credito_remoto_fp_kwh: totalCreditos,
-                              credito_remoto_hr_kwh: 0
+                              credito_remoto_hr_kwh: creditoHR
                             });
                           }
                         }}
                         className="text-xs text-primary hover:underline flex items-center gap-1"
+                        title="Distribuir proporcionalmente ao consumo de cada posto"
                       >
                         <Zap className="h-3 w-3" />
-                        Auto-distribuir
+                        Proporcional
                       </button>
+                      
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
                             <Info className="h-4 w-4 text-muted-foreground" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p>Distribua os créditos remotos entre os postos horários conforme a compensação desejada ou informada na fatura.</p>
+                            <p><strong>Usar SCEE Fatura:</strong> Usa os valores de injeção por posto da seção SCEE da fatura (geração de UC diferente).</p>
+                            <p className="mt-1"><strong>Proporcional:</strong> Distribui o total de créditos proporcionalmente ao consumo de cada posto.</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
