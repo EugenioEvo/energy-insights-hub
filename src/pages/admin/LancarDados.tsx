@@ -8,12 +8,8 @@ import type { Tables } from '@/integrations/supabase/types';
 import { WizardStepper } from '@/components/wizard/WizardStepper';
 import { Step0ContextoUC } from '@/components/wizard/steps/Step0ContextoUC';
 import { Step1Cabecalho } from '@/components/wizard/steps/Step1Cabecalho';
-import { Step2Consumo } from '@/components/wizard/steps/Step2Consumo';
-import { Step3Demanda } from '@/components/wizard/steps/Step3Demanda';
-import { Step4GeracaoLocal } from '@/components/wizard/steps/Step4GeracaoLocal';
-import { Step5CreditosRemotos } from '@/components/wizard/steps/Step5CreditosRemotos';
-import { Step5ItensFatura } from '@/components/wizard/steps/Step5ItensFatura';
-import { Step6Tributos } from '@/components/wizard/steps/Step6Tributos';
+import { Step3ConsumoDemanda } from '@/components/wizard/steps/Step3ConsumoDemanda';
+import { Step4GeracaoDistribuida } from '@/components/wizard/steps/Step4GeracaoDistribuida';
 import { Step7Conferencia } from '@/components/wizard/steps/Step7Conferencia';
 import { Step2ConsumoSimples } from '@/components/wizard/steps/grupoB/Step2ConsumoSimples';
 import { useToast } from '@/hooks/use-toast';
@@ -143,18 +139,10 @@ function WizardContent() {
         return <Step0ContextoUC />;
       case 'cabecalho':
         return <Step1Cabecalho />;
-      case 'consumo':
-        return isGrupoA ? <Step2Consumo /> : <Step2ConsumoSimples />;
-      case 'demanda':
-        return <Step3Demanda />;
-      case 'geracao_local':
-        return <Step4GeracaoLocal />;
-      case 'creditos_remotos':
-        return <Step5CreditosRemotos />;
-      case 'itens_fatura':
-        return <Step5ItensFatura />;
-      case 'tributos':
-        return <Step6Tributos />;
+      case 'consumo_demanda':
+        return <Step3ConsumoDemanda />;
+      case 'geracao':
+        return <Step4GeracaoDistribuida />;
       case 'conferencia':
         return <Step7Conferencia />;
       default:
