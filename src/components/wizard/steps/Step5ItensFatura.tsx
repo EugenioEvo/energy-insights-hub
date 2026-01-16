@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useWizard } from '../WizardContext';
-import { Receipt, AlertCircle, Sparkles, RefreshCw, Calculator, Info, ArrowDown, ArrowUp, Zap } from 'lucide-react';
+import { Receipt, AlertCircle, Sparkles, RefreshCw, Calculator, Info, ArrowDown, ArrowUp, Zap, Shield, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { TarifaInfo, useTarifaAtual } from '../TarifaInfo';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FormulaTooltip } from '../FormulaTooltip';
+import { classificarGD, obterPercentualFioB, type ClassificacaoGD } from '@/lib/lei14300';
 
 export function Step5ItensFatura() {
   const { data, updateData, setCanProceed, isGrupoA } = useWizard();
@@ -32,6 +33,30 @@ export function Step5ItensFatura() {
     scee_injecao_fp_te: false,
     scee_injecao_fp_tusd: false,
   });
+
+  // =====================================
+  // CLASSIFICAÇÃO GD1/GD2 (Lei 14.300)
+  // =====================================
+  const classificacaoGD = useMemo((): { 
+    tipo: ClassificacaoGD; 
+    percentualFioB: number;
+    anoRef: number;
+  } => {
+    // Determinar ano de referência
+    const anoRef = data.mes_ref 
+      ? parseInt(data.mes_ref.split('-')[0]) 
+      : new Date().getFullYear();
+    
+    // Por padrão, usar GD2 (mais conservador)
+    // TODO: Buscar data_protocolo_gd da UC ou usina remota para determinar GD1
+    const tipo = 'gd2' as ClassificacaoGD;
+    
+    // Percentual de Fio B para GD2 no ano de referência
+    // GD1 = 0% (compensa tudo), GD2 = conforme escalonamento
+    const percentualFioB = obterPercentualFioB(anoRef);
+    
+    return { tipo, percentualFioB, anoRef };
+  }, [data.mes_ref]);
 
   // =====================================
   // CÁLCULO: CRÉDITOS E COMPENSAÇÃO
@@ -103,7 +128,7 @@ export function Step5ItensFatura() {
     };
   }, [data, isGrupoA, creditosInfo]);
 
-  // Calcular valores sugeridos baseado na tarifa
+  // Calcular valores sugeridos baseado na tarifa e classificação GD
   const valoresCalculados = useMemo(() => {
     if (!tarifa) return null;
     
@@ -125,15 +150,59 @@ export function Step5ItensFatura() {
         break;
     }
     
-    // SCEE - valores baseados na energia compensada
+    // =========================================
+    // SCEE - COMPENSAÇÃO CONFORME LEI 14.300
+    // =========================================
     const consumoCompensado = creditosInfo.consumoCompensado;
-    const scee_consumo_fp_tusd = consumoCompensado * (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
-    const scee_parcela_te_fp = consumoCompensado * (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0);
-    
-    // Créditos de injeção são negativos (abatimentos) - apenas créditos próprios
     const injecaoTotal = creditosInfo.creditosProprios;
-    const scee_injecao_fp_te = -(injecaoTotal * (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0));
-    const scee_injecao_fp_tusd = -(injecaoTotal * (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0));
+    
+    // Componentes tarifários
+    const te = tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0;
+    const tusdCompleta = tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0;
+    const tusdFioA = tarifa.tusd_fio_a_rs_kwh || 0;
+    const tusdFioB = tarifa.tusd_fio_b_rs_kwh || 0;
+    const tusdEncargos = tarifa.tusd_encargos_rs_kwh || 0;
+    
+    // GD1: Compensa TE + TUSD (tudo) + Encargos + Bandeiras
+    // GD2: Compensa TE + Fio A + parte do Fio B (conforme ano)
+    const isGD1 = classificacaoGD.tipo === 'gd1';
+    
+    let scee_consumo_fp_tusd: number;
+    let scee_parcela_te_fp: number;
+    let scee_injecao_fp_te: number;
+    let scee_injecao_fp_tusd: number;
+    let encargosNaoCompensados = 0;
+    let fioBNaoCompensado = 0;
+    
+    if (isGD1) {
+      // GD1: COMPENSAÇÃO INTEGRAL (TE + TUSD + Encargos)
+      scee_consumo_fp_tusd = consumoCompensado * tusdCompleta;
+      scee_parcela_te_fp = consumoCompensado * te;
+      
+      // Injeção também compensa tudo
+      scee_injecao_fp_te = -(injecaoTotal * te);
+      scee_injecao_fp_tusd = -(injecaoTotal * tusdCompleta);
+    } else {
+      // GD2: COMPENSAÇÃO PARCIAL
+      // TE: Sempre compensa
+      scee_parcela_te_fp = consumoCompensado * te;
+      
+      // TUSD: Fio A sempre + Fio B parcial (conforme percentual do ano)
+      const percentualFioBNaoCompensavel = classificacaoGD.percentualFioB / 100;
+      const fioBCompensavel = tusdFioB * (1 - percentualFioBNaoCompensavel);
+      fioBNaoCompensado = tusdFioB * percentualFioBNaoCompensavel * consumoCompensado;
+      
+      // TUSD compensável = Fio A + parte do Fio B
+      const tusdCompensavel = tusdFioA + fioBCompensavel;
+      scee_consumo_fp_tusd = consumoCompensado * tusdCompensavel;
+      
+      // Encargos NÃO compensam para GD2
+      encargosNaoCompensados = tusdEncargos * consumoCompensado;
+      
+      // Injeção gera créditos apenas sobre o que é compensável
+      scee_injecao_fp_te = -(injecaoTotal * te);
+      scee_injecao_fp_tusd = -(injecaoTotal * tusdCompensavel);
+    }
     
     if (isGrupoA) {
       const pontaConsumo = data.consumo_ponta_kwh || 0;
@@ -159,6 +228,10 @@ export function Step5ItensFatura() {
         scee_parcela_te_fp,
         scee_injecao_fp_te,
         scee_injecao_fp_tusd,
+        
+        // Não compensáveis (apenas GD2)
+        encargosNaoCompensados,
+        fioBNaoCompensado,
       };
     } else {
       // Grupo B - tarifa única
@@ -178,9 +251,13 @@ export function Step5ItensFatura() {
         scee_parcela_te_fp,
         scee_injecao_fp_te,
         scee_injecao_fp_tusd,
+        
+        // Não compensáveis (apenas GD2)
+        encargosNaoCompensados,
+        fioBNaoCompensado,
       };
     }
-  }, [tarifa, data, creditosInfo, consumoNaoCompensadoPorPosto, isGrupoA]);
+  }, [tarifa, data, creditosInfo, consumoNaoCompensadoPorPosto, isGrupoA, classificacaoGD]);
 
   // Auto-preencher valores quando tarifa disponível e campos vazios
   useEffect(() => {
@@ -355,6 +432,38 @@ export function Step5ItensFatura() {
       </CardHeader>
       <CardContent className="space-y-6">
         
+        {/* Classificação GD - Lei 14.300 */}
+        <Alert className={classificacaoGD.tipo === 'gd1' 
+          ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700"
+          : "bg-amber-50 border-amber-300 dark:bg-amber-950/30 dark:border-amber-700"
+        }>
+          <Shield className={`h-4 w-4 ${classificacaoGD.tipo === 'gd1' ? 'text-green-600' : 'text-amber-600'}`} />
+          <AlertDescription className={classificacaoGD.tipo === 'gd1' ? 'text-green-800 dark:text-green-200' : 'text-amber-800 dark:text-amber-200'}>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <strong className="text-base">
+                  Classificação: {classificacaoGD.tipo.toUpperCase()}
+                </strong>
+                <span className="ml-2 text-sm">
+                  (Ano ref: {classificacaoGD.anoRef})
+                </span>
+              </div>
+              <Badge variant="outline" className={classificacaoGD.tipo === 'gd1' 
+                ? 'bg-green-100 text-green-800 border-green-300'
+                : 'bg-amber-100 text-amber-800 border-amber-300'
+              }>
+                {classificacaoGD.tipo === 'gd1' ? 'Direito Adquirido' : `Fio B: ${classificacaoGD.percentualFioB}% não compensável`}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm">
+              {classificacaoGD.tipo === 'gd1' 
+                ? '✓ Compensa integralmente: TE + TUSD (Fio A + Fio B) + Encargos + Bandeiras'
+                : `⚠ GD2: Compensa TE + Fio A + ${100 - classificacaoGD.percentualFioB}% Fio B. NÃO compensa: Encargos e ${classificacaoGD.percentualFioB}% Fio B`
+              }
+            </p>
+          </AlertDescription>
+        </Alert>
+
         {/* Explicação conceitual: Créditos */}
         <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
           <Info className="h-4 w-4 text-blue-600" />
@@ -441,6 +550,32 @@ export function Step5ItensFatura() {
               </div>
             </div>
           </div>
+          
+          {/* Valores não compensáveis (GD2) */}
+          {classificacaoGD.tipo === 'gd2' && valoresCalculados && (valoresCalculados.encargosNaoCompensados > 0 || valoresCalculados.fioBNaoCompensado > 0) && (
+            <div className="mt-4 pt-4 border-t border-amber-300 dark:border-amber-700">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  Valores NÃO Compensáveis (Lei 14.300 - GD2)
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="p-2 bg-amber-100/50 dark:bg-amber-900/30 rounded">
+                  <span className="text-amber-700 dark:text-amber-400 text-xs">Encargos Setoriais</span>
+                  <p className="font-bold text-amber-800 dark:text-amber-200">
+                    {formatCurrency(valoresCalculados.encargosNaoCompensados)}
+                  </p>
+                </div>
+                <div className="p-2 bg-amber-100/50 dark:bg-amber-900/30 rounded">
+                  <span className="text-amber-700 dark:text-amber-400 text-xs">Fio B ({classificacaoGD.percentualFioB}%)</span>
+                  <p className="font-bold text-amber-800 dark:text-amber-200">
+                    {formatCurrency(valoresCalculados.fioBNaoCompensado)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Info da Tarifa */}
