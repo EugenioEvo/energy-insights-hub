@@ -473,21 +473,6 @@ export function Step4GeracaoDistribuida() {
                     placeholder="Créditos transferidos da usina remota"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    Custo Assinatura (R$)
-                    <Badge variant="outline" className="text-xs">Calculado (85%)</Badge>
-                  </Label>
-                  <Input 
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={data.custo_assinatura_rs || ''} 
-                    onChange={(e) => updateData({ custo_assinatura_rs: parseFloat(e.target.value) || 0 })}
-                    placeholder="Valor pago à usina"
-                    className="bg-muted/50"
-                  />
-                </div>
               </div>
 
               {/* Alocação por posto horário - apenas Grupo A */}
