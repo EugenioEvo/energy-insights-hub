@@ -130,13 +130,13 @@ export default function ExecutiveDashboard() {
     alocada: Number(fatura.credito_remoto_kwh) || 0,
   })).reverse();
   
-  // CORRIGIDO: Autoconsumo com fallback robusto
-  const autoconsumoSomaPosto = 
+  // Autoconsumo com fallback robusto (soma postos → total → legado)
+  const autoconsumoSomaPostos = 
     (Number(faturaMesAtualDB?.autoconsumo_ponta_kwh) || 0) +
     (Number(faturaMesAtualDB?.autoconsumo_fp_kwh) || 0) +
     (Number(faturaMesAtualDB?.autoconsumo_hr_kwh) || 0);
-  const autoconsumoTotalKwh = autoconsumoSomaPosto > 0 
-    ? autoconsumoSomaPosto 
+  const autoconsumoTotalKwh = autoconsumoSomaPostos > 0 
+    ? autoconsumoSomaPostos 
     : Number(faturaMesAtualDB?.autoconsumo_total_kwh) || 
       Number(faturaMesAtualDB?.energia_simultanea_kwh) || 0;
 
