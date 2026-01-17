@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { cn } from '@/lib/utils';
+import wegenLogo from '@/assets/wegen-logo.png';
 
 const navigation = [
   { name: 'Visão Executiva', href: '/', icon: LayoutDashboard },
@@ -38,15 +39,13 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border">
       <div className="flex h-full flex-col">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-border">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Zap className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
-          <div>
-            <span className="text-lg font-bold text-sidebar-foreground">Evolight</span>
-            <span className="block text-xs text-sidebar-foreground/60">Gestão de Energia</span>
-          </div>
+        {/* Logo WeGen */}
+        <div className="flex h-16 items-center justify-center px-6 border-b border-sidebar-border">
+          <img 
+            src={wegenLogo} 
+            alt="WeGen" 
+            className="h-10 w-auto object-contain"
+          />
         </div>
 
         {/* Cliente Info */}
