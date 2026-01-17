@@ -290,9 +290,11 @@ export default function Assinatura() {
                 <span className={`px-2 py-1 rounded text-xs font-medium ${
                   faturaAtual.classificacao_gd_aplicada === 'gd1' 
                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : faturaAtual.classificacao_gd_aplicada === 'gd2'
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      : 'bg-muted text-muted-foreground'
                 }`}>
-                  {faturaAtual.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
+                  {faturaAtual.classificacao_gd_aplicada?.toUpperCase() || 'Não definido'}
                 </span>
               </div>
               {(faturaAtual.percentual_fio_b_aplicado ?? 0) > 0 && (
@@ -351,9 +353,11 @@ export default function Assinatura() {
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           fatura.classificacao_gd_aplicada === 'gd1' 
                             ? 'bg-green-100 text-green-700 dark:bg-green-900/30' 
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
+                            : fatura.classificacao_gd_aplicada === 'gd2'
+                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30'
+                              : 'bg-muted text-muted-foreground'
                         }`}>
-                          {fatura.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
+                          {fatura.classificacao_gd_aplicada?.toUpperCase() || '—'}
                         </span>
                       </td>
                     </tr>

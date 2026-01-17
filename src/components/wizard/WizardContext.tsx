@@ -141,6 +141,7 @@ export type FaturaWizardData = {
   
   // Classificação GD
   classificacao_gd_aplicada: 'gd1' | 'gd2' | null;
+  percentual_fio_b_aplicado: number;
 };
 
 export const initialWizardData: FaturaWizardData = {
@@ -271,8 +272,9 @@ export const initialWizardData: FaturaWizardData = {
   alertas: [],
   recomendacoes: [],
   
-  // Classificação GD
-  classificacao_gd_aplicada: 'gd1',
+  // Classificação GD - null indica que será determinado automaticamente
+  classificacao_gd_aplicada: null,
+  percentual_fio_b_aplicado: 0,
 };
 
 // Definição de passos por grupo tarifário
@@ -417,6 +419,10 @@ export function mapFaturaToWizardData(
     status: (fatura.status === 'fechado' ? 'fechado' : 'rascunho') as 'rascunho' | 'fechado',
     alertas: (fatura.alertas as AlertaWizard[]) || [],
     recomendacoes: (fatura.recomendacoes as string[]) || [],
+    
+    // Classificação GD - CRÍTICO: carregar do banco para edição
+    classificacao_gd_aplicada: (fatura.classificacao_gd_aplicada as 'gd1' | 'gd2') || null,
+    percentual_fio_b_aplicado: fatura.percentual_fio_b_aplicado || 0,
   };
 }
 
