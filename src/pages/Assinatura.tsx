@@ -1,8 +1,8 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { SubscriptionChart } from '@/components/charts/SubscriptionChart';
-import { useFaturas } from '@/hooks/useFaturas';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
+import { useEnergy } from '@/contexts/EnergyContext';
 import { FileText, TrendingUp, AlertCircle, Zap, Sun, Building2, Receipt, Percent } from 'lucide-react';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,7 +17,7 @@ const formatPercent = (value: number) =>
   value.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
 
 export default function Assinatura() {
-  const { data: faturas, isLoading: faturasLoading } = useFaturas();
+  const { faturas, mesAtual, isLoading: faturasLoading } = useEnergy();
   const { data: ucs } = useUnidadesConsumidoras();
 
   // Faturas fechadas ordenadas por mês
@@ -28,7 +28,8 @@ export default function Assinatura() {
       .sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
   }, [faturas]);
 
-  const faturaAtual = faturasFechadas[0];
+  // Usa o mês selecionado globalmente (filtra apenas fechadas)
+  const faturaAtual = faturas.find(f => f.mes_ref === mesAtual) || faturasFechadas[0];
   const ucAtual = ucs?.find(uc => uc.id === faturaAtual?.uc_id);
   const isGrupoA = ucAtual?.grupo_tarifario === 'A';
 
