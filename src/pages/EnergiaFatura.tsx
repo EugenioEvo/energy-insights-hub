@@ -2,92 +2,53 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { DonutChart } from '@/components/charts/DonutChart';
-import { useEnergy } from '@/contexts/EnergyContext';
-import { formatCurrency, formatNumber, getMonthName } from '@/data/mockData';
-import { calcularKPIsMensais } from '@/lib/calculations';
-import { FaturaMensal, GeracaoMensal, AssinaturaMensal } from '@/types/energy';
-import { Receipt, TrendingDown, AlertTriangle, Zap } from 'lucide-react';
+import { useFaturas } from '@/hooks/useFaturas';
+import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
+import { Receipt, TrendingDown, AlertTriangle, Zap, Sun } from 'lucide-react';
+import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Helper function to convert DB types to calculation types
-function convertFatura(f: any): FaturaMensal {
-  return {
-    id: f.id,
-    ucId: f.uc_id,
-    mesRef: f.mes_ref,
-    consumoTotalKwh: Number(f.consumo_total_kwh),
-    pontaKwh: Number(f.ponta_kwh),
-    foraPontaKwh: Number(f.fora_ponta_kwh),
-    demandaContratadaKw: Number(f.demanda_contratada_kw),
-    demandaMedidaKw: Number(f.demanda_medida_kw),
-    valorTotal: Number(f.valor_total),
-    valorTe: Number(f.valor_te),
-    valorTusd: Number(f.valor_tusd),
-    bandeiras: f.bandeiras as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
-    multaDemanda: Number(f.multa_demanda),
-    multaReativo: Number(f.multa_reativo),
-    outrosEncargos: Number(f.outros_encargos),
-  };
-}
+const formatCurrency = (value: number) => 
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-function convertGeracao(g: any): GeracaoMensal {
-  return {
-    id: g.id,
-    ucId: g.uc_id,
-    mesRef: g.mes_ref,
-    geracaoTotalKwh: Number(g.geracao_total_kwh),
-    autoconsumoKwh: Number(g.autoconsumo_kwh),
-    injecaoKwh: Number(g.injecao_kwh),
-    compensacaoKwh: Number(g.compensacao_kwh),
-    disponibilidadePercent: Number(g.disponibilidade_percent),
-    perdasEstimadasKwh: Number(g.perdas_estimadas_kwh),
-  };
-}
-
-function convertAssinatura(a: any): AssinaturaMensal {
-  return {
-    id: a.id,
-    ucId: a.uc_id,
-    mesRef: a.mes_ref,
-    ucRemota: a.uc_remota,
-    energiaContratadaKwh: Number(a.energia_contratada_kwh),
-    energiaAlocadaKwh: Number(a.energia_alocada_kwh),
-    valorAssinatura: Number(a.valor_assinatura),
-    economiaPrometidaPercent: Number(a.economia_prometida_percent),
-  };
-}
+const formatNumber = (value: number) => 
+  value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
 
 export default function EnergiaFatura() {
-  const { faturas, geracoes, assinaturas, mesAtual } = useEnergy();
+  const { data: faturas, isLoading: faturasLoading } = useFaturas();
+  const { data: ucs } = useUnidadesConsumidoras();
 
-  const faturaMesAtualDB = faturas.find(f => f.mes_ref === mesAtual);
-  const geracaoMesAtualDB = geracoes.find(g => g.mes_ref === mesAtual);
-  const assinaturaMesAtualDB = assinaturas.find(a => a.mes_ref === mesAtual);
+  // Faturas ordenadas por mês (mais recente primeiro)
+  const faturasOrdenadas = useMemo(() => {
+    if (!faturas) return [];
+    return [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
+  }, [faturas]);
 
-  const faturaMesAtual = faturaMesAtualDB ? convertFatura(faturaMesAtualDB) : null;
-  const geracaoMesAtual = geracaoMesAtualDB ? convertGeracao(geracaoMesAtualDB) : null;
-  const assinaturaMesAtual = assinaturaMesAtualDB ? convertAssinatura(assinaturaMesAtualDB) : null;
+  const mesAtual = faturasOrdenadas[0]?.mes_ref || '';
+  const faturaMesAtualDB = faturasOrdenadas.find(f => f.mes_ref === mesAtual);
+  const ucAtual = ucs?.find(uc => uc.id === faturaMesAtualDB?.uc_id);
+  const isGrupoA = ucAtual?.grupo_tarifario === 'A';
 
-  const kpisMensais = faturaMesAtual && geracaoMesAtual && assinaturaMesAtual
-    ? calcularKPIsMensais(faturaMesAtual, geracaoMesAtual, assinaturaMesAtual)
-    : null;
-
-  // Prepare comparison chart data
-  const comparisonData = faturas
-    .slice(0, 6)
-    .map(fatura => {
-      const geracao = geracoes.find(g => g.mes_ref === fatura.mes_ref);
-      const assinatura = assinaturas.find(a => a.mes_ref === fatura.mes_ref);
-      const kpis = geracao && assinatura
-        ? calcularKPIsMensais(convertFatura(fatura), convertGeracao(geracao), convertAssinatura(assinatura))
-        : null;
-
+  // Prepare comparison chart data - usando dados da fatura diretamente
+  const comparisonData = useMemo(() => {
+    return faturasOrdenadas.slice(0, 6).map(fatura => {
+      const autoconsumoRs = Number(fatura.autoconsumo_rs) || 0;
+      const creditoRemotoRs = Number(fatura.credito_remoto_compensado_rs) || 0;
+      const custoAssinatura = Number(fatura.custo_assinatura_rs) || 0;
+      const valorTotal = Number(fatura.valor_total) || 0;
+      
+      // Custo original = valor_total + custo_assinatura
+      // Custo otimizado = original - economia (autoconsumo + creditos - assinatura)
+      const original = valorTotal + custoAssinatura;
+      const economiaTotal = autoconsumoRs + creditoRemotoRs - custoAssinatura;
+      
       return {
         mesRef: fatura.mes_ref,
-        original: Number(fatura.valor_total) + Number(assinatura?.valor_assinatura || 0),
-        otimizado: (Number(fatura.valor_total) + Number(assinatura?.valor_assinatura || 0)) - (kpis?.economiaMensalRs || 0),
+        original: original,
+        otimizado: valorTotal, // valor pago efetivamente
       };
-    })
-    .reverse();
+    }).reverse();
+  }, [faturasOrdenadas]);
 
   // Grupo A - Multas específicas
   const multaDemanda = Number(faturaMesAtualDB?.multa_demanda || 0);
@@ -102,25 +63,72 @@ export default function EnergiaFatura() {
   const demandaContratadaRs = Number(faturaMesAtualDB?.demanda_contratada_rs || 0);
   const demandaGeracaoRs = Number(faturaMesAtualDB?.demanda_geracao_rs || 0);
   const iluminacaoPublica = Number(faturaMesAtualDB?.iluminacao_publica || 0);
+  
+  // Dados GD
+  const autoconsumoRs = Number(faturaMesAtualDB?.autoconsumo_rs || 0);
+  const creditoRemotoRs = Number(faturaMesAtualDB?.credito_remoto_compensado_rs || 0);
+  const economiaLiquida = Number(faturaMesAtualDB?.economia_liquida_rs || 0);
+  const custoAssinatura = Number(faturaMesAtualDB?.custo_assinatura_rs || 0);
+  const totalCompensado = autoconsumoRs + creditoRemotoRs;
+  
+  // Valores básicos
+  const pontaKwh = Number(faturaMesAtualDB?.ponta_kwh || 0);
+  const foraPontaKwh = Number(faturaMesAtualDB?.fora_ponta_kwh || 0);
+  const consumoTotalKwh = Number(faturaMesAtualDB?.consumo_total_kwh || 0);
+  const valorTotal = Number(faturaMesAtualDB?.valor_total || 0);
+  const valorTe = Number(faturaMesAtualDB?.valor_te || 0);
+  const valorTusd = Number(faturaMesAtualDB?.valor_tusd || 0);
+  const demandaContratadaKw = Number(faturaMesAtualDB?.demanda_contratada_kw || 0);
+  const demandaMedidaKw = Number(faturaMesAtualDB?.demanda_medida_kw || 0);
+  const demandaGeracaoKw = Number(faturaMesAtualDB?.demanda_geracao_kw || 0);
+  const outrosEncargos = Number(faturaMesAtualDB?.outros_encargos || 0);
+  
+  // Custo por kWh
+  const custoKwhBase = consumoTotalKwh > 0 ? valorTotal / consumoTotalKwh : 0;
+  const economiaPercent = valorTotal > 0 ? (economiaLiquida / valorTotal) * 100 : 0;
+
+  if (faturasLoading) {
+    return (
+      <DashboardLayout title="Energia & Fatura" subtitle="Análise detalhada da conta de energia">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!faturaMesAtualDB) {
+    return (
+      <DashboardLayout title="Energia & Fatura" subtitle="Análise detalhada da conta de energia">
+        <div className="text-center py-12 text-muted-foreground">
+          <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>Nenhuma fatura encontrada.</p>
+          <p className="text-sm">Lance dados no wizard para visualizar o dashboard.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <DashboardLayout title="Energia & Fatura" subtitle="Análise detalhada da conta de energia - Grupo A">
+    <DashboardLayout title="Energia & Fatura" subtitle={`Análise detalhada • ${mesAtual} • ${ucAtual?.numero || ''} • Grupo ${isGrupoA ? 'A' : 'B'}`}>
       <div className="space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             title="Valor da Fatura"
-            value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
-            subtitle={`+ Assinatura: ${formatCurrency(assinaturaMesAtual?.valorAssinatura || 0)}`}
+            value={formatCurrency(valorTotal)}
+            subtitle={custoAssinatura > 0 ? `+ Assinatura: ${formatCurrency(custoAssinatura)}` : ''}
             icon={<Receipt className="h-6 w-6" />}
           />
 
           <KPICard
-            title="Economia Mensal"
-            value={formatCurrency(kpisMensais?.economiaMensalRs || 0)}
-            subtitle={`${kpisMensais?.economiaMensalPercent.toFixed(1) || 0}% de economia`}
+            title="Economia Líquida"
+            value={formatCurrency(economiaLiquida)}
+            subtitle={economiaPercent > 0 ? `${economiaPercent.toFixed(1)}% de economia` : 'Sem compensação GD'}
             icon={<TrendingDown className="h-6 w-6" />}
-            variant="success"
+            variant={economiaLiquida > 0 ? 'success' : 'default'}
           />
 
           <KPICard
@@ -133,8 +141,8 @@ export default function EnergiaFatura() {
 
           <KPICard
             title="Consumo Ponta"
-            value={`${formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh`}
-            subtitle={`${((faturaMesAtual?.pontaKwh || 0) / (faturaMesAtual?.consumoTotalKwh || 1) * 100).toFixed(1)}% do total`}
+            value={`${formatNumber(pontaKwh)} kWh`}
+            subtitle={consumoTotalKwh > 0 ? `${((pontaKwh / consumoTotalKwh) * 100).toFixed(1)}% do total` : ''}
             icon={<Zap className="h-6 w-6" />}
           />
         </div>
@@ -144,14 +152,14 @@ export default function EnergiaFatura() {
           {/* Invoice Composition Chart */}
           <DonutChart
             data={[
-              { name: 'Energia (TE + TUSD)', value: (faturaMesAtual?.valorTe || 0) + (faturaMesAtual?.valorTusd || 0), color: 'hsl(var(--primary))' },
+              { name: 'Energia (TE + TUSD)', value: valorTe + valorTusd, color: 'hsl(var(--primary))' },
               { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
               { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
-              { name: 'Encargos', value: iluminacaoPublica + (faturaMesAtual?.outrosEncargos || 0), color: 'hsl(var(--muted-foreground))' },
+              { name: 'Encargos', value: iluminacaoPublica + outrosEncargos, color: 'hsl(var(--muted-foreground))' },
             ].filter(item => item.value > 0)}
             title="Composição da Fatura"
             centerLabel="Total"
-            centerValue={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+            centerValue={formatCurrency(valorTotal)}
           />
 
           {/* Comparison Chart */}
@@ -161,45 +169,87 @@ export default function EnergiaFatura() {
           />
         </div>
 
+        {/* Seção: Compensação GD */}
+        {totalCompensado > 0 && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-xl border border-green-200 dark:border-green-800 p-6">
+            <h3 className="text-sm font-medium uppercase tracking-wider text-green-800 dark:text-green-200 mb-4 flex items-center gap-2">
+              <Sun className="h-4 w-4" />
+              Compensação de Geração Distribuída
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Autoconsumo</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(autoconsumoRs)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Créditos Remotos</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(creditoRemotoRs)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">(-) Custo Assinatura</p>
+                <p className="text-xl font-bold text-amber-600">{formatCurrency(custoAssinatura)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Economia Líquida</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(economiaLiquida)}</p>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800 flex items-center gap-4 text-sm">
+              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                faturaMesAtualDB.classificacao_gd_aplicada === 'gd1' 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+              }`}>
+                {faturaMesAtualDB.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
+              </span>
+              {(faturaMesAtualDB.percentual_fio_b_aplicado ?? 0) > 0 && (
+                <span className="text-muted-foreground">
+                  Fio B: {faturaMesAtualDB.percentual_fio_b_aplicado}%
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Details Grid - Grupo A */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Energia */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="section-title">Energia - Ponta e Fora Ponta</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Energia - Ponta e Fora Ponta</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Consumo Ponta</span>
                 <div className="text-right">
-                  <span className="font-medium">{formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh</span>
-                  <span className="text-muted-foreground ml-2">({formatCurrency(energiaPontaRs)})</span>
+                  <span className="font-medium">{formatNumber(pontaKwh)} kWh</span>
+                  {isGrupoA && <span className="text-muted-foreground ml-2">({formatCurrency(energiaPontaRs)})</span>}
                 </div>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Consumo Fora Ponta</span>
                 <div className="text-right">
-                  <span className="font-medium">{formatNumber(faturaMesAtual?.foraPontaKwh || 0)} kWh</span>
-                  <span className="text-muted-foreground ml-2">({formatCurrency(energiaForaPontaRs)})</span>
+                  <span className="font-medium">{formatNumber(foraPontaKwh)} kWh</span>
+                  {isGrupoA && <span className="text-muted-foreground ml-2">({formatCurrency(energiaForaPontaRs)})</span>}
                 </div>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Consumo Total</span>
-                <span className="font-medium">{formatNumber(faturaMesAtual?.consumoTotalKwh || 0)} kWh</span>
+                <span className="font-medium">{formatNumber(consumoTotalKwh)} kWh</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Tarifa de Energia (TE)</span>
-                <span className="font-medium">{formatCurrency(faturaMesAtual?.valorTe || 0)}</span>
+                <span className="font-medium">{formatCurrency(valorTe)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Tarifa de Uso (TUSD)</span>
-                <span className="font-medium">{formatCurrency(faturaMesAtual?.valorTusd || 0)}</span>
+                <span className="font-medium">{formatCurrency(valorTusd)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Bandeira Tarifária</span>
                 <span className={`font-medium capitalize ${
-                  faturaMesAtual?.bandeiras === 'verde' ? 'text-success' :
-                  faturaMesAtual?.bandeiras === 'amarela' ? 'text-warning' : 'text-destructive'
+                  faturaMesAtualDB?.bandeiras === 'verde' ? 'text-green-600' :
+                  faturaMesAtualDB?.bandeiras === 'amarela' ? 'text-amber-600' : 'text-red-600'
                 }`}>
-                  {faturaMesAtual?.bandeiras || '-'}
+                  {faturaMesAtualDB?.bandeiras || '-'}
                 </span>
               </div>
             </div>
@@ -207,43 +257,39 @@ export default function EnergiaFatura() {
 
           {/* Demanda */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="section-title">Demanda</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Demanda</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Demanda Contratada</span>
                 <div className="text-right">
-                  <span className="font-medium">{faturaMesAtual?.demandaContratadaKw || 0} kW</span>
-                  <span className="text-muted-foreground ml-2">({formatCurrency(demandaContratadaRs)})</span>
+                  <span className="font-medium">{demandaContratadaKw} kW</span>
+                  {isGrupoA && <span className="text-muted-foreground ml-2">({formatCurrency(demandaContratadaRs)})</span>}
                 </div>
               </div>
               <div className={`flex justify-between items-center py-2 border-b ${
-                (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
-                  ? 'border-destructive/30 bg-destructive/5 -mx-6 px-6'
+                demandaMedidaKw > demandaContratadaKw
+                  ? 'border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6'
                   : 'border-border'
               }`}>
-                <span className={`${
-                  (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
-                    ? 'text-destructive font-medium'
-                    : 'text-muted-foreground'
-                }`}>Demanda Medida</span>
-                <span className={`font-medium ${
-                  (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
-                    ? 'text-destructive'
-                    : ''
-                }`}>{faturaMesAtual?.demandaMedidaKw || 0} kW</span>
+                <span className={demandaMedidaKw > demandaContratadaKw ? 'text-red-700 dark:text-red-300 font-medium' : 'text-muted-foreground'}>
+                  Demanda Medida
+                </span>
+                <span className={`font-medium ${demandaMedidaKw > demandaContratadaKw ? 'text-red-700 dark:text-red-300' : ''}`}>
+                  {demandaMedidaKw} kW
+                </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Demanda de Geração</span>
-                <div className="text-right">
-                  <span className="font-medium">{Number(faturaMesAtualDB?.demanda_geracao_kw || 0)} kW</span>
-                  <span className="text-muted-foreground ml-2">({formatCurrency(demandaGeracaoRs)})</span>
+              {isGrupoA && demandaGeracaoKw > 0 && (
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Demanda de Geração</span>
+                  <div className="text-right">
+                    <span className="font-medium">{demandaGeracaoKw} kW</span>
+                    <span className="text-muted-foreground ml-2">({formatCurrency(demandaGeracaoRs)})</span>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Custo por kWh</span>
-                <span className="font-bold text-lg">
-                  R$ {kpisMensais?.custoKwhBase.toFixed(4) || '0.0000'}
-                </span>
+                <span className="font-bold text-lg">R$ {custoKwhBase.toFixed(4)}</span>
               </div>
             </div>
           </div>
@@ -253,41 +299,41 @@ export default function EnergiaFatura() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Multas */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="section-title">Multas e Penalidades</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Multas e Penalidades</h3>
             <div className="space-y-4">
               {multaDemanda > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-destructive/30 bg-destructive/5 -mx-6 px-6">
-                  <span className="text-destructive font-medium">Multa por Demanda</span>
-                  <span className="text-destructive font-bold">{formatCurrency(multaDemanda)}</span>
+                <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
+                  <span className="text-red-700 dark:text-red-300 font-medium">Multa por Demanda</span>
+                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaDemanda)}</span>
                 </div>
               )}
               {multaUltrapassagem > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-destructive/30 bg-destructive/5 -mx-6 px-6">
-                  <span className="text-destructive font-medium">Ultrapassagem de Demanda</span>
-                  <span className="text-destructive font-bold">{formatCurrency(multaUltrapassagem)}</span>
+                <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
+                  <span className="text-red-700 dark:text-red-300 font-medium">Ultrapassagem de Demanda</span>
+                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaUltrapassagem)}</span>
                 </div>
               )}
               {multaUferPonta > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-warning/30 bg-warning/5 -mx-6 px-6">
-                  <span className="text-warning font-medium">UFER Ponta (Reativo)</span>
-                  <span className="text-warning font-bold">{formatCurrency(multaUferPonta)}</span>
+                <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
+                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Ponta (Reativo)</span>
+                  <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferPonta)}</span>
                 </div>
               )}
               {multaUferForaPonta > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-warning/30 bg-warning/5 -mx-6 px-6">
-                  <span className="text-warning font-medium">UFER Fora Ponta (Reativo)</span>
-                  <span className="text-warning font-bold">{formatCurrency(multaUferForaPonta)}</span>
+                <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
+                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Fora Ponta (Reativo)</span>
+                  <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferForaPonta)}</span>
                 </div>
               )}
               {totalMultas === 0 && (
-                <div className="flex items-center justify-center py-4 bg-success/5 rounded-lg">
-                  <span className="text-success font-medium">✓ Sem multas neste mês</span>
+                <div className="flex items-center justify-center py-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                  <span className="text-green-700 dark:text-green-300 font-medium">✓ Sem multas neste mês</span>
                 </div>
               )}
               {totalMultas > 0 && (
-                <div className="flex justify-between items-center py-3 bg-destructive/10 -mx-6 px-6 rounded-lg mt-4">
-                  <span className="font-semibold text-destructive">Total de Multas</span>
-                  <span className="font-bold text-lg text-destructive">{formatCurrency(totalMultas)}</span>
+                <div className="flex justify-between items-center py-3 bg-red-100 dark:bg-red-950/50 -mx-6 px-6 rounded-lg mt-4">
+                  <span className="font-semibold text-red-700 dark:text-red-300">Total de Multas</span>
+                  <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(totalMultas)}</span>
                 </div>
               )}
             </div>
@@ -295,7 +341,7 @@ export default function EnergiaFatura() {
 
           {/* Outros Encargos */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="section-title">Outros Encargos</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Outros Encargos</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Iluminação Pública (CIP)</span>
@@ -303,11 +349,11 @@ export default function EnergiaFatura() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Outros Encargos</span>
-                <span className="font-medium">{formatCurrency(faturaMesAtual?.outrosEncargos || 0)}</span>
+                <span className="font-medium">{formatCurrency(outrosEncargos)}</span>
               </div>
               <div className="flex justify-between items-center py-3 bg-primary/5 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Total da Fatura</span>
-                <span className="font-bold text-lg">{formatCurrency(faturaMesAtual?.valorTotal || 0)}</span>
+                <span className="font-bold text-lg">{formatCurrency(valorTotal)}</span>
               </div>
             </div>
           </div>

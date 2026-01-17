@@ -206,8 +206,11 @@ export type Database = {
         Row: {
           alertas: Json | null
           autoconsumo_fp_kwh: number | null
+          autoconsumo_fp_rs: number | null
           autoconsumo_hr_kwh: number | null
+          autoconsumo_hr_rs: number | null
           autoconsumo_ponta_kwh: number | null
+          autoconsumo_ponta_rs: number | null
           autoconsumo_rs: number | null
           autoconsumo_total_kwh: number | null
           bandeira_te_fp_rs: number | null
@@ -228,7 +231,13 @@ export type Database = {
           credito_assinatura_kwh: number | null
           credito_assinatura_rs: number | null
           credito_remoto_compensado_rs: number | null
+          credito_remoto_fp_kwh: number | null
+          credito_remoto_fp_rs: number | null
+          credito_remoto_hr_kwh: number | null
+          credito_remoto_hr_rs: number | null
           credito_remoto_kwh: number | null
+          credito_remoto_ponta_kwh: number | null
+          credito_remoto_ponta_rs: number | null
           custo_assinatura_rs: number | null
           data_apresentacao: string | null
           data_emissao: string | null
@@ -313,8 +322,11 @@ export type Database = {
         Insert: {
           alertas?: Json | null
           autoconsumo_fp_kwh?: number | null
+          autoconsumo_fp_rs?: number | null
           autoconsumo_hr_kwh?: number | null
+          autoconsumo_hr_rs?: number | null
           autoconsumo_ponta_kwh?: number | null
+          autoconsumo_ponta_rs?: number | null
           autoconsumo_rs?: number | null
           autoconsumo_total_kwh?: number | null
           bandeira_te_fp_rs?: number | null
@@ -335,7 +347,13 @@ export type Database = {
           credito_assinatura_kwh?: number | null
           credito_assinatura_rs?: number | null
           credito_remoto_compensado_rs?: number | null
+          credito_remoto_fp_kwh?: number | null
+          credito_remoto_fp_rs?: number | null
+          credito_remoto_hr_kwh?: number | null
+          credito_remoto_hr_rs?: number | null
           credito_remoto_kwh?: number | null
+          credito_remoto_ponta_kwh?: number | null
+          credito_remoto_ponta_rs?: number | null
           custo_assinatura_rs?: number | null
           data_apresentacao?: string | null
           data_emissao?: string | null
@@ -420,8 +438,11 @@ export type Database = {
         Update: {
           alertas?: Json | null
           autoconsumo_fp_kwh?: number | null
+          autoconsumo_fp_rs?: number | null
           autoconsumo_hr_kwh?: number | null
+          autoconsumo_hr_rs?: number | null
           autoconsumo_ponta_kwh?: number | null
+          autoconsumo_ponta_rs?: number | null
           autoconsumo_rs?: number | null
           autoconsumo_total_kwh?: number | null
           bandeira_te_fp_rs?: number | null
@@ -442,7 +463,13 @@ export type Database = {
           credito_assinatura_kwh?: number | null
           credito_assinatura_rs?: number | null
           credito_remoto_compensado_rs?: number | null
+          credito_remoto_fp_kwh?: number | null
+          credito_remoto_fp_rs?: number | null
+          credito_remoto_hr_kwh?: number | null
+          credito_remoto_hr_rs?: number | null
           credito_remoto_kwh?: number | null
+          credito_remoto_ponta_kwh?: number | null
+          credito_remoto_ponta_rs?: number | null
           custo_assinatura_rs?: number | null
           data_apresentacao?: string | null
           data_emissao?: string | null
