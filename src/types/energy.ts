@@ -33,6 +33,41 @@ export interface FaturaMensal {
   multaDemanda: number;
   multaReativo: number;
   outrosEncargos: number;
+  
+  // Campos de Compensação GD
+  autoconsumoRs?: number;
+  autoconsumoTotalKwh?: number;
+  creditoRemotoKwh?: number;
+  creditoRemotoCompensadoRs?: number;
+  custoAssinaturaRs?: number;
+  economiaLiquidaRs?: number;
+  
+  // Campos por Posto Horário - Autoconsumo
+  autoconsumoPontaKwh?: number;
+  autoconsumoFpKwh?: number;
+  autoconsumoHrKwh?: number;
+  autoconsumoPontaRs?: number;
+  autoconsumoFpRs?: number;
+  autoconsumoHrRs?: number;
+  
+  // Campos por Posto Horário - Créditos Remotos
+  creditoRemotoPontaKwh?: number;
+  creditoRemotoFpKwh?: number;
+  creditoRemotoHrKwh?: number;
+  creditoRemotoPontaRs?: number;
+  creditoRemotoFpRs?: number;
+  creditoRemotoHrRs?: number;
+  
+  // Classificação GD
+  classificacaoGdAplicada?: 'gd1' | 'gd2' | null;
+  percentualFioBaplicado?: number;
+  
+  // Geração Local (antes em geracoes_mensais)
+  geracaoLocalTotalKwh?: number;
+  injecaoTotalKwh?: number;
+  injecaoPontaKwh?: number;
+  injecaoFpKwh?: number;
+  injecaoHrKwh?: number;
 }
 
 export interface GeracaoMensal {

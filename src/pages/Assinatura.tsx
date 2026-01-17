@@ -30,6 +30,7 @@ export default function Assinatura() {
 
   const faturaAtual = faturasFechadas[0];
   const ucAtual = ucs?.find(uc => uc.id === faturaAtual?.uc_id);
+  const isGrupoA = ucAtual?.grupo_tarifario === 'A';
 
   // Cálculos agregados dos últimos 6 meses
   const resumo = useMemo(() => {
@@ -50,7 +51,7 @@ export default function Assinatura() {
       acc + (Number(f.valor_total) || 0), 0);
 
     const mediaEconomiaPercent = totalFaturas > 0 
-      ? ((totalCompensado - totalAssinatura) / totalFaturas) * 100 
+      ? (totalEconomia / totalFaturas) * 100 
       : 0;
 
     return {
@@ -68,7 +69,7 @@ export default function Assinatura() {
     return faturasFechadas.slice(0, 6).map(f => ({
       mesRef: f.mes_ref,
       contratada: Number(f.credito_remoto_kwh) || 0,
-      alocada: Number(f.autoconsumo_total_kwh) || 0 + Number(f.credito_remoto_kwh) || 0,
+      alocada: (Number(f.autoconsumo_total_kwh) || 0) + (Number(f.credito_remoto_kwh) || 0),
     })).reverse();
   }, [faturasFechadas]);
 
@@ -96,12 +97,15 @@ export default function Assinatura() {
     );
   }
 
-  // Valores da fatura atual
+  // CORRIGIDO: Usar valores direto do banco (calculados pelo wizard)
   const autoconsumoRs = Number(faturaAtual.autoconsumo_rs) || 0;
   const creditoRemotoRs = Number(faturaAtual.credito_remoto_compensado_rs) || 0;
   const totalCompensado = autoconsumoRs + creditoRemotoRs;
-  const custoAssinatura = totalCompensado * 0.85;
-  const economiaLiquida = totalCompensado * 0.15;
+  
+  // CORRIGIDO: Usar custo_assinatura_rs e economia_liquida_rs do banco
+  const custoAssinatura = Number(faturaAtual.custo_assinatura_rs) || 0;
+  const economiaLiquida = Number(faturaAtual.economia_liquida_rs) || 0;
+  
   const valorFatura = Number(faturaAtual.valor_total) || 0;
   const economiaPercent = valorFatura > 0 ? (economiaLiquida / valorFatura) * 100 : 0;
 
@@ -110,6 +114,26 @@ export default function Assinatura() {
   const autoconsumoKwh = Number(faturaAtual.autoconsumo_total_kwh) || 0;
   const creditoRemotoKwh = Number(faturaAtual.credito_remoto_kwh) || 0;
   const geracaoLocal = Number(faturaAtual.geracao_local_total_kwh) || 0;
+  
+  // Detalhamento por posto horário (R$)
+  const creditoRemotoPontaRs = Number(faturaAtual.credito_remoto_ponta_rs) || 0;
+  const creditoRemotoFPRs = Number(faturaAtual.credito_remoto_fp_rs) || 0;
+  const creditoRemotoHRRs = Number(faturaAtual.credito_remoto_hr_rs) || 0;
+  
+  const autoconsumoPontaRs = Number(faturaAtual.autoconsumo_ponta_rs) || 0;
+  const autoconsumoFPRs = Number(faturaAtual.autoconsumo_fp_rs) || 0;
+  const autoconsumoHRRs = Number(faturaAtual.autoconsumo_hr_rs) || 0;
+  
+  // kWh por posto
+  const creditoRemotoPontaKwh = Number(faturaAtual.credito_remoto_ponta_kwh) || 0;
+  const creditoRemotoFPKwh = Number(faturaAtual.credito_remoto_fp_kwh) || 0;
+  const creditoRemotoHRKwh = Number(faturaAtual.credito_remoto_hr_kwh) || 0;
+  
+  const autoconsumoPontaKwh = Number(faturaAtual.autoconsumo_ponta_kwh) || 0;
+  const autoconsumoFPKwh = Number(faturaAtual.autoconsumo_fp_kwh) || 0;
+  const autoconsumoHRKwh = Number(faturaAtual.autoconsumo_hr_kwh) || 0;
+  
+  const temDetalhePosto = isGrupoA && (creditoRemotoPontaKwh > 0 || creditoRemotoFPKwh > 0 || creditoRemotoHRKwh > 0);
 
   return (
     <DashboardLayout title="Assinatura" subtitle={`Fatura ${faturaAtual.mes_ref} • ${ucAtual?.numero || 'UC não identificada'}`}>
@@ -125,14 +149,14 @@ export default function Assinatura() {
           />
 
           <KPICard
-            title="Custo Assinatura (85%)"
+            title="Custo Assinatura"
             value={formatCurrency(custoAssinatura)}
             subtitle="Valor pago à usina"
             icon={<Building2 className="h-6 w-6" />}
           />
 
           <KPICard
-            title="Economia Líquida (15%)"
+            title="Economia Líquida"
             value={formatCurrency(economiaLiquida)}
             subtitle={`${formatPercent(economiaPercent)} da fatura`}
             icon={<TrendingUp className="h-6 w-6" />}
@@ -160,20 +184,73 @@ export default function Assinatura() {
                 <span className="text-muted-foreground">Geração Local</span>
                 <span className="font-medium">{formatNumber(geracaoLocal)} kWh</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Autoconsumo (Simultaneidade)</span>
-                <div className="text-right">
-                  <span className="font-medium">{formatNumber(autoconsumoKwh)} kWh</span>
-                  <span className="text-sm text-green-600 ml-2">{formatCurrency(autoconsumoRs)}</span>
+              
+              {/* Autoconsumo com detalhamento */}
+              <div className="py-2 border-b border-border">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Autoconsumo (Simultaneidade)</span>
+                  <div className="text-right">
+                    <span className="font-medium">{formatNumber(autoconsumoKwh)} kWh</span>
+                    <span className="text-sm text-green-600 ml-2">{formatCurrency(autoconsumoRs)}</span>
+                  </div>
                 </div>
+                {isGrupoA && (autoconsumoPontaKwh > 0 || autoconsumoFPKwh > 0 || autoconsumoHRKwh > 0) && (
+                  <div className="pl-4 mt-2 text-xs space-y-1 border-l-2 border-green-300 dark:border-green-700 ml-2">
+                    {autoconsumoPontaKwh > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">• Ponta: {formatNumber(autoconsumoPontaKwh)} kWh</span>
+                        <span className="font-medium text-green-600">{formatCurrency(autoconsumoPontaRs)}</span>
+                      </div>
+                    )}
+                    {autoconsumoFPKwh > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">• Fora Ponta: {formatNumber(autoconsumoFPKwh)} kWh</span>
+                        <span className="font-medium text-green-600">{formatCurrency(autoconsumoFPRs)}</span>
+                      </div>
+                    )}
+                    {autoconsumoHRKwh > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">• Reservado: {formatNumber(autoconsumoHRKwh)} kWh</span>
+                        <span className="font-medium text-green-600">{formatCurrency(autoconsumoHRRs)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Créditos Remotos</span>
-                <div className="text-right">
-                  <span className="font-medium">{formatNumber(creditoRemotoKwh)} kWh</span>
-                  <span className="text-sm text-green-600 ml-2">{formatCurrency(creditoRemotoRs)}</span>
+              
+              {/* Créditos Remotos com detalhamento */}
+              <div className="py-2 border-b border-border">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Créditos Remotos</span>
+                  <div className="text-right">
+                    <span className="font-medium">{formatNumber(creditoRemotoKwh)} kWh</span>
+                    <span className="text-sm text-green-600 ml-2">{formatCurrency(creditoRemotoRs)}</span>
+                  </div>
                 </div>
+                {temDetalhePosto && (
+                  <div className="pl-4 mt-2 text-xs space-y-1 border-l-2 border-green-300 dark:border-green-700 ml-2">
+                    {creditoRemotoPontaKwh > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">• Ponta: {formatNumber(creditoRemotoPontaKwh)} kWh</span>
+                        <span className="font-medium text-green-600">{formatCurrency(creditoRemotoPontaRs)}</span>
+                      </div>
+                    )}
+                    {creditoRemotoFPKwh > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">• Fora Ponta: {formatNumber(creditoRemotoFPKwh)} kWh</span>
+                        <span className="font-medium text-green-600">{formatCurrency(creditoRemotoFPRs)}</span>
+                      </div>
+                    )}
+                    {creditoRemotoHRKwh > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">• Reservado: {formatNumber(creditoRemotoHRKwh)} kWh</span>
+                        <span className="font-medium text-green-600">{formatCurrency(creditoRemotoHRRs)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+              
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Consumo Total</span>
                 <span className="font-medium">{formatNumber(consumoTotal)} kWh</span>
@@ -201,7 +278,7 @@ export default function Assinatura() {
                 <span className="font-medium text-green-600">- {formatCurrency(totalCompensado)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">(+) Custo Assinatura (85%)</span>
+                <span className="text-muted-foreground">(+) Custo Assinatura</span>
                 <span className="font-medium text-amber-600">+ {formatCurrency(custoAssinatura)}</span>
               </div>
               <div className="flex justify-between items-center py-3 -mx-6 px-6 bg-green-50 dark:bg-green-950/30 rounded-lg mt-2">
@@ -218,6 +295,12 @@ export default function Assinatura() {
                   {faturaAtual.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
                 </span>
               </div>
+              {(faturaAtual.percentual_fio_b_aplicado ?? 0) > 0 && (
+                <div className="flex justify-between items-center py-2 text-sm">
+                  <span className="text-muted-foreground">% Fio B Aplicado</span>
+                  <span className="font-medium">{formatPercent(faturaAtual.percentual_fio_b_aplicado || 0)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -253,7 +336,8 @@ export default function Assinatura() {
                   const autoRs = Number(fatura.autoconsumo_rs) || 0;
                   const credRs = Number(fatura.credito_remoto_compensado_rs) || 0;
                   const compTotal = autoRs + credRs;
-                  const ecoLiq = compTotal * 0.15;
+                  // CORRIGIDO: Usar economia_liquida_rs do banco
+                  const ecoLiq = Number(fatura.economia_liquida_rs) || 0;
                   
                   return (
                     <tr key={fatura.id} className="border-b border-border/50 hover:bg-muted/30">
