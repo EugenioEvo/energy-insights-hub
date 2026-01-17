@@ -31,19 +31,31 @@ export default function Solar() {
   const faturaMesAtualDB = faturasOrdenadas.find(f => f.mes_ref === mesAtual);
   const ucAtual = ucs?.find(uc => uc.id === faturaMesAtualDB?.uc_id);
 
-  // CORRIGIDO: Usar dados de geração da faturas_mensais ao invés de geracoes_mensais
-  const geracaoMesAtual = faturaMesAtualDB ? {
-    geracaoTotalKwh: Number(faturaMesAtualDB.geracao_local_total_kwh) || 0,
-    autoconsumoKwh: Number(faturaMesAtualDB.autoconsumo_total_kwh) || 0,
-    autoconsumoRs: Number(faturaMesAtualDB.autoconsumo_rs) || 0,
-    injecaoKwh: Number(faturaMesAtualDB.injecao_total_kwh) || 0,
-    // Créditos remotos compensados (como substituto de "compensação")
-    compensacaoKwh: Number(faturaMesAtualDB.credito_remoto_kwh) || 0,
-    // Perdas estimadas (assumindo 3% de perdas)
-    perdasEstimadasKwh: (Number(faturaMesAtualDB.geracao_local_total_kwh) || 0) * 0.03,
-    disponibilidadePercent: 98, // valor default até termos campo específico
-    mesRef: faturaMesAtualDB.mes_ref,
-  } : null;
+  // CORRIGIDO: Usar dados de geração da faturas_mensais com fallbacks robustos
+  const geracaoMesAtual = faturaMesAtualDB ? (() => {
+    const geracaoTotalKwh = Number(faturaMesAtualDB.geracao_local_total_kwh) || 0;
+    
+    // Autoconsumo: prioriza soma dos postos, depois total, depois energia_simultanea (legado)
+    const autoconsumoSomaPosto = 
+      (Number(faturaMesAtualDB.autoconsumo_ponta_kwh) || 0) +
+      (Number(faturaMesAtualDB.autoconsumo_fp_kwh) || 0) +
+      (Number(faturaMesAtualDB.autoconsumo_hr_kwh) || 0);
+    const autoconsumoKwh = autoconsumoSomaPosto > 0 
+      ? autoconsumoSomaPosto 
+      : Number(faturaMesAtualDB.autoconsumo_total_kwh) || 
+        Number(faturaMesAtualDB.energia_simultanea_kwh) || 0;
+    
+    return {
+      geracaoTotalKwh,
+      autoconsumoKwh,
+      autoconsumoRs: Number(faturaMesAtualDB.autoconsumo_rs) || Number(faturaMesAtualDB.energia_simultanea_rs) || 0,
+      injecaoKwh: Number(faturaMesAtualDB.injecao_total_kwh) || 0,
+      compensacaoKwh: Number(faturaMesAtualDB.credito_remoto_kwh) || 0,
+      perdasEstimadasKwh: geracaoTotalKwh * 0.03,
+      disponibilidadePercent: 98,
+      mesRef: faturaMesAtualDB.mes_ref,
+    };
+  })() : null;
 
   // Calculate expected generation (average of last 3 months as baseline)
   const faturasAnteriores = faturasOrdenadas.slice(1, 4);

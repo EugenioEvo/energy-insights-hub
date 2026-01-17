@@ -198,9 +198,11 @@ export default function EnergiaFatura() {
               <span className={`px-2 py-1 rounded text-xs font-medium ${
                 faturaMesAtualDB.classificacao_gd_aplicada === 'gd1' 
                   ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                  : faturaMesAtualDB.classificacao_gd_aplicada === 'gd2'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'bg-muted text-muted-foreground'
               }`}>
-                {faturaMesAtualDB.classificacao_gd_aplicada?.toUpperCase() || 'GD2'}
+                {faturaMesAtualDB.classificacao_gd_aplicada?.toUpperCase() || 'N/A'}
               </span>
               {(faturaMesAtualDB.percentual_fio_b_aplicado ?? 0) > 0 && (
                 <span className="text-muted-foreground">

@@ -94,11 +94,24 @@ function WizardContent() {
         injecao_total_kwh: data.injecao_total_kwh,
         // Créditos Remotos
         credito_remoto_kwh: data.credito_remoto_kwh,
+        credito_remoto_ponta_kwh: data.credito_remoto_ponta_kwh,
+        credito_remoto_fp_kwh: data.credito_remoto_fp_kwh,
+        credito_remoto_hr_kwh: data.credito_remoto_hr_kwh,
         credito_remoto_compensado_rs: data.credito_remoto_compensado_rs,
+        credito_remoto_ponta_rs: data.credito_remoto_ponta_rs,
+        credito_remoto_fp_rs: data.credito_remoto_fp_rs,
+        credito_remoto_hr_rs: data.credito_remoto_hr_rs,
         custo_assinatura_rs: data.custo_assinatura_rs,
         economia_liquida_rs: data.economia_liquida_rs,
         consumo_residual_kwh: data.consumo_residual_kwh,
         consumo_final_kwh: data.consumo_final_kwh,
+        // Classificação GD
+        classificacao_gd_aplicada: data.classificacao_gd_aplicada,
+        percentual_fio_b_aplicado: data.percentual_fio_b_aplicado,
+        // R$ por Posto - Autoconsumo
+        autoconsumo_ponta_rs: data.autoconsumo_ponta_rs,
+        autoconsumo_fp_rs: data.autoconsumo_fp_rs,
+        autoconsumo_hr_rs: data.autoconsumo_hr_rs,
         // SCEE/Saldos
         scee_saldo_kwh_p: data.scee_saldo_kwh_p,
         scee_saldo_kwh_fp: data.scee_saldo_kwh_fp,

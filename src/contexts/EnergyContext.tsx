@@ -115,6 +115,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     // Ordenar por mês mais recente
     const sortedFaturas = [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
     const faturaMaisRecente = sortedFaturas[0];
+    const faturaAnterior = sortedFaturas[1];
     
     // Economia do mês - usa campo pré-calculado
     const economiaDoMes = Number(faturaMaisRecente.economia_liquida_rs) || 0;
@@ -133,6 +134,12 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     const valorComEconomia = valorTotal - economiaDoMes;
     const custoKwhDepois = consumoTotal > 0 ? valorComEconomia / consumoTotal : 0;
     
+    // CORRIGIDO: Trend de economia calculado dinamicamente
+    const economiaAnterior = Number(faturaAnterior?.economia_liquida_rs) || 0;
+    const trendEconomia = economiaAnterior > 0 
+      ? ((economiaDoMes - economiaAnterior) / economiaAnterior * 100)
+      : 0;
+    
     // Status e alertas - usa campos da fatura
     const alertas = (faturaMaisRecente.alertas as unknown as Alerta[]) || [];
     const statusGeral = calcularStatusFromAlertas(alertas);
@@ -144,6 +151,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       custoKwhDepois,
       statusGeral,
       alertas,
+      trendEconomia,
     };
   }, [faturas]);
 
