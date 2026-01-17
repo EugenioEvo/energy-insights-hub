@@ -106,11 +106,11 @@ export function Step5Conferencia() {
     // Total compensado = autoconsumo + créditos remotos
     const totalCompensado = autoconsumoRs + creditoRemotoRs;
     
-    // Custo assinatura = 85% APENAS dos créditos remotos (não inclui autoconsumo)
-    const custoAssinatura = data.tem_usina_remota ? creditoRemotoRs * 0.85 : 0;
+    // Custo assinatura = 85% do TOTAL compensado (autoconsumo + remotos)
+    const custoAssinatura = data.tem_usina_remota ? totalCompensado * 0.85 : 0;
     
-    // Economia líquida = 100% autoconsumo + 15% dos créditos remotos
-    const economiaLiquida = autoconsumoRs + (data.tem_usina_remota ? creditoRemotoRs * 0.15 : creditoRemotoRs);
+    // Economia líquida = 15% do TOTAL compensado
+    const economiaLiquida = data.tem_usina_remota ? totalCompensado * 0.15 : totalCompensado;
     
     // Fatura concessionária (valor informado ou calculado)
     const faturaConcessionaria = data.valor_total_pagar || 0;
