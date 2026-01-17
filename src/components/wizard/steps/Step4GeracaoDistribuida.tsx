@@ -144,15 +144,18 @@ export function Step4GeracaoDistribuida() {
       updates.credito_remoto_compensado_rs = parseFloat(creditoCompensadoRs.toFixed(2));
     }
 
-    // Calcular custo_assinatura_rs (85% do compensado)
-    const custoAssinaturaCalculado = creditoCompensadoRs * 0.85;
-    if (creditosRemotos > 0 && Math.abs((data.custo_assinatura_rs || 0) - custoAssinaturaCalculado) > 0.01) {
+    // Total compensado = autoconsumo + créditos remotos (ambos pagam assinatura)
+    const totalCompensadoRs = autoconsumoRsCalculado + creditoCompensadoRs;
+
+    // Calcular custo_assinatura_rs (85% do TOTAL compensado)
+    const custoAssinaturaCalculado = totalCompensadoRs * 0.85;
+    if (totalCompensadoRs > 0 && Math.abs((data.custo_assinatura_rs || 0) - custoAssinaturaCalculado) > 0.01) {
       updates.custo_assinatura_rs = parseFloat(custoAssinaturaCalculado.toFixed(2));
     }
 
-    // Calcular economia_liquida_rs (15% de desconto)
-    const economiaCalculada = creditoCompensadoRs * 0.15;
-    if (creditosRemotos > 0 && Math.abs((data.economia_liquida_rs || 0) - economiaCalculada) > 0.01) {
+    // Calcular economia_liquida_rs (15% do TOTAL compensado)
+    const economiaCalculada = totalCompensadoRs * 0.15;
+    if (totalCompensadoRs > 0 && Math.abs((data.economia_liquida_rs || 0) - economiaCalculada) > 0.01) {
       updates.economia_liquida_rs = parseFloat(economiaCalculada.toFixed(2));
     }
 
