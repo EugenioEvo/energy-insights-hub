@@ -104,9 +104,9 @@ export function calcularFaturaCompleta(
   const anoRef: number = data.mes_ref 
     ? parseInt(data.mes_ref.split('-')[0])
     : new Date().getFullYear();
-  // TODO: buscar da UC/usina se é GD1 ou GD2 baseado em data_protocolo
-  const classificacaoGD: ClassificacaoGDSimples = 'gd2'; // Por padrão GD2
-  const percentualFioB: number = obterPercentualFioB(anoRef);
+  // Usar classificação selecionada no Step 4, ou padrão GD2
+  const classificacaoGD: ClassificacaoGDSimples = (data.classificacao_gd_aplicada as ClassificacaoGDSimples) || 'gd2';
+  const percentualFioB: number = classificacaoGD === 'gd1' ? 0 : obterPercentualFioB(anoRef);
   
   // === CRÉDITOS ===
   const creditosProprios = isGrupoA
