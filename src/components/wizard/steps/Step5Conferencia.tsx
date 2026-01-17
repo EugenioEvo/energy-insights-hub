@@ -152,23 +152,33 @@ export function Step5Conferencia() {
     // Para GD1, Fio B = 0%. Para GD2, usar percentual do ano (calculado em calculosAuto ou estimado)
     const percentualFioB = classificacaoGD === 'gd1' ? 0 : (anoRef >= 2029 ? 100 : (anoRef - 2023) * 15);
 
-    // Geração Local (Autoconsumo)
+    // Geração Local (Autoconsumo) - kWh
     const autoconsumoTotal = isGrupoA
       ? (data.autoconsumo_ponta_kwh || 0) + (data.autoconsumo_fp_kwh || 0) + (data.autoconsumo_hr_kwh || 0)
       : (data.autoconsumo_total_kwh || 0);
     const autoconsumoRs = data.autoconsumo_rs || 0;
+    
+    // Autoconsumo R$ por posto (Cost Avoidance)
+    const autoconsumoPontaRs = data.autoconsumo_ponta_rs || 0;
+    const autoconsumoFPRs = data.autoconsumo_fp_rs || 0;
+    const autoconsumoHRRs = data.autoconsumo_hr_rs || 0;
 
     // Injeção
     const injecaoTotal = isGrupoA
       ? (data.injecao_ponta_kwh || 0) + (data.injecao_fp_kwh || 0) + (data.injecao_hr_kwh || 0)
       : (data.injecao_total_kwh || 0);
 
-    // Créditos Remotos
+    // Créditos Remotos - kWh
     const creditoRemotoKwh = data.credito_remoto_kwh || 0;
     const creditoRemotoPonta = data.credito_remoto_ponta_kwh || 0;
     const creditoRemotoFP = data.credito_remoto_fp_kwh || 0;
     const creditoRemotoHR = data.credito_remoto_hr_kwh || 0;
     const creditoRemotoRs = data.credito_remoto_compensado_rs || 0;
+    
+    // Créditos Remotos R$ por posto (Cost Avoidance)
+    const creditoRemotoPontaRs = data.credito_remoto_ponta_rs || 0;
+    const creditoRemotoFPRs = data.credito_remoto_fp_rs || 0;
+    const creditoRemotoHRRs = data.credito_remoto_hr_rs || 0;
 
     // Valores financeiros calculados no Step 4
     const custoAssinatura = data.custo_assinatura_rs || 0;
@@ -182,12 +192,18 @@ export function Step5Conferencia() {
       temUsinaRemota: data.tem_usina_remota || false,
       autoconsumoTotal,
       autoconsumoRs,
+      autoconsumoPontaRs,
+      autoconsumoFPRs,
+      autoconsumoHRRs,
       injecaoTotal,
       creditoRemotoKwh,
       creditoRemotoPonta,
       creditoRemotoFP,
       creditoRemotoHR,
       creditoRemotoRs,
+      creditoRemotoPontaRs,
+      creditoRemotoFPRs,
+      creditoRemotoHRRs,
       custoAssinatura,
       economiaLiquida,
     };
@@ -383,23 +399,23 @@ export function Step5Conferencia() {
                     </div>
                     {/* Detalhamento por Posto */}
                     {isGrupoA && (dadosGeracao.creditoRemotoPonta > 0 || dadosGeracao.creditoRemotoFP > 0 || dadosGeracao.creditoRemotoHR > 0) && (
-                      <div className="pl-4 text-xs text-muted-foreground space-y-0.5 border-l-2 border-green-300 dark:border-green-700 ml-2">
+                      <div className="pl-4 text-xs space-y-0.5 border-l-2 border-green-300 dark:border-green-700 ml-2">
                         {dadosGeracao.creditoRemotoPonta > 0 && (
-                          <div className="flex justify-between">
-                            <span>• Ponta:</span>
-                            <span>{formatarKwh(dadosGeracao.creditoRemotoPonta)} kWh</span>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">• Ponta: {formatarKwh(dadosGeracao.creditoRemotoPonta)} kWh</span>
+                            <span className="font-medium text-green-600">{formatarReais(dadosGeracao.creditoRemotoPontaRs)}</span>
                           </div>
                         )}
                         {dadosGeracao.creditoRemotoFP > 0 && (
-                          <div className="flex justify-between">
-                            <span>• Fora Ponta:</span>
-                            <span>{formatarKwh(dadosGeracao.creditoRemotoFP)} kWh</span>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">• Fora Ponta: {formatarKwh(dadosGeracao.creditoRemotoFP)} kWh</span>
+                            <span className="font-medium text-green-600">{formatarReais(dadosGeracao.creditoRemotoFPRs)}</span>
                           </div>
                         )}
                         {dadosGeracao.creditoRemotoHR > 0 && (
-                          <div className="flex justify-between">
-                            <span>• Reservado:</span>
-                            <span>{formatarKwh(dadosGeracao.creditoRemotoHR)} kWh</span>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">• Reservado: {formatarKwh(dadosGeracao.creditoRemotoHR)} kWh</span>
+                            <span className="font-medium text-green-600">{formatarReais(dadosGeracao.creditoRemotoHRRs)}</span>
                           </div>
                         )}
                       </div>
