@@ -21,13 +21,14 @@ import { obterPercentualFioB } from '@/lib/lei14300';
 export function Step4GeracaoDistribuida() {
   const { data, updateData, setCanProceed, isGrupoA, tarifa, tarifaLoading, calculosAuto } = useWizard();
 
-  // Classificação GD (usa valor do wizard ou padrão GD1)
+  // Classificação GD (usa valor do wizard ou padrão GD2 - conservador)
   const classificacaoGD = useMemo(() => {
     const anoRef = data.mes_ref 
       ? parseInt(data.mes_ref.split('-')[0]) 
       : new Date().getFullYear();
     const percentualFioB = obterPercentualFioB(anoRef);
-    const tipo: 'gd1' | 'gd2' = (data.classificacao_gd_aplicada as 'gd1' | 'gd2') || 'gd1';
+    // CORREÇÃO: Fallback para 'gd2' (mais conservador, sujeito à transição)
+    const tipo: 'gd1' | 'gd2' = (data.classificacao_gd_aplicada as 'gd1' | 'gd2') || 'gd2';
     return { tipo, percentualFioB, anoRef };
   }, [data.mes_ref, data.classificacao_gd_aplicada]);
 

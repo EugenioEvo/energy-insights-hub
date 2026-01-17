@@ -12,6 +12,7 @@ import { useConcessionariasComTarifas } from '@/hooks/useTarifas';
 import { Building2, AlertCircle, Zap, Sun, PlugZap, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileImportCard } from '../FileImportCard';
+import { classificarGD } from '@/lib/lei14300';
 
 const modalidadesGrupoA = [
   { value: 'THS_VERDE', label: 'THS Verde' },
@@ -77,6 +78,12 @@ export function Step0ContextoUC() {
           ? 'B' 
           : 'A';
       
+      // CORREÇÃO: Determinar classificação GD baseada na data de protocolo da UC
+      // Se a UC tem data_protocolo_gd, usar classificarGD(), senão fallback para 'gd2' (conservador)
+      const classificacaoGD = uc.data_protocolo_gd 
+        ? classificarGD(uc.data_protocolo_gd)
+        : 'gd2';
+      
       updateData({
         uc_id: uc.id,
         uc_numero: uc.numero,
@@ -90,6 +97,7 @@ export function Step0ContextoUC() {
         tem_geracao_local: uc.tem_geracao_propria || false,
         classe_tarifaria: uc.classe_tarifaria || '',
         tensao_kv: uc.tensao_kv || 0,
+        classificacao_gd_aplicada: classificacaoGD,
       });
     }
   };
