@@ -100,6 +100,7 @@ export interface KPIs {
   custoKwhDepois: number;
   statusGeral: 'OK' | 'ATENCAO' | 'CRITICO';
   alertas: Alerta[];
+  trendEconomia?: number;
 }
 
 export interface Alerta {

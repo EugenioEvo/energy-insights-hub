@@ -111,9 +111,18 @@ export default function Assinatura() {
 
   // Energia
   const consumoTotal = Number(faturaAtual.consumo_total_kwh) || 0;
-  const autoconsumoKwh = Number(faturaAtual.autoconsumo_total_kwh) || 0;
   const creditoRemotoKwh = Number(faturaAtual.credito_remoto_kwh) || 0;
   const geracaoLocal = Number(faturaAtual.geracao_local_total_kwh) || 0;
+  
+  // CORRIGIDO: Autoconsumo kWh com fallback robusto
+  const autoconsumoPontaKwh = Number(faturaAtual.autoconsumo_ponta_kwh) || 0;
+  const autoconsumoFPKwh = Number(faturaAtual.autoconsumo_fp_kwh) || 0;
+  const autoconsumoHRKwh = Number(faturaAtual.autoconsumo_hr_kwh) || 0;
+  const autoconsumoSomaPosto = autoconsumoPontaKwh + autoconsumoFPKwh + autoconsumoHRKwh;
+  const autoconsumoKwh = autoconsumoSomaPosto > 0 
+    ? autoconsumoSomaPosto 
+    : Number(faturaAtual.autoconsumo_total_kwh) || 
+      Number(faturaAtual.energia_simultanea_kwh) || 0;
   
   // Detalhamento por posto horário (R$)
   const creditoRemotoPontaRs = Number(faturaAtual.credito_remoto_ponta_rs) || 0;
@@ -124,16 +133,20 @@ export default function Assinatura() {
   const autoconsumoFPRs = Number(faturaAtual.autoconsumo_fp_rs) || 0;
   const autoconsumoHRRs = Number(faturaAtual.autoconsumo_hr_rs) || 0;
   
-  // kWh por posto
+  // kWh por posto - Créditos Remotos
   const creditoRemotoPontaKwh = Number(faturaAtual.credito_remoto_ponta_kwh) || 0;
   const creditoRemotoFPKwh = Number(faturaAtual.credito_remoto_fp_kwh) || 0;
   const creditoRemotoHRKwh = Number(faturaAtual.credito_remoto_hr_kwh) || 0;
   
-  const autoconsumoPontaKwh = Number(faturaAtual.autoconsumo_ponta_kwh) || 0;
-  const autoconsumoFPKwh = Number(faturaAtual.autoconsumo_fp_kwh) || 0;
-  const autoconsumoHRKwh = Number(faturaAtual.autoconsumo_hr_kwh) || 0;
-  
-  const temDetalhePosto = isGrupoA && (creditoRemotoPontaKwh > 0 || creditoRemotoFPKwh > 0 || creditoRemotoHRKwh > 0);
+  // CORRIGIDO: Detectar se tem detalhamento por posto (autoconsumo OU crédito remoto)
+  const temDetalheAutoconsumo = isGrupoA && (
+    autoconsumoPontaKwh > 0 || autoconsumoFPKwh > 0 || autoconsumoHRKwh > 0 ||
+    autoconsumoPontaRs > 0 || autoconsumoFPRs > 0 || autoconsumoHRRs > 0
+  );
+  const temDetalheCredito = isGrupoA && (
+    creditoRemotoPontaKwh > 0 || creditoRemotoFPKwh > 0 || creditoRemotoHRKwh > 0 ||
+    creditoRemotoPontaRs > 0 || creditoRemotoFPRs > 0 || creditoRemotoHRRs > 0
+  );
 
   return (
     <DashboardLayout title="Assinatura" subtitle={`Fatura ${faturaAtual.mes_ref} • ${ucAtual?.numero || 'UC não identificada'}`}>
@@ -194,7 +207,7 @@ export default function Assinatura() {
                     <span className="text-sm text-green-600 ml-2">{formatCurrency(autoconsumoRs)}</span>
                   </div>
                 </div>
-                {isGrupoA && (autoconsumoPontaKwh > 0 || autoconsumoFPKwh > 0 || autoconsumoHRKwh > 0) && (
+                {temDetalheAutoconsumo && (
                   <div className="pl-4 mt-2 text-xs space-y-1 border-l-2 border-green-300 dark:border-green-700 ml-2">
                     {autoconsumoPontaKwh > 0 && (
                       <div className="flex justify-between gap-4">
@@ -227,7 +240,7 @@ export default function Assinatura() {
                     <span className="text-sm text-green-600 ml-2">{formatCurrency(creditoRemotoRs)}</span>
                   </div>
                 </div>
-                {temDetalhePosto && (
+                {temDetalheCredito && (
                   <div className="pl-4 mt-2 text-xs space-y-1 border-l-2 border-green-300 dark:border-green-700 ml-2">
                     {creditoRemotoPontaKwh > 0 && (
                       <div className="flex justify-between gap-4">

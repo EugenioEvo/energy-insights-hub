@@ -62,12 +62,17 @@ export default function ExecutiveDashboard() {
     ? ((valorTotal - Number(faturaMesAnteriorDB.valor_total)) / Number(faturaMesAnteriorDB.valor_total) * 100)
     : 0;
 
+  // CORRIGIDO: Trend de economia calculado dinamicamente (não hardcoded)
+  const economiaAnterior = Number(faturaMesAnteriorDB?.economia_liquida_rs) || 0;
+  const trendEconomia = economiaAnterior > 0 
+    ? ((economiaLiquida - economiaAnterior) / economiaAnterior * 100)
+    : 0;
+
   // Custo por kWh
   const custoKwhBase = consumoTotal > 0 ? valorTotal / consumoTotal : 0;
 
   // Solar - dados da fatura
   const geracaoLocalKwh = Number(faturaMesAtualDB?.geracao_local_total_kwh) || 0;
-  const autoconsumoTotalKwh = Number(faturaMesAtualDB?.autoconsumo_total_kwh) || 0;
   const injecaoTotalKwh = Number(faturaMesAtualDB?.injecao_total_kwh) || 0;
   const temGeracaoLocal = geracaoLocalKwh > 0;
 
@@ -118,11 +123,22 @@ export default function ExecutiveDashboard() {
   }).reverse();
 
   // Chart data - Subscription (usa dados de crédito remoto da fatura)
+  // CORRIGIDO: Usar credito_remoto_kwh ao invés de campo legado
   const subscriptionData = faturasOrdenadas.slice(0, 6).map(fatura => ({
     mesRef: fatura.mes_ref,
-    contratada: Number(fatura.credito_assinatura_kwh) || 0,
+    contratada: Number(fatura.credito_remoto_kwh) || 0,
     alocada: Number(fatura.credito_remoto_kwh) || 0,
   })).reverse();
+  
+  // CORRIGIDO: Autoconsumo com fallback robusto
+  const autoconsumoSomaPosto = 
+    (Number(faturaMesAtualDB?.autoconsumo_ponta_kwh) || 0) +
+    (Number(faturaMesAtualDB?.autoconsumo_fp_kwh) || 0) +
+    (Number(faturaMesAtualDB?.autoconsumo_hr_kwh) || 0);
+  const autoconsumoTotalKwh = autoconsumoSomaPosto > 0 
+    ? autoconsumoSomaPosto 
+    : Number(faturaMesAtualDB?.autoconsumo_total_kwh) || 
+      Number(faturaMesAtualDB?.energia_simultanea_kwh) || 0;
 
   // Grupo A values
   const multaDemanda = Number(faturaMesAtualDB?.multa_demanda || 0);
@@ -209,11 +225,11 @@ export default function ExecutiveDashboard() {
               title="Economia do Mês"
               value={formatCurrency(kpis.economiaDoMes)}
               subtitle="Comparado ao cenário base"
-              trend={{
-                value: 12.5,
+              trend={faturaMesAnteriorDB ? {
+                value: trendEconomia,
                 label: 'vs mês anterior',
-                isPositive: true,
-              }}
+                isPositive: trendEconomia >= 0,
+              } : undefined}
               icon={<DollarSign className="h-6 w-6" />}
               variant="success"
             />
