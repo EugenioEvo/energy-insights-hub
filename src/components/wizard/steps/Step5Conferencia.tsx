@@ -95,9 +95,9 @@ export function Step5Conferencia() {
   // Usar calculosAuto do contexto
   const calculos = calculosAuto;
 
-  // Resumo financeiro consolidado (mesma lógica do Step4)
+  // Resumo financeiro consolidado - USA VALORES DO STEP 4
   const resumoFinanceiro = useMemo(() => {
-    // Autoconsumo (geração local) - 100% é economia do cliente
+    // Autoconsumo (geração local)
     const autoconsumoRs = data.autoconsumo_rs || data.energia_simultanea_rs || 0;
     
     // Créditos remotos (assinatura usina)
@@ -106,11 +106,10 @@ export function Step5Conferencia() {
     // Total compensado = autoconsumo + créditos remotos
     const totalCompensado = autoconsumoRs + creditoRemotoRs;
     
-    // Custo assinatura = 85% do TOTAL compensado (autoconsumo + remotos)
-    const custoAssinatura = data.tem_usina_remota ? totalCompensado * 0.85 : 0;
-    
-    // Economia líquida = 15% do TOTAL compensado
-    const economiaLiquida = data.tem_usina_remota ? totalCompensado * 0.15 : totalCompensado;
+    // USAR VALORES CALCULADOS NO STEP 4 (evitar recalcular com lógica diferente)
+    // Se tem usina remota, usa os valores salvos; senão, 0 custo e 100% economia
+    const custoAssinatura = data.custo_assinatura_rs || 0;
+    const economiaLiquida = data.economia_liquida_rs || (totalCompensado - custoAssinatura);
     
     // Fatura concessionária (valor informado ou calculado)
     const faturaConcessionaria = data.valor_total_pagar || 0;
@@ -266,7 +265,7 @@ export function Step5Conferencia() {
                     {formatarReais(resumoFinanceiro.totalCompensado)}
                   </span>
                 </div>
-                {data.tem_usina_remota && resumoFinanceiro.custoAssinatura > 0 && (
+                {resumoFinanceiro.custoAssinatura > 0 && (
                   <>
                     <div className="flex justify-between text-amber-600">
                       <span className="text-muted-foreground">Custo Assinatura (85%):</span>
@@ -309,7 +308,7 @@ export function Step5Conferencia() {
                     {formatarReais(resumoFinanceiro.totalCompensado)}
                   </span>
                 </div>
-                {data.tem_usina_remota && (
+                {resumoFinanceiro.custoAssinatura > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">(-) Custo Assinatura (85%):</span>
                     <span className="text-amber-600 font-medium">
