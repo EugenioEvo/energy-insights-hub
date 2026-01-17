@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { Step3ConsumoDemanda } from '@/components/wizard/steps/Step3ConsumoDeman
 import { Step4GeracaoDistribuida } from '@/components/wizard/steps/Step4GeracaoDistribuida';
 import { Step5Conferencia } from '@/components/wizard/steps/Step5Conferencia';
 import { Step2ConsumoSimples } from '@/components/wizard/steps/grupoB/Step2ConsumoSimples';
+import { AuditorIAPanel } from '@/components/wizard/AuditorIAPanel';
+import { useAuditorIA } from '@/hooks/useAuditorIA';
 import { useToast } from '@/hooks/use-toast';
 import { useUpsertFatura } from '@/hooks/useFaturas';
 import { ChevronLeft, ChevronRight, Save, FileCheck, Loader2 } from 'lucide-react';
@@ -21,6 +23,34 @@ function WizardContent() {
   const { toast } = useToast();
   const upsertFatura = useUpsertFatura();
   const [saving, setSaving] = useState(false);
+  
+  // Auditor IA
+  const { analise, isAnalisando, erro, analisarPasso, historicoAnalises } = useAuditorIA();
+  
+  // Disparar análise quando dados ou passo mudam
+  useEffect(() => {
+    if (data.uc_id && data.mes_ref) {
+      const contexto = getContextoPasso(currentStepId);
+      analisarPasso(data, currentStepId, contexto);
+    }
+  }, [currentStepId, data.consumo_total_kwh, data.demanda_medida_kw, data.autoconsumo_rs, data.credito_remoto_kwh, data.valor_total_pagar]);
+
+  const getContextoPasso = (stepId: string): string => {
+    switch (stepId) {
+      case 'contexto':
+        return 'Verificando contexto da UC e cliente';
+      case 'cabecalho':
+        return 'Analisando dados do cabeçalho da fatura (datas, valores)';
+      case 'consumo_demanda':
+        return 'Validando consumo e demanda por posto horário';
+      case 'geracao':
+        return 'Conferindo geração distribuída, autoconsumo e créditos remotos';
+      case 'conferencia':
+        return 'Conferência final: balanço energético e resumo financeiro';
+      default:
+        return 'Análise geral';
+    }
+  };
 
   const handleSave = async (fechar: boolean) => {
     setSaving(true);
@@ -153,63 +183,78 @@ function WizardContent() {
   const isLastStep = currentStep === totalSteps - 1;
 
   return (
-    <div className="max-w-5xl">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Badge variant={isGrupoA ? "default" : "secondary"} className="text-sm">
-            {isGrupoA ? 'Grupo A — Tarifa Binômia' : 'Grupo B — Tarifa Monômia'}
-          </Badge>
-          {isEditing && (
-            <Badge variant="outline" className="text-sm border-amber-500 text-amber-600">
-              Editando Rascunho
+    <div className="flex gap-6">
+      {/* Conteúdo Principal */}
+      <div className="flex-1 max-w-4xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Badge variant={isGrupoA ? "default" : "secondary"} className="text-sm">
+              {isGrupoA ? 'Grupo A — Tarifa Binômia' : 'Grupo B — Tarifa Monômia'}
             </Badge>
+            {isEditing && (
+              <Badge variant="outline" className="text-sm border-amber-500 text-amber-600">
+                Editando Rascunho
+              </Badge>
+            )}
+          </div>
+          {data.uc_numero && (
+            <span className="text-sm text-muted-foreground">UC: {data.uc_numero}</span>
           )}
         </div>
-        {data.uc_numero && (
-          <span className="text-sm text-muted-foreground">UC: {data.uc_numero}</span>
-        )}
-      </div>
 
-      <WizardStepper />
-      
-      <div className="mb-6">
-        {renderStep()}
-      </div>
+        <WizardStepper />
+        
+        <div className="mb-6">
+          {renderStep()}
+        </div>
 
-      <div className="flex justify-between items-center bg-card rounded-xl border border-border p-4">
-        <Button
-          variant="outline"
-          onClick={prevStep}
-          disabled={currentStep === 0}
-        >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Anterior
-        </Button>
-
-        <div className="flex gap-2">
+        <div className="flex justify-between items-center bg-card rounded-xl border border-border p-4">
           <Button
             variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={saving || !data.uc_id || !data.mes_ref}
+            onClick={prevStep}
+            disabled={currentStep === 0}
           >
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Salvar Rascunho
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Anterior
           </Button>
 
-          {isLastStep ? (
+          <div className="flex gap-2">
             <Button
-              onClick={() => handleSave(true)}
-              disabled={saving || !canProceed}
+              variant="outline"
+              onClick={() => handleSave(false)}
+              disabled={saving || !data.uc_id || !data.mes_ref}
             >
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileCheck className="h-4 w-4 mr-2" />}
-              Fechar Mês
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Salvar Rascunho
             </Button>
-          ) : (
-            <Button onClick={nextStep} disabled={!canProceed}>
-              Próximo
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          )}
+
+            {isLastStep ? (
+              <Button
+                onClick={() => handleSave(true)}
+                disabled={saving || !canProceed}
+              >
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileCheck className="h-4 w-4 mr-2" />}
+                Fechar Mês
+              </Button>
+            ) : (
+              <Button onClick={nextStep} disabled={!canProceed}>
+                Próximo
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Painel Auditor IA */}
+      <div className="w-80 shrink-0 hidden lg:block">
+        <div className="sticky top-4">
+          <AuditorIAPanel 
+            analise={analise}
+            isAnalisando={isAnalisando}
+            erro={erro}
+            historicoAnalises={historicoAnalises}
+          />
         </div>
       </div>
     </div>
