@@ -2,8 +2,8 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { DonutChart } from '@/components/charts/DonutChart';
-import { useFaturas } from '@/hooks/useFaturas';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
+import { useEnergy } from '@/contexts/EnergyContext';
 import { Receipt, TrendingDown, AlertTriangle, Zap, Sun } from 'lucide-react';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,7 +15,7 @@ const formatNumber = (value: number) =>
   value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
 
 export default function EnergiaFatura() {
-  const { data: faturas, isLoading: faturasLoading } = useFaturas();
+  const { faturas, mesAtual, isLoading: faturasLoading } = useEnergy();
   const { data: ucs } = useUnidadesConsumidoras();
 
   // Faturas ordenadas por mês (mais recente primeiro)
@@ -24,7 +24,7 @@ export default function EnergiaFatura() {
     return [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
   }, [faturas]);
 
-  const mesAtual = faturasOrdenadas[0]?.mes_ref || '';
+  // Usa o mês selecionado globalmente
   const faturaMesAtualDB = faturasOrdenadas.find(f => f.mes_ref === mesAtual);
   const ucAtual = ucs?.find(uc => uc.id === faturaMesAtualDB?.uc_id);
   const isGrupoA = ucAtual?.grupo_tarifario === 'A';
