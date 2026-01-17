@@ -6,30 +6,30 @@
 
 @layer base {
   :root {
-    /* Corporate Energy Theme - Azul Petróleo & Amarelo Escuro */
-    --background: 195 20% 97%;
-    --foreground: 195 50% 10%;
+    /* WeGen Theme - Verde Escuro & Dourado */
+    --background: 150 15% 97%;
+    --foreground: 150 40% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 195 50% 10%;
+    --card-foreground: 150 40% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 195 50% 10%;
+    --popover-foreground: 150 40% 10%;
 
-    /* Azul Petróleo - Primary */
-    --primary: 195 50% 25%;
-    --primary-foreground: 45 90% 95%;
+    /* Verde Escuro WeGen - Primary */
+    --primary: 150 40% 17%;
+    --primary-foreground: 45 52% 95%;
 
-    /* Light Petrol */
-    --secondary: 195 25% 92%;
-    --secondary-foreground: 195 50% 20%;
+    /* Verde Claro */
+    --secondary: 150 20% 92%;
+    --secondary-foreground: 150 40% 17%;
 
-    --muted: 195 15% 95%;
-    --muted-foreground: 195 20% 45%;
+    --muted: 150 12% 95%;
+    --muted-foreground: 150 15% 45%;
 
-    /* Amarelo Escuro - Accent */
-    --accent: 45 85% 45%;
-    --accent-foreground: 195 50% 10%;
+    /* Dourado WeGen - Accent */
+    --accent: 45 52% 54%;
+    --accent-foreground: 150 40% 10%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -38,65 +38,65 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Success - Teal Green */
-    --success: 160 60% 40%;
+    /* Success - Verde WeGen */
+    --success: 150 45% 35%;
     --success-foreground: 0 0% 100%;
 
-    --border: 195 25% 88%;
-    --input: 195 25% 88%;
-    --ring: 195 50% 25%;
+    --border: 150 20% 88%;
+    --input: 150 20% 88%;
+    --ring: 150 40% 17%;
 
     --radius: 0.625rem;
 
-    /* Sidebar - Azul Petróleo Escuro */
-    --sidebar-background: 195 55% 18%;
+    /* Sidebar - Verde Escuro WeGen */
+    --sidebar-background: 150 40% 17%;
     --sidebar-foreground: 45 30% 95%;
-    --sidebar-primary: 45 85% 50%;
-    --sidebar-primary-foreground: 195 50% 10%;
-    --sidebar-accent: 195 50% 25%;
+    --sidebar-primary: 45 52% 54%;
+    --sidebar-primary-foreground: 150 40% 10%;
+    --sidebar-accent: 150 35% 25%;
     --sidebar-accent-foreground: 45 30% 95%;
-    --sidebar-border: 195 45% 28%;
-    --sidebar-ring: 45 85% 50%;
+    --sidebar-border: 150 35% 25%;
+    --sidebar-ring: 45 52% 54%;
 
     /* Custom Energy Dashboard Variables */
-    --energy-positive: 160 60% 40%;
+    --energy-positive: 150 45% 35%;
     --energy-negative: 0 72% 51%;
-    --energy-neutral: 195 20% 45%;
-    --energy-highlight: 45 85% 50%;
+    --energy-neutral: 150 15% 45%;
+    --energy-highlight: 45 52% 54%;
     
     /* Chart Colors */
-    --chart-original: 195 50% 35%;
-    --chart-optimized: 45 85% 50%;
-    --chart-generation: 45 90% 45%;
-    --chart-consumption: 195 45% 45%;
+    --chart-original: 150 40% 30%;
+    --chart-optimized: 45 52% 54%;
+    --chart-generation: 45 60% 50%;
+    --chart-consumption: 150 35% 40%;
     
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(195, 50%, 20%), hsl(195, 50%, 30%));
-    --gradient-accent: linear-gradient(135deg, hsl(45, 85%, 45%), hsl(45, 85%, 55%));
-    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(195, 20%, 97%));
+    --gradient-primary: linear-gradient(135deg, hsl(150, 40%, 15%), hsl(150, 40%, 22%));
+    --gradient-accent: linear-gradient(135deg, hsl(45, 52%, 50%), hsl(45, 52%, 60%));
+    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%), hsl(150, 15%, 97%));
   }
 
   .dark {
-    --background: 195 50% 8%;
+    --background: 150 40% 8%;
     --foreground: 45 30% 95%;
 
-    --card: 195 50% 12%;
+    --card: 150 40% 12%;
     --card-foreground: 45 30% 95%;
 
-    --popover: 195 50% 12%;
+    --popover: 150 40% 12%;
     --popover-foreground: 45 30% 95%;
 
-    --primary: 45 85% 50%;
-    --primary-foreground: 195 50% 10%;
+    --primary: 45 52% 54%;
+    --primary-foreground: 150 40% 10%;
 
-    --secondary: 195 45% 18%;
+    --secondary: 150 35% 18%;
     --secondary-foreground: 45 30% 95%;
 
-    --muted: 195 45% 15%;
-    --muted-foreground: 195 25% 60%;
+    --muted: 150 35% 15%;
+    --muted-foreground: 150 20% 60%;
 
-    --accent: 45 85% 50%;
-    --accent-foreground: 195 50% 10%;
+    --accent: 45 52% 54%;
+    --accent-foreground: 150 40% 10%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -104,21 +104,21 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 0%;
 
-    --success: 160 60% 45%;
+    --success: 150 45% 40%;
     --success-foreground: 0 0% 100%;
 
-    --border: 195 45% 22%;
-    --input: 195 45% 22%;
-    --ring: 45 85% 50%;
+    --border: 150 35% 22%;
+    --input: 150 35% 22%;
+    --ring: 45 52% 54%;
 
-    --sidebar-background: 195 55% 8%;
+    --sidebar-background: 150 40% 8%;
     --sidebar-foreground: 45 30% 95%;
-    --sidebar-primary: 45 85% 50%;
-    --sidebar-primary-foreground: 195 50% 10%;
-    --sidebar-accent: 195 50% 18%;
+    --sidebar-primary: 45 52% 54%;
+    --sidebar-primary-foreground: 150 40% 10%;
+    --sidebar-accent: 150 35% 18%;
     --sidebar-accent-foreground: 45 30% 95%;
-    --sidebar-border: 195 45% 20%;
-    --sidebar-ring: 45 85% 50%;
+    --sidebar-border: 150 35% 20%;
+    --sidebar-ring: 45 52% 54%;
   }
 }
 
