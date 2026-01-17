@@ -11,68 +11,19 @@ import { Button } from '@/components/ui/button';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { useExportPDF } from '@/hooks/useExportPDF';
 import { formatCurrency, formatNumber, formatPercent } from '@/data/mockData';
-import { calcularKPIsMensais } from '@/lib/calculations';
-import { FaturaMensal, GeracaoMensal, AssinaturaMensal } from '@/types/energy';
 import { 
   DollarSign, TrendingUp, Zap, Activity, Sun, Battery, Plug, 
   Receipt, TrendingDown, AlertTriangle, FileText, Percent, AlertCircle,
   Download, Loader2
 } from 'lucide-react';
 
-// Helper functions
-function convertFatura(f: any): FaturaMensal {
-  return {
-    id: f.id,
-    ucId: f.uc_id,
-    mesRef: f.mes_ref,
-    consumoTotalKwh: Number(f.consumo_total_kwh),
-    pontaKwh: Number(f.ponta_kwh),
-    foraPontaKwh: Number(f.fora_ponta_kwh),
-    demandaContratadaKw: Number(f.demanda_contratada_kw),
-    demandaMedidaKw: Number(f.demanda_medida_kw),
-    valorTotal: Number(f.valor_total),
-    valorTe: Number(f.valor_te),
-    valorTusd: Number(f.valor_tusd),
-    bandeiras: f.bandeiras as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
-    multaDemanda: Number(f.multa_demanda),
-    multaReativo: Number(f.multa_reativo),
-    outrosEncargos: Number(f.outros_encargos),
-  };
-}
-
-function convertGeracao(g: any): GeracaoMensal {
-  return {
-    id: g.id,
-    ucId: g.uc_id,
-    mesRef: g.mes_ref,
-    geracaoTotalKwh: Number(g.geracao_total_kwh),
-    autoconsumoKwh: Number(g.autoconsumo_kwh),
-    injecaoKwh: Number(g.injecao_kwh),
-    compensacaoKwh: Number(g.compensacao_kwh),
-    disponibilidadePercent: Number(g.disponibilidade_percent),
-    perdasEstimadasKwh: Number(g.perdas_estimadas_kwh),
-  };
-}
-
-function convertAssinatura(a: any): AssinaturaMensal {
-  return {
-    id: a.id,
-    ucId: a.uc_id,
-    mesRef: a.mes_ref,
-    ucRemota: a.uc_remota,
-    energiaContratadaKwh: Number(a.energia_contratada_kwh),
-    energiaAlocadaKwh: Number(a.energia_alocada_kwh),
-    valorAssinatura: Number(a.valor_assinatura),
-    economiaPrometidaPercent: Number(a.economia_prometida_percent),
-  };
-}
-
 export default function ExecutiveDashboard() {
-  const { kpis, faturas, geracoes, assinaturas, mesAtual, isLoading } = useEnergy();
+  const { kpis, faturas, mesAtual, isLoading } = useEnergy();
   const { exportToPDF, isExporting } = useExportPDF();
 
   // Format month for display
   const mesFormatado = (() => {
+    if (!mesAtual) return '';
     const [year, month] = mesAtual.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1);
     return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -86,18 +37,19 @@ export default function ExecutiveDashboard() {
     });
   };
 
-  // Current month data
+  // Current month data - usa apenas faturas
   const faturaMesAtualDB = faturas.find(f => f.mes_ref === mesAtual);
-  const geracaoMesAtualDB = geracoes.find(g => g.mes_ref === mesAtual);
-  const assinaturaMesAtualDB = assinaturas.find(a => a.mes_ref === mesAtual);
 
-  const faturaMesAtual = faturaMesAtualDB ? convertFatura(faturaMesAtualDB) : null;
-  const geracaoMesAtual = geracaoMesAtualDB ? convertGeracao(geracaoMesAtualDB) : null;
-  const assinaturaMesAtual = assinaturaMesAtualDB ? convertAssinatura(assinaturaMesAtualDB) : null;
-
-  const kpisMensais = faturaMesAtual && geracaoMesAtual && assinaturaMesAtual
-    ? calcularKPIsMensais(faturaMesAtual, geracaoMesAtual, assinaturaMesAtual)
-    : null;
+  // Valores da fatura atual (pré-calculados pelo wizard)
+  const valorTotal = Number(faturaMesAtualDB?.valor_total) || 0;
+  const consumoTotal = Number(faturaMesAtualDB?.consumo_total_kwh) || 0;
+  const pontaKwh = Number(faturaMesAtualDB?.ponta_kwh) || 0;
+  const foraPontaKwh = Number(faturaMesAtualDB?.fora_ponta_kwh) || 0;
+  const economiaLiquida = Number(faturaMesAtualDB?.economia_liquida_rs) || 0;
+  const custoAssinatura = Number(faturaMesAtualDB?.custo_assinatura_rs) || 0;
+  const autoconsumoRs = Number(faturaMesAtualDB?.autoconsumo_rs) || 0;
+  const creditoRemotoRs = Number(faturaMesAtualDB?.credito_remoto_compensado_rs) || 0;
+  const totalCompensado = autoconsumoRs + creditoRemotoRs;
 
   // Trend calculation
   const faturasOrdenadas = [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
@@ -107,89 +59,70 @@ export default function ExecutiveDashboard() {
     : null;
 
   const variacao = faturaMesAnteriorDB 
-    ? ((faturaMesAtual?.valorTotal || 0) - Number(faturaMesAnteriorDB.valor_total)) / Number(faturaMesAnteriorDB.valor_total) * 100
+    ? ((valorTotal - Number(faturaMesAnteriorDB.valor_total)) / Number(faturaMesAnteriorDB.valor_total) * 100)
     : 0;
 
-  // Solar calculations
-  const geracoesOrdenadas = [...geracoes].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
-  const indexGeracaoAtual = geracoesOrdenadas.findIndex(g => g.mes_ref === mesAtual);
-  const geracoesAnteriores = geracoesOrdenadas.slice(indexGeracaoAtual + 1, indexGeracaoAtual + 4);
-  const mediaEsperada = geracoesAnteriores.length > 0
-    ? geracoesAnteriores.reduce((acc, g) => acc + Number(g.geracao_total_kwh), 0) / geracoesAnteriores.length
-    : geracaoMesAtual?.geracaoTotalKwh || 0;
+  // Custo por kWh
+  const custoKwhBase = consumoTotal > 0 ? valorTotal / consumoTotal : 0;
 
-  const performancePercent = geracaoMesAtual && mediaEsperada > 0
-    ? ((geracaoMesAtual.geracaoTotalKwh / mediaEsperada) * 100)
-    : 100;
+  // Solar - dados da fatura
+  const geracaoLocalKwh = Number(faturaMesAtualDB?.geracao_local_total_kwh) || 0;
+  const autoconsumoTotalKwh = Number(faturaMesAtualDB?.autoconsumo_total_kwh) || 0;
+  const injecaoTotalKwh = Number(faturaMesAtualDB?.injecao_total_kwh) || 0;
+  const temGeracaoLocal = geracaoLocalKwh > 0;
 
-  // Chart data
-  const generationData = geracoes.slice(0, 6).map((geracao, index, arr) => {
-    const previousGeracoes = arr.slice(index + 1, index + 4);
-    const esperado = previousGeracoes.length > 0
-      ? previousGeracoes.reduce((acc, g) => acc + Number(g.geracao_total_kwh), 0) / previousGeracoes.length
-      : Number(geracao.geracao_total_kwh);
-    return {
-      mesRef: geracao.mes_ref,
-      geracao: Number(geracao.geracao_total_kwh),
-      esperado: esperado,
-    };
-  }).reverse();
+  // Créditos remotos - dados da fatura
+  const creditoRemotoKwh = Number(faturaMesAtualDB?.credito_remoto_kwh) || 0;
+  const temCreditoRemoto = creditoRemotoKwh > 0 || custoAssinatura > 0;
 
-  const comparisonData = faturas.slice(0, 6).map(fatura => {
-    const geracao = geracoes.find(g => g.mes_ref === fatura.mes_ref);
-    const assinatura = assinaturas.find(a => a.mes_ref === fatura.mes_ref);
-    const kpisCalc = geracao && assinatura
-      ? calcularKPIsMensais(convertFatura(fatura), convertGeracao(geracao), convertAssinatura(assinatura))
-      : null;
-    return {
-      mesRef: fatura.mes_ref,
-      original: Number(fatura.valor_total) + Number(assinatura?.valor_assinatura || 0),
-      otimizado: (Number(fatura.valor_total) + Number(assinatura?.valor_assinatura || 0)) - (kpisCalc?.economiaMensalRs || 0),
-    };
-  }).reverse();
-
-  const subscriptionData = assinaturas.slice(0, 6).map(assinatura => ({
-    mesRef: assinatura.mes_ref,
-    contratada: Number(assinatura.energia_contratada_kwh),
-    alocada: Number(assinatura.energia_alocada_kwh),
-  })).reverse();
-
-  // Savings trend data
-  const savingsTrendData = faturas.slice(0, 6).map((fatura, index, arr) => {
-    const geracao = geracoes.find(g => g.mes_ref === fatura.mes_ref);
-    const assinatura = assinaturas.find(a => a.mes_ref === fatura.mes_ref);
-    const kpisCalc = geracao && assinatura
-      ? calcularKPIsMensais(convertFatura(fatura), convertGeracao(geracao), convertAssinatura(assinatura))
-      : null;
+  // Chart data - Savings trend
+  const savingsTrendData = faturasOrdenadas.slice(0, 6).map((fatura, index, arr) => {
+    const economiaDoMes = Number(fatura.economia_liquida_rs) || 0;
     
     let economiaAcumulada = 0;
     for (let i = arr.length - 1; i >= index; i--) {
-      const f = arr[i];
-      const g = geracoes.find(gf => gf.mes_ref === f.mes_ref);
-      const a = assinaturas.find(af => af.mes_ref === f.mes_ref);
-      if (g && a) {
-        const kpis = calcularKPIsMensais(convertFatura(f), convertGeracao(g), convertAssinatura(a));
-        economiaAcumulada += kpis.economiaMensalRs;
-      }
+      economiaAcumulada += Number(arr[i].economia_liquida_rs) || 0;
     }
 
     return {
       mesRef: fatura.mes_ref,
-      economiaMensal: kpisCalc?.economiaMensalRs || 0,
+      economiaMensal: economiaDoMes,
       economiaAcumulada,
     };
   }).reverse();
 
-  // Subscription calculations
-  const utilizacao = assinaturaMesAtual
-    ? (assinaturaMesAtual.energiaAlocadaKwh / assinaturaMesAtual.energiaContratadaKwh) * 100
-    : 0;
+  // Chart data - Comparison
+  const comparisonData = faturasOrdenadas.slice(0, 6).map(fatura => {
+    const valorOriginal = Number(fatura.valor_total) + Number(fatura.custo_assinatura_rs || 0);
+    const economia = Number(fatura.economia_liquida_rs) || 0;
+    return {
+      mesRef: fatura.mes_ref,
+      original: valorOriginal,
+      otimizado: valorOriginal - economia,
+    };
+  }).reverse();
 
-  const economiaRealPercent = kpisMensais 
-    ? (kpisMensais.economiaMensalRs / (faturaMesAtual?.valorTotal || 1)) * 100
-    : 0;
-  const economiaPrometida = assinaturaMesAtual?.economiaPrometidaPercent || 0;
-  const diferencaEconomia = economiaRealPercent - economiaPrometida;
+  // Chart data - Generation (usa dados de geração local da fatura)
+  const generationData = faturasOrdenadas.slice(0, 6).map((fatura, index, arr) => {
+    const geracao = Number(fatura.geracao_local_total_kwh) || 0;
+    // Calcular esperado baseado nos meses anteriores
+    const previousFaturas = arr.slice(index + 1, index + 4);
+    const esperado = previousFaturas.length > 0
+      ? previousFaturas.reduce((acc, f) => acc + (Number(f.geracao_local_total_kwh) || 0), 0) / previousFaturas.length
+      : geracao;
+    return {
+      mesRef: fatura.mes_ref,
+      geracao,
+      esperado,
+    };
+  }).reverse();
+
+  // Chart data - Subscription (usa dados de crédito remoto da fatura)
+  const subscriptionData = faturasOrdenadas.slice(0, 6).map(fatura => ({
+    mesRef: fatura.mes_ref,
+    contratada: Number(fatura.credito_assinatura_kwh) || 0,
+    alocada: Number(fatura.credito_remoto_kwh) || 0,
+  })).reverse();
 
   // Grupo A values
   const multaDemanda = Number(faturaMesAtualDB?.multa_demanda || 0);
@@ -197,16 +130,21 @@ export default function ExecutiveDashboard() {
   const multaUferPonta = Number(faturaMesAtualDB?.multa_ufer_ponta || 0);
   const multaUferForaPonta = Number(faturaMesAtualDB?.multa_ufer_fora_ponta || 0);
   const totalMultas = multaDemanda + multaUltrapassagem + multaUferPonta + multaUferForaPonta;
+  const demandaContratadaKw = Number(faturaMesAtualDB?.demanda_contratada_kw || 0);
+  const demandaMedidaKw = Number(faturaMesAtualDB?.demanda_medida_kw || 0);
   const demandaContratadaRs = Number(faturaMesAtualDB?.demanda_contratada_rs || 0);
   const demandaGeracaoRs = Number(faturaMesAtualDB?.demanda_geracao_rs || 0);
   const iluminacaoPublica = Number(faturaMesAtualDB?.iluminacao_publica || 0);
+  const valorTe = Number(faturaMesAtualDB?.valor_te || 0);
+  const valorTusd = Number(faturaMesAtualDB?.valor_tusd || 0);
+  const outrosEncargos = Number(faturaMesAtualDB?.outros_encargos || 0);
+  const bandeira = faturaMesAtualDB?.bandeiras || '-';
 
   // Energy distribution for solar
-  const energyDistribution = geracaoMesAtual ? [
-    { name: 'Autoconsumo', value: geracaoMesAtual.autoconsumoKwh, color: 'hsl(var(--chart-optimized))' },
-    { name: 'Injeção na Rede', value: geracaoMesAtual.injecaoKwh, color: 'hsl(var(--chart-original))' },
-    { name: 'Perdas', value: geracaoMesAtual.perdasEstimadasKwh, color: 'hsl(var(--muted-foreground))' },
-  ] : [];
+  const energyDistribution = temGeracaoLocal ? [
+    { name: 'Autoconsumo', value: autoconsumoTotalKwh, color: 'hsl(var(--chart-optimized))' },
+    { name: 'Injeção na Rede', value: injecaoTotalKwh, color: 'hsl(var(--chart-original))' },
+  ].filter(item => item.value > 0) : [];
 
   if (isLoading) {
     return (
@@ -291,7 +229,7 @@ export default function ExecutiveDashboard() {
               value={`R$ ${kpis.custoKwhAntes.toFixed(3)}`}
               subtitle={`Após otimização: R$ ${kpis.custoKwhDepois.toFixed(3)}`}
               trend={{
-                value: -((kpis.custoKwhAntes - kpis.custoKwhDepois) / kpis.custoKwhAntes * 100),
+                value: -((kpis.custoKwhAntes - kpis.custoKwhDepois) / (kpis.custoKwhAntes || 1) * 100),
                 label: 'redução',
                 isPositive: true,
               }}
@@ -299,7 +237,7 @@ export default function ExecutiveDashboard() {
             />
             <KPICard
               title="Fatura do Mês"
-              value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+              value={formatCurrency(valorTotal)}
               subtitle="Valor total da distribuidora"
               trend={faturaMesAnteriorDB ? {
                 value: variacao,
@@ -352,14 +290,14 @@ export default function ExecutiveDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <KPICard
               title="Valor da Fatura"
-              value={formatCurrency(faturaMesAtual?.valorTotal || 0)}
-              subtitle={`+ Assinatura: ${formatCurrency(assinaturaMesAtual?.valorAssinatura || 0)}`}
+              value={formatCurrency(valorTotal)}
+              subtitle={custoAssinatura > 0 ? `+ Assinatura: ${formatCurrency(custoAssinatura)}` : undefined}
               icon={<Receipt className="h-6 w-6" />}
             />
             <KPICard
-              title="Economia Mensal"
-              value={formatCurrency(kpisMensais?.economiaMensalRs || 0)}
-              subtitle={`${kpisMensais?.economiaMensalPercent.toFixed(1) || 0}% de economia`}
+              title="Economia Líquida"
+              value={formatCurrency(economiaLiquida)}
+              subtitle={`${consumoTotal > 0 ? ((economiaLiquida / valorTotal) * 100).toFixed(1) : 0}% de economia`}
               icon={<TrendingDown className="h-6 w-6" />}
               variant="success"
             />
@@ -372,8 +310,8 @@ export default function ExecutiveDashboard() {
             />
             <KPICard
               title="Consumo Total"
-              value={`${formatNumber(faturaMesAtual?.consumoTotalKwh || 0)} kWh`}
-              subtitle={`Ponta: ${formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh`}
+              value={`${formatNumber(consumoTotal)} kWh`}
+              subtitle={`Ponta: ${formatNumber(pontaKwh)} kWh`}
               icon={<Zap className="h-6 w-6" />}
             />
           </div>
@@ -381,57 +319,58 @@ export default function ExecutiveDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <DonutChart
               data={[
-                { name: 'Energia (TE + TUSD)', value: (faturaMesAtual?.valorTe || 0) + (faturaMesAtual?.valorTusd || 0), color: 'hsl(var(--primary))' },
+                { name: 'Energia (TE + TUSD)', value: valorTe + valorTusd, color: 'hsl(var(--primary))' },
                 { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
                 { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
-                { name: 'Encargos', value: iluminacaoPublica + (faturaMesAtual?.outrosEncargos || 0), color: 'hsl(var(--muted-foreground))' },
+                { name: 'Encargos', value: iluminacaoPublica + outrosEncargos, color: 'hsl(var(--muted-foreground))' },
               ].filter(item => item.value > 0)}
               title="Composição da Fatura"
               centerLabel="Total"
-              centerValue={formatCurrency(faturaMesAtual?.valorTotal || 0)}
+              centerValue={formatCurrency(valorTotal)}
             />
 
-            {/* Detalhes Energia e Demanda */}
+            {/* Detalhes Energia */}
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="font-semibold text-foreground mb-4">Energia</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Consumo Ponta</span>
-                  <span className="font-medium">{formatNumber(faturaMesAtual?.pontaKwh || 0)} kWh</span>
+                  <span className="font-medium">{formatNumber(pontaKwh)} kWh</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Consumo Fora Ponta</span>
-                  <span className="font-medium">{formatNumber(faturaMesAtual?.foraPontaKwh || 0)} kWh</span>
+                  <span className="font-medium">{formatNumber(foraPontaKwh)} kWh</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Bandeira Tarifária</span>
                   <span className={`font-medium capitalize ${
-                    faturaMesAtual?.bandeiras === 'verde' ? 'text-success' :
-                    faturaMesAtual?.bandeiras === 'amarela' ? 'text-warning' : 'text-destructive'
-                  }`}>{faturaMesAtual?.bandeiras || '-'}</span>
+                    bandeira === 'verde' ? 'text-success' :
+                    bandeira === 'amarela' ? 'text-warning' : 'text-destructive'
+                  }`}>{bandeira}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 bg-accent/10 -mx-4 px-4 rounded-lg mt-2">
                   <span className="font-semibold">Custo por kWh</span>
-                  <span className="font-bold">R$ {kpisMensais?.custoKwhBase.toFixed(4) || '0.0000'}</span>
+                  <span className="font-bold">R$ {custoKwhBase.toFixed(4)}</span>
                 </div>
               </div>
             </div>
 
+            {/* Detalhes Demanda */}
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="font-semibold text-foreground mb-4">Demanda</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Demanda Contratada</span>
-                  <span className="font-medium">{faturaMesAtual?.demandaContratadaKw || 0} kW</span>
+                  <span className="font-medium">{demandaContratadaKw} kW</span>
                 </div>
                 <div className={`flex justify-between items-center py-2 border-b ${
-                  (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0)
+                  demandaMedidaKw > demandaContratadaKw
                     ? 'border-destructive/30 bg-destructive/5 -mx-4 px-4' : 'border-border'
                 }`}>
                   <span className="text-muted-foreground">Demanda Medida</span>
                   <span className={`font-medium ${
-                    (faturaMesAtual?.demandaMedidaKw || 0) > (faturaMesAtual?.demandaContratadaKw || 0) ? 'text-destructive' : ''
-                  }`}>{faturaMesAtual?.demandaMedidaKw || 0} kW</span>
+                    demandaMedidaKw > demandaContratadaKw ? 'text-destructive' : ''
+                  }`}>{demandaMedidaKw} kW</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Multa Demanda</span>
@@ -450,45 +389,38 @@ export default function ExecutiveDashboard() {
           </div>
         </section>
 
-        {/* ===== SEÇÃO 5: Solar ===== */}
-        {geracaoMesAtual && (
+        {/* ===== SEÇÃO 5: Solar (se houver geração local) ===== */}
+        {temGeracaoLocal && (
           <section>
             <h3 className="section-title flex items-center gap-2">
               <Sun className="h-5 w-5 text-accent" />
-              Geração Solar
+              Geração Solar Local
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               <KPICard
                 title="Geração Total"
-                value={`${formatNumber(geracaoMesAtual.geracaoTotalKwh)} kWh`}
-                subtitle={`Esperado: ${formatNumber(mediaEsperada)} kWh`}
-                trend={{
-                  value: performancePercent - 100,
-                  label: 'vs esperado',
-                  isPositive: performancePercent >= 100,
-                }}
+                value={`${formatNumber(geracaoLocalKwh)} kWh`}
                 icon={<Sun className="h-6 w-6" />}
-                variant={performancePercent >= 90 ? 'success' : 'warning'}
+                variant="success"
               />
               <KPICard
                 title="Autoconsumo"
-                value={`${formatNumber(geracaoMesAtual.autoconsumoKwh)} kWh`}
-                subtitle={`${((geracaoMesAtual.autoconsumoKwh) / (geracaoMesAtual.geracaoTotalKwh || 1) * 100).toFixed(1)}% da geração`}
+                value={`${formatNumber(autoconsumoTotalKwh)} kWh`}
+                subtitle={`${geracaoLocalKwh > 0 ? ((autoconsumoTotalKwh / geracaoLocalKwh) * 100).toFixed(1) : 0}% da geração`}
                 icon={<Battery className="h-6 w-6" />}
               />
               <KPICard
                 title="Injeção na Rede"
-                value={`${formatNumber(geracaoMesAtual.injecaoKwh)} kWh`}
-                subtitle={`Compensado: ${formatNumber(geracaoMesAtual.compensacaoKwh)} kWh`}
+                value={`${formatNumber(injecaoTotalKwh)} kWh`}
                 icon={<Plug className="h-6 w-6" />}
               />
               <KPICard
-                title="Disponibilidade"
-                value={formatPercent(geracaoMesAtual.disponibilidadePercent)}
-                subtitle="Performance do sistema"
-                icon={<Activity className="h-6 w-6" />}
-                variant={geracaoMesAtual.disponibilidadePercent >= 95 ? 'success' : 'warning'}
+                title="Economia Autoconsumo"
+                value={formatCurrency(autoconsumoRs)}
+                subtitle="Valor evitado"
+                icon={<DollarSign className="h-6 w-6" />}
+                variant="success"
               />
             </div>
 
@@ -500,52 +432,45 @@ export default function ExecutiveDashboard() {
                 data={energyDistribution}
                 title="Distribuição da Energia"
                 centerLabel="Total"
-                centerValue={`${formatNumber(geracaoMesAtual.geracaoTotalKwh / 1000, 1)}k`}
+                centerValue={`${formatNumber(geracaoLocalKwh / 1000, 1)}k`}
               />
             </div>
           </section>
         )}
 
-        {/* ===== SEÇÃO 6: Assinatura ===== */}
-        {assinaturaMesAtual && (
+        {/* ===== SEÇÃO 6: Créditos Remotos / Assinatura ===== */}
+        {temCreditoRemoto && (
           <section>
             <h3 className="section-title flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              Assinatura de Energia
+              Créditos Remotos / Assinatura
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               <KPICard
-                title="Valor da Assinatura"
-                value={formatCurrency(assinaturaMesAtual.valorAssinatura)}
-                subtitle={`UC Remota: ${assinaturaMesAtual.ucRemota}`}
+                title="Créditos Recebidos"
+                value={`${formatNumber(creditoRemotoKwh)} kWh`}
+                icon={<Plug className="h-6 w-6" />}
+              />
+              <KPICard
+                title="Valor Compensado"
+                value={formatCurrency(creditoRemotoRs)}
+                subtitle="Cost Avoidance"
+                icon={<TrendingDown className="h-6 w-6" />}
+                variant="success"
+              />
+              <KPICard
+                title="Custo da Assinatura"
+                value={formatCurrency(custoAssinatura)}
+                subtitle="Fatura da usina remota"
                 icon={<FileText className="h-6 w-6" />}
               />
               <KPICard
-                title="Utilização"
-                value={formatPercent(utilizacao)}
-                subtitle={`${formatNumber(assinaturaMesAtual.energiaAlocadaKwh)} de ${formatNumber(assinaturaMesAtual.energiaContratadaKwh)} kWh`}
-                icon={<Percent className="h-6 w-6" />}
-                variant={utilizacao >= 90 ? 'success' : utilizacao >= 70 ? 'warning' : 'danger'}
-              />
-              <KPICard
-                title="Economia Real"
-                value={formatPercent(economiaRealPercent)}
-                subtitle={`Prometida: ${formatPercent(economiaPrometida)}`}
-                trend={{
-                  value: diferencaEconomia,
-                  label: 'vs prometido',
-                  isPositive: diferencaEconomia >= 0,
-                }}
-                icon={<TrendingUp className="h-6 w-6" />}
-                variant={diferencaEconomia >= 0 ? 'success' : 'warning'}
-              />
-              <KPICard
-                title="Perda de Assinatura"
-                value={formatCurrency(kpisMensais?.custoPerdaAssinatura || 0)}
-                subtitle={`${formatNumber(kpisMensais?.perdaAssinatura || 0)} kWh não utilizados`}
-                icon={<AlertCircle className="h-6 w-6" />}
-                variant={(kpisMensais?.perdaAssinatura || 0) > 0 ? 'warning' : 'success'}
+                title="Economia Líquida"
+                value={formatCurrency(economiaLiquida)}
+                subtitle="Compensado - Custo"
+                icon={<DollarSign className="h-6 w-6" />}
+                variant={economiaLiquida > 0 ? 'success' : 'warning'}
               />
             </div>
 
@@ -553,33 +478,33 @@ export default function ExecutiveDashboard() {
               <SubscriptionChart data={subscriptionData} title="Energia Contratada vs Alocada" />
               
               <div className="bg-card rounded-xl border border-border p-6">
-                <h4 className="font-semibold text-foreground mb-4">Análise da Assinatura</h4>
+                <h4 className="font-semibold text-foreground mb-4">Análise da Compensação</h4>
                 <div className="space-y-4">
-                  {diferencaEconomia >= 0 ? (
+                  {economiaLiquida >= 0 ? (
                     <div className="p-4 bg-success/10 rounded-lg border border-success/20">
-                      <p className="font-medium text-success">✓ Economia acima do prometido</p>
+                      <p className="font-medium text-success">✓ Economia positiva</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Você está economizando {formatPercent(Math.abs(diferencaEconomia))} a mais do que o previsto.
+                        Você está economizando {formatCurrency(economiaLiquida)} com a compensação de créditos.
                       </p>
                     </div>
                   ) : (
                     <div className="p-4 bg-warning/10 rounded-lg border border-warning/20">
-                      <p className="font-medium text-warning">⚠ Economia abaixo do prometido</p>
+                      <p className="font-medium text-warning">⚠ Custo maior que benefício</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        A economia está {formatPercent(Math.abs(diferencaEconomia))} abaixo do previsto.
+                        O custo da assinatura está {formatCurrency(Math.abs(economiaLiquida))} acima do valor compensado.
                       </p>
                     </div>
                   )}
 
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <div className="text-center p-3 bg-muted rounded-lg">
-                      <p className="text-xs text-muted-foreground">Energia Contratada</p>
-                      <p className="font-bold text-lg">{formatNumber(assinaturaMesAtual.energiaContratadaKwh)} kWh</p>
+                      <p className="text-xs text-muted-foreground">Total Compensado</p>
+                      <p className="font-bold text-lg">{formatCurrency(totalCompensado)}</p>
                     </div>
                     <div className="text-center p-3 bg-muted rounded-lg">
-                      <p className="text-xs text-muted-foreground">Custo por kWh</p>
+                      <p className="text-xs text-muted-foreground">Custo por kWh Remoto</p>
                       <p className="font-bold text-lg">
-                        R$ {(assinaturaMesAtual.valorAssinatura / (assinaturaMesAtual.energiaContratadaKwh || 1)).toFixed(4)}
+                        R$ {(creditoRemotoKwh > 0 ? custoAssinatura / creditoRemotoKwh : 0).toFixed(4)}
                       </p>
                     </div>
                   </div>
