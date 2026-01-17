@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function ExecutiveDashboard() {
-  const { kpis, faturas, mesAtual, isLoading } = useEnergy();
+  const { kpis, faturas, mesAtual, isLoading, cliente, unidadeConsumidora } = useEnergy();
   const { exportToPDF, isExporting } = useExportPDF();
 
   // Format month for display
@@ -34,6 +34,18 @@ export default function ExecutiveDashboard() {
       companyName: 'Evolight Energia',
       reportTitle: 'Relatório Executivo de Energia',
       mesRef: mesFormatado,
+      // Dados do cliente
+      clienteNome: cliente?.nome || 'Cliente não informado',
+      clienteCNPJ: cliente?.cnpj || '-',
+      clienteEmail: cliente?.email || '-',
+      clienteTelefone: cliente?.telefone || '-',
+      // Dados da UC
+      ucNumero: unidadeConsumidora?.numero || '-',
+      ucEndereco: unidadeConsumidora?.endereco || '-',
+      ucDistribuidora: unidadeConsumidora?.distribuidora || unidadeConsumidora?.concessionaria || '-',
+      ucGrupoTarifario: unidadeConsumidora?.grupo_tarifario || '-',
+      ucModalidade: unidadeConsumidora?.modalidade_tarifaria || '-',
+      ucDemandaContratada: unidadeConsumidora?.demanda_contratada || 0,
     });
   };
 
