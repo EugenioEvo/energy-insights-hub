@@ -33,8 +33,9 @@ const tipoConfig = {
 };
 
 export function AlertCard({ alerta }: AlertCardProps) {
-  const severity = severityConfig[alerta.severidade];
-  const tipo = tipoConfig[alerta.tipo];
+  // Fallback para valores inválidos vindos do banco de dados
+  const severity = severityConfig[alerta.severidade] || severityConfig.info;
+  const tipo = tipoConfig[alerta.tipo] || { icon: Info, label: 'Alerta' };
   const SeverityIcon = severity.icon;
 
   return (

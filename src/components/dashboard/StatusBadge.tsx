@@ -38,7 +38,8 @@ const iconSizes = {
 };
 
 export function StatusBadge({ status, size = 'md', showIcon = true }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  // Fallback para valores inválidos
+  const config = statusConfig[status] || statusConfig.OK;
   const Icon = config.icon;
 
   return (
