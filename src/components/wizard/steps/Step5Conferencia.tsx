@@ -173,12 +173,22 @@ export function Step5Conferencia() {
     const creditoRemotoPonta = data.credito_remoto_ponta_kwh || 0;
     const creditoRemotoFP = data.credito_remoto_fp_kwh || 0;
     const creditoRemotoHR = data.credito_remoto_hr_kwh || 0;
-    const creditoRemotoRs = data.credito_remoto_compensado_rs || 0;
     
     // Créditos Remotos R$ por posto (Cost Avoidance)
     const creditoRemotoPontaRs = data.credito_remoto_ponta_rs || 0;
     const creditoRemotoFPRs = data.credito_remoto_fp_rs || 0;
     const creditoRemotoHRRs = data.credito_remoto_hr_rs || 0;
+    
+    // CORRIGIDO: Total R$ deve ser a soma dos postos quando há detalhamento
+    const temDetalhePosto = isGrupoA && (creditoRemotoPonta > 0 || creditoRemotoFP > 0 || creditoRemotoHR > 0);
+    const creditoRemotoRs = temDetalhePosto 
+      ? (creditoRemotoPontaRs + creditoRemotoFPRs + creditoRemotoHRRs)
+      : (data.credito_remoto_compensado_rs || 0);
+    
+    // CORRIGIDO: Autoconsumo R$ também deve ser a soma dos postos quando há detalhamento
+    const autoconsumoRsCorrigido = isGrupoA && (data.autoconsumo_ponta_kwh || data.autoconsumo_fp_kwh || data.autoconsumo_hr_kwh)
+      ? (autoconsumoPontaRs + autoconsumoFPRs + autoconsumoHRRs)
+      : autoconsumoRs;
 
     // Valores financeiros calculados no Step 4
     const custoAssinatura = data.custo_assinatura_rs || 0;
@@ -191,7 +201,7 @@ export function Step5Conferencia() {
       temGeracaoLocal: data.tem_geracao_local || false,
       temUsinaRemota: data.tem_usina_remota || false,
       autoconsumoTotal,
-      autoconsumoRs,
+      autoconsumoRs: autoconsumoRsCorrigido,
       autoconsumoPontaRs,
       autoconsumoFPRs,
       autoconsumoHRRs,
