@@ -1,42 +1,65 @@
 /**
  * PASSO 5 — CONFERÊNCIA E FECHAMENTO
- * Exibe cálculos automáticos, balanço energético e alertas
+ * Consolida todos os dados dos passos anteriores (1-4)
+ * Exibe resumo financeiro, balanço energético e alertas
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWizard, FaturaWizardData } from '../WizardContext';
 import { 
-  ClipboardCheck, AlertTriangle, CheckCircle2, XCircle, Info, ChevronDown, ChevronUp, 
-  Zap, Sun, ArrowRightLeft, Wallet, Receipt, Building2, Factory, TrendingDown, Calculator, Shield, Loader2
+  ClipboardCheck, AlertTriangle, CheckCircle2, Info, ChevronDown, ChevronUp, 
+  Zap, Sun, ArrowRightLeft, Wallet, Receipt, Building2, Factory, TrendingDown, 
+  Calculator, Shield, FileText, Calendar, MapPin
 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { calcularBalancoEnergetico, formatarKwh, formatarReais } from '@/lib/energyBalanceCalculations';
 
-type AlertaWizard = { tipo: string; mensagem: string; severidade: 'info' | 'warning' | 'error' };
+// ============ TIPOS ============
+type AlertaWizard = { 
+  tipo: string; 
+  mensagem: string; 
+  severidade: 'info' | 'warning' | 'error';
+};
 
-function calcularAlertas(data: FaturaWizardData, consumoNaoCompensado: number): AlertaWizard[] {
+// ============ FUNÇÕES UTILITÁRIAS ============
+const formatarKwh = (valor: number): string => {
+  if (!valor || isNaN(valor)) return '0';
+  return valor.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+};
+
+const formatarReais = (valor: number): string => {
+  if (!valor || isNaN(valor)) return 'R$ 0,00';
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+const formatarPercentual = (valor: number): string => {
+  if (!valor || isNaN(valor)) return '0%';
+  return `${valor.toFixed(1)}%`;
+};
+
+// ============ CÁLCULO DE ALERTAS ============
+function calcularAlertas(data: FaturaWizardData): AlertaWizard[] {
   const alertas: AlertaWizard[] = [];
 
-  // Alerta de demanda
+  // Alerta de ultrapassagem de demanda
   if (data.demanda_medida_kw > data.demanda_contratada_kw && data.demanda_contratada_kw > 0) {
-    const ultrapassagem = ((data.demanda_medida_kw - data.demanda_contratada_kw) / data.demanda_contratada_kw * 100).toFixed(1);
+    const ultrapassagem = ((data.demanda_medida_kw - data.demanda_contratada_kw) / data.demanda_contratada_kw * 100);
     alertas.push({
       tipo: 'demanda',
-      mensagem: `Ultrapassagem de demanda: ${data.demanda_ultrapassagem_kw?.toFixed(2) || 0} kW (${ultrapassagem}%). Revisar demanda contratada.`,
+      mensagem: `Ultrapassagem de demanda: ${data.demanda_ultrapassagem_kw?.toFixed(1) || (data.demanda_medida_kw - data.demanda_contratada_kw).toFixed(1)} kW (${ultrapassagem.toFixed(1)}%)`,
       severidade: 'error',
     });
   }
 
-  // Alerta de reativo
-  if (data.ufer_fp_rs > 0) {
+  // Alerta de energia reativa
+  if ((data.ufer_fp_rs || 0) > 0) {
     alertas.push({
       tipo: 'reativo',
-      mensagem: `UFER (Energia Reativa): R$ ${data.ufer_fp_rs.toFixed(2)}. Verificar correção de fator de potência.`,
+      mensagem: `Cobrança de energia reativa (UFER): ${formatarReais(data.ufer_fp_rs || 0)}`,
       severidade: 'warning',
     });
   }
@@ -46,17 +69,20 @@ function calcularAlertas(data: FaturaWizardData, consumoNaoCompensado: number): 
   if (creditosExpirar > 0) {
     alertas.push({
       tipo: 'creditos',
-      mensagem: `${creditosExpirar.toFixed(0)} kWh de créditos a expirar nos próximos 60 dias.`,
+      mensagem: `${formatarKwh(creditosExpirar)} kWh de créditos a expirar nos próximos 60 dias`,
       severidade: 'info',
     });
   }
 
   // Alerta de consumo não compensado alto
-  const consumoDaRede = data.consumo_total_kwh || 0;
-  if (consumoNaoCompensado > consumoDaRede * 0.3 && consumoDaRede > 0) {
+  const consumoTotal = data.consumo_total_kwh || 0;
+  const totalCreditos = (data.injecao_total_kwh || 0) + (data.credito_remoto_kwh || 0);
+  const naoCompensado = Math.max(0, consumoTotal - totalCreditos - (data.autoconsumo_total_kwh || 0));
+  
+  if (naoCompensado > consumoTotal * 0.3 && consumoTotal > 0) {
     alertas.push({
       tipo: 'compensacao',
-      mensagem: `${formatarKwh(consumoNaoCompensado)} kWh (${((consumoNaoCompensado / consumoDaRede) * 100).toFixed(0)}%) não compensado. Considerar aumentar assinatura.`,
+      mensagem: `${formatarKwh(naoCompensado)} kWh não compensado (${((naoCompensado / consumoTotal) * 100).toFixed(0)}% do consumo)`,
       severidade: 'warning',
     });
   }
@@ -71,7 +97,7 @@ function calcularRecomendacoes(alertas: AlertaWizard[]): string[] {
     recomendacoes.push('Revisar demanda contratada junto à concessionária');
   }
   if (alertas.some(a => a.tipo === 'reativo')) {
-    recomendacoes.push('Verificar necessidade de banco de capacitores');
+    recomendacoes.push('Verificar necessidade de banco de capacitores para correção de fator de potência');
   }
   if (alertas.some(a => a.tipo === 'creditos')) {
     recomendacoes.push('Otimizar consumo para aproveitar créditos antes do vencimento');
@@ -83,81 +109,161 @@ function calcularRecomendacoes(alertas: AlertaWizard[]): string[] {
   return recomendacoes;
 }
 
+// ============ COMPONENTE PRINCIPAL ============
 export function Step5Conferencia() {
-  const { data, updateData, setCanProceed, isGrupoA, calculosAuto, tarifa, tarifaLoading } = useWizard();
+  const { data, updateData, setCanProceed, isGrupoA } = useWizard();
   const [detalhesAberto, setDetalhesAberto] = useState(false);
-  
   const prevAlertasRef = useRef<string>('');
 
-  // Calcular balanço energético
-  const balanco = useMemo(() => calcularBalancoEnergetico(data, isGrupoA), [data, isGrupoA]);
+  // ========== DADOS DO PASSO 1 - CABEÇALHO ==========
+  const dadosCabecalho = useMemo(() => ({
+    ucNumero: data.uc_numero || '-',
+    concessionaria: data.concessionaria || '-',
+    grupoTarifario: data.grupo_tarifario || '-',
+    modalidade: data.modalidade || '-',
+    mesRef: data.mes_ref || '-',
+    vencimento: data.vencimento || '-',
+    diasFaturados: data.dias_faturados || 0,
+  }), [data]);
 
-  // Usar calculosAuto do contexto
-  const calculos = calculosAuto;
+  // ========== DADOS DO PASSO 2/3 - CONSUMO E DEMANDA ==========
+  const dadosConsumo = useMemo(() => {
+    const consumoTotal = data.consumo_total_kwh || 0;
+    const pontaKwh = data.consumo_ponta_kwh || 0;
+    const forapontaKwh = data.consumo_fora_ponta_kwh || 0;
+    const reservadoKwh = data.consumo_reservado_kwh || 0;
 
-  // Resumo financeiro consolidado - USA VALORES DO STEP 4
-  const resumoFinanceiro = useMemo(() => {
-    // Autoconsumo (geração local)
-    const autoconsumoRs = data.autoconsumo_rs || data.energia_simultanea_rs || 0;
-    
-    // Créditos remotos (assinatura usina)
+    return {
+      consumoTotal,
+      pontaKwh,
+      forapontaKwh,
+      reservadoKwh,
+      demandaContratada: data.demanda_contratada_kw || 0,
+      demandaMedida: data.demanda_medida_kw || 0,
+      demandaUltrapassagem: data.demanda_ultrapassagem_kw || 0,
+    };
+  }, [data]);
+
+  // ========== DADOS DO PASSO 4 - GERAÇÃO DISTRIBUÍDA ==========
+  const dadosGeracao = useMemo(() => {
+    // Classificação GD
+    const classificacaoGD = (data.classificacao_gd_aplicada as 'gd1' | 'gd2') || 'gd2';
+    const anoRef = data.mes_ref ? parseInt(data.mes_ref.split('-')[0]) : new Date().getFullYear();
+    // Para GD1, Fio B = 0%. Para GD2, usar percentual do ano (calculado em calculosAuto ou estimado)
+    const percentualFioB = classificacaoGD === 'gd1' ? 0 : (anoRef >= 2029 ? 100 : (anoRef - 2023) * 15);
+
+    // Geração Local (Autoconsumo)
+    const autoconsumoTotal = isGrupoA
+      ? (data.autoconsumo_ponta_kwh || 0) + (data.autoconsumo_fp_kwh || 0) + (data.autoconsumo_hr_kwh || 0)
+      : (data.autoconsumo_total_kwh || 0);
+    const autoconsumoRs = data.autoconsumo_rs || 0;
+
+    // Injeção
+    const injecaoTotal = isGrupoA
+      ? (data.injecao_ponta_kwh || 0) + (data.injecao_fp_kwh || 0) + (data.injecao_hr_kwh || 0)
+      : (data.injecao_total_kwh || 0);
+
+    // Créditos Remotos
+    const creditoRemotoKwh = data.credito_remoto_kwh || 0;
+    const creditoRemotoPonta = data.credito_remoto_ponta_kwh || 0;
+    const creditoRemotoFP = data.credito_remoto_fp_kwh || 0;
+    const creditoRemotoHR = data.credito_remoto_hr_kwh || 0;
     const creditoRemotoRs = data.credito_remoto_compensado_rs || 0;
-    
-    // Total compensado = autoconsumo + créditos remotos
-    const totalCompensado = autoconsumoRs + creditoRemotoRs;
-    
-    // USAR VALORES CALCULADOS NO STEP 4 (evitar recalcular com lógica diferente)
-    // Se tem usina remota, usa os valores salvos; senão, 0 custo e 100% economia
+
+    // Valores financeiros calculados no Step 4
     const custoAssinatura = data.custo_assinatura_rs || 0;
-    const economiaLiquida = data.economia_liquida_rs || (totalCompensado - custoAssinatura);
-    
-    // Fatura concessionária (valor informado ou calculado)
+    const economiaLiquida = data.economia_liquida_rs || 0;
+
+    return {
+      classificacaoGD,
+      anoRef,
+      percentualFioB,
+      temGeracaoLocal: data.tem_geracao_local || false,
+      temUsinaRemota: data.tem_usina_remota || false,
+      autoconsumoTotal,
+      autoconsumoRs,
+      injecaoTotal,
+      creditoRemotoKwh,
+      creditoRemotoPonta,
+      creditoRemotoFP,
+      creditoRemotoHR,
+      creditoRemotoRs,
+      custoAssinatura,
+      economiaLiquida,
+    };
+  }, [data, isGrupoA]);
+
+  // ========== BALANÇO ENERGÉTICO ==========
+  const balancoEnergetico = useMemo(() => {
+    const consumoDaRede = dadosConsumo.consumoTotal;
+    const autoconsumo = dadosGeracao.autoconsumoTotal;
+    const injecaoLocal = dadosGeracao.injecaoTotal;
+    const creditosRemotos = dadosGeracao.creditoRemotoKwh;
+    const totalCreditos = injecaoLocal + creditosRemotos;
+    const consumoCompensado = Math.min(consumoDaRede, totalCreditos);
+    const consumoNaoCompensado = Math.max(0, consumoDaRede - totalCreditos);
+    const creditosSobrando = Math.max(0, totalCreditos - consumoDaRede);
+
+    return {
+      consumoDaRede,
+      autoconsumo,
+      injecaoLocal,
+      creditosRemotos,
+      totalCreditos,
+      consumoCompensado,
+      consumoNaoCompensado,
+      creditosSobrando,
+    };
+  }, [dadosConsumo, dadosGeracao]);
+
+  // ========== RESUMO FINANCEIRO ==========
+  const resumoFinanceiro = useMemo(() => {
+    // Total compensado = autoconsumo + créditos remotos (em R$)
+    const totalCompensado = dadosGeracao.autoconsumoRs + dadosGeracao.creditoRemotoRs;
+
+    // Custo e economia calculados no Step 4
+    const custoAssinatura = dadosGeracao.custoAssinatura;
+    const economiaLiquida = dadosGeracao.economiaLiquida || (totalCompensado - custoAssinatura);
+
+    // Fatura concessionária
     const faturaConcessionaria = data.valor_total_pagar || 0;
-    
+
     // Total a pagar = fatura + custo assinatura
     const totalAPagar = faturaConcessionaria + custoAssinatura;
 
     return {
-      autoconsumoRs,
-      creditoRemotoRs,
+      autoconsumoRs: dadosGeracao.autoconsumoRs,
+      creditoRemotoRs: dadosGeracao.creditoRemotoRs,
       totalCompensado,
       custoAssinatura,
       economiaLiquida,
       faturaConcessionaria,
       totalAPagar,
-      consumoNaoCompensado: balanco.consumoNaoCompensado,
-      creditoRemotoKwh: data.credito_remoto_kwh || 0,
     };
-  }, [data, balanco]);
+  }, [data, dadosGeracao]);
 
-  // Gerar alertas e recomendações
-  const alertasOperacionais = useMemo(() => 
-    calcularAlertas(data, balanco.consumoNaoCompensado), 
-    [data, balanco.consumoNaoCompensado]
-  );
-  const recomendacoes = useMemo(() => calcularRecomendacoes(alertasOperacionais), [alertasOperacionais]);
+  // ========== ALERTAS E RECOMENDAÇÕES ==========
+  const alertas = useMemo(() => calcularAlertas(data), [data]);
+  const recomendacoes = useMemo(() => calcularRecomendacoes(alertas), [alertas]);
 
   // Atualizar dados com alertas e recomendações
   useEffect(() => {
-    const alertasJson = JSON.stringify(alertasOperacionais);
+    const alertasJson = JSON.stringify(alertas);
     const recsJson = JSON.stringify(recomendacoes);
     const currentHash = `${alertasJson}|${recsJson}`;
     
     if (prevAlertasRef.current !== currentHash) {
       prevAlertasRef.current = currentHash;
-      updateData({ alertas: alertasOperacionais, recomendacoes });
+      updateData({ alertas, recomendacoes });
     }
-  }, [alertasOperacionais, recomendacoes, updateData]);
+  }, [alertas, recomendacoes, updateData]);
 
-  // Validação - sempre pode prosseguir na conferência
+  // Sempre pode prosseguir na conferência
   useEffect(() => {
     setCanProceed(true);
   }, [setCanProceed]);
 
-  const saldoTotalCreditos = (data.scee_saldo_kwh_p || 0) + 
-                              (data.scee_saldo_kwh_fp || 0) + 
-                              (data.scee_saldo_kwh_hr || 0);
-
+  // ========== RENDER ==========
   return (
     <Card>
       <CardHeader>
@@ -166,48 +272,62 @@ export function Step5Conferencia() {
           Passo 5 — Conferência e Fechamento
         </CardTitle>
         <CardDescription>
-          Resumo financeiro consolidado e verificação final
+          Resumo consolidado dos dados informados nos passos anteriores
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         
-        {/* Status da Tarifa */}
-        {tarifaLoading ? (
-          <Alert>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <AlertDescription>Carregando tarifas...</AlertDescription>
-          </Alert>
-        ) : !tarifa ? (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
-              Tarifa não encontrada para {data.concessionaria} - {data.grupo_tarifario} - {data.modalidade}. 
-              Os cálculos automáticos não estarão disponíveis.
-            </AlertDescription>
-          </Alert>
-        ) : null}
+        {/* === CONTEXTO (Passo 1) === */}
+        <div className="bg-muted/30 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Contexto da Fatura
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">UC:</span>
+              <p className="font-medium">{dadosCabecalho.ucNumero}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Mês Ref:</span>
+              <p className="font-medium">{dadosCabecalho.mesRef}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Grupo:</span>
+              <p className="font-medium">{dadosCabecalho.grupoTarifario} - {dadosCabecalho.modalidade}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Dias Faturados:</span>
+              <p className="font-medium">{dadosCabecalho.diasFaturados}</p>
+            </div>
+          </div>
+        </div>
 
-        {/* Classificação GD */}
-        {calculos && (
-          <Alert className={calculos.classificacaoGD === 'gd1' 
+        {/* === CLASSIFICAÇÃO GD (Passo 4) === */}
+        {(dadosGeracao.temGeracaoLocal || dadosGeracao.temUsinaRemota) && (
+          <Alert className={dadosGeracao.classificacaoGD === 'gd1' 
             ? "bg-green-50 border-green-300 dark:bg-green-950/30"
             : "bg-amber-50 border-amber-300 dark:bg-amber-950/30"
           }>
-            <Shield className={`h-4 w-4 ${calculos.classificacaoGD === 'gd1' ? 'text-green-600' : 'text-amber-600'}`} />
+            <Shield className={`h-4 w-4 ${dadosGeracao.classificacaoGD === 'gd1' ? 'text-green-600' : 'text-amber-600'}`} />
             <AlertDescription>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <strong>{calculos.classificacaoGD.toUpperCase()}</strong> — Ano {calculos.anoRef}
+                  <strong>{dadosGeracao.classificacaoGD.toUpperCase()}</strong> — Ano {dadosGeracao.anoRef}
                 </div>
                 <div className="text-sm">
-                  {calculos.classificacaoGD === 'gd1'
+                  {dadosGeracao.classificacaoGD === 'gd1'
                     ? 'Compensação integral (TE + TUSD + Encargos)'
-                    : `Fio B não compensável: ${calculos.percentualFioB}%`}
+                    : `Fio B não compensável: ${dadosGeracao.percentualFioB}%`}
                 </div>
               </div>
             </AlertDescription>
           </Alert>
         )}
+
+        <Separator />
 
         {/* === RESUMO FINANCEIRO CONSOLIDADO === */}
         <div className="space-y-4">
@@ -227,7 +347,7 @@ export function Step5Conferencia() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Consumo não compensado:</span>
-                  <span>{formatarKwh(resumoFinanceiro.consumoNaoCompensado)} kWh</span>
+                  <span>{formatarKwh(balancoEnergetico.consumoNaoCompensado)} kWh</span>
                 </div>
                 <Separator className="bg-orange-200 dark:bg-orange-800" />
                 <div className="flex justify-between items-center">
@@ -239,57 +359,65 @@ export function Step5Conferencia() {
               </div>
             </div>
 
-            {/* Fatura Usina / Resumo Compensação */}
+            {/* Compensação / Economia */}
             <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Factory className="h-5 w-5 text-green-600" />
                 <span className="font-medium text-green-800 dark:text-green-200">Compensação (Cost Avoidance)</span>
               </div>
               <div className="space-y-2 text-sm">
-                {data.tem_geracao_local && resumoFinanceiro.autoconsumoRs > 0 && (
+                {/* Autoconsumo */}
+                {dadosGeracao.temGeracaoLocal && resumoFinanceiro.autoconsumoRs > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Geração Simultânea:</span>
                     <span className="font-medium">{formatarReais(resumoFinanceiro.autoconsumoRs)}</span>
                   </div>
                 )}
-                {data.tem_usina_remota && resumoFinanceiro.creditoRemotoRs > 0 && (
+                
+                {/* Créditos Remotos */}
+                {dadosGeracao.temUsinaRemota && resumoFinanceiro.creditoRemotoRs > 0 && (
                   <div className="space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Créditos Alocados ({formatarKwh(resumoFinanceiro.creditoRemotoKwh)}):</span>
+                      <span className="text-muted-foreground">Créditos Alocados ({formatarKwh(dadosGeracao.creditoRemotoKwh)} kWh):</span>
                       <span className="font-medium">{formatarReais(resumoFinanceiro.creditoRemotoRs)}</span>
                     </div>
                     {/* Detalhamento por Posto */}
-                    {isGrupoA && (data.credito_remoto_ponta_kwh > 0 || data.credito_remoto_fp_kwh > 0 || data.credito_remoto_hr_kwh > 0) && (
+                    {isGrupoA && (dadosGeracao.creditoRemotoPonta > 0 || dadosGeracao.creditoRemotoFP > 0 || dadosGeracao.creditoRemotoHR > 0) && (
                       <div className="pl-4 text-xs text-muted-foreground space-y-0.5 border-l-2 border-green-300 dark:border-green-700 ml-2">
-                        {data.credito_remoto_ponta_kwh > 0 && (
+                        {dadosGeracao.creditoRemotoPonta > 0 && (
                           <div className="flex justify-between">
                             <span>• Ponta:</span>
-                            <span>{formatarKwh(data.credito_remoto_ponta_kwh)} kWh</span>
+                            <span>{formatarKwh(dadosGeracao.creditoRemotoPonta)} kWh</span>
                           </div>
                         )}
-                        {data.credito_remoto_fp_kwh > 0 && (
+                        {dadosGeracao.creditoRemotoFP > 0 && (
                           <div className="flex justify-between">
                             <span>• Fora Ponta:</span>
-                            <span>{formatarKwh(data.credito_remoto_fp_kwh)} kWh</span>
+                            <span>{formatarKwh(dadosGeracao.creditoRemotoFP)} kWh</span>
                           </div>
                         )}
-                        {data.credito_remoto_hr_kwh > 0 && (
+                        {dadosGeracao.creditoRemotoHR > 0 && (
                           <div className="flex justify-between">
                             <span>• Reservado:</span>
-                            <span>{formatarKwh(data.credito_remoto_hr_kwh)} kWh</span>
+                            <span>{formatarKwh(dadosGeracao.creditoRemotoHR)} kWh</span>
                           </div>
                         )}
                       </div>
                     )}
                   </div>
                 )}
+                
                 <Separator className="bg-green-200 dark:bg-green-800" />
+                
+                {/* Total Compensado */}
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Total Compensado:</span>
                   <span className="text-lg font-bold text-green-600">
                     {formatarReais(resumoFinanceiro.totalCompensado)}
                   </span>
                 </div>
+                
+                {/* Custo Assinatura e Economia */}
                 {resumoFinanceiro.custoAssinatura > 0 && (
                   <>
                     <div className="flex justify-between text-amber-600">
@@ -317,9 +445,12 @@ export function Step5Conferencia() {
                 {formatarReais(resumoFinanceiro.totalAPagar)}
               </span>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Fatura Concessionária ({formatarReais(resumoFinanceiro.faturaConcessionaria)}) + Custo Assinatura ({formatarReais(resumoFinanceiro.custoAssinatura)})
+            </p>
           </div>
 
-          {/* Economia */}
+          {/* Economia do Mês */}
           {resumoFinanceiro.economiaLiquida > 0 && (
             <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -355,9 +486,10 @@ export function Step5Conferencia() {
 
         <Separator />
 
-        {/* Balanço Energético */}
+        {/* === BALANÇO ENERGÉTICO === */}
         <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+            <Zap className="h-4 w-4" />
             Balanço Energético (kWh)
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -366,186 +498,140 @@ export function Step5Conferencia() {
                 <Zap className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">Consumo Rede</span>
               </div>
-              <p className="text-lg font-bold">{formatarKwh(balanco.consumoDaRede)}</p>
+              <p className="text-lg font-bold">{formatarKwh(balancoEnergetico.consumoDaRede)}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
                 <Sun className="h-4 w-4 text-yellow-600" />
                 <span className="text-xs text-muted-foreground">Autoconsumo</span>
               </div>
-              <p className="text-lg font-bold text-yellow-600">{formatarKwh(balanco.autoconsumoSimultaneo)}</p>
+              <p className="text-lg font-bold text-yellow-600">{formatarKwh(balancoEnergetico.autoconsumo)}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
                 <ArrowRightLeft className="h-4 w-4 text-blue-600" />
                 <span className="text-xs text-muted-foreground">Total Créditos</span>
               </div>
-              <p className="text-lg font-bold text-blue-600">{formatarKwh(balanco.totalCreditos)}</p>
+              <p className="text-lg font-bold text-blue-600">{formatarKwh(balancoEnergetico.totalCreditos)}</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
                 <Wallet className="h-4 w-4 text-primary" />
                 <span className="text-xs text-muted-foreground">Não Compensado</span>
               </div>
-              <p className={`text-lg font-bold ${balanco.consumoNaoCompensado > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                {formatarKwh(balanco.consumoNaoCompensado)}
+              <p className={`text-lg font-bold ${balancoEnergetico.consumoNaoCompensado > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                {formatarKwh(balancoEnergetico.consumoNaoCompensado)}
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Detalhes dos Cálculos Automáticos */}
-        {calculos && (
-          <>
-            <Separator />
-            <Collapsible open={detalhesAberto} onOpenChange={setDetalhesAberto}>
+          
+          {/* Detalhes Consumo por Posto (Grupo A) */}
+          {isGrupoA && (
+            <Collapsible open={detalhesAberto} onOpenChange={setDetalhesAberto} className="mt-4">
               <CollapsibleTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Calculator className="h-4 w-4" />
-                    <span className="text-sm font-medium">Detalhes dos Cálculos Automáticos</span>
-                  </span>
+                  <span className="text-sm">Detalhes por Posto Horário</span>
                   {detalhesAberto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="mt-4 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">Bandeiras</span>
-                    <p className="font-semibold">{formatarReais(calculos.totalBandeiras)}</p>
+              <CollapsibleContent className="mt-3">
+                <div className="grid grid-cols-3 gap-4 text-sm bg-muted/30 p-4 rounded-lg">
+                  <div>
+                    <span className="text-muted-foreground text-xs">Ponta</span>
+                    <p className="font-medium">{formatarKwh(dadosConsumo.pontaKwh)} kWh</p>
                   </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">TUSD</span>
-                    <p className="font-semibold">{formatarReais(calculos.totalTUSD)}</p>
+                  <div>
+                    <span className="text-muted-foreground text-xs">Fora Ponta</span>
+                    <p className="font-medium">{formatarKwh(dadosConsumo.forapontaKwh)} kWh</p>
                   </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">TE</span>
-                    <p className="font-semibold">{formatarReais(calculos.totalTE)}</p>
+                  <div>
+                    <span className="text-muted-foreground text-xs">Reservado</span>
+                    <p className="font-medium">{formatarKwh(dadosConsumo.reservadoKwh)} kWh</p>
                   </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">SCEE</span>
-                    <p className="font-semibold">{formatarReais(calculos.totalSCEE)}</p>
-                  </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">Demanda</span>
-                    <p className="font-semibold">{formatarReais(calculos.totalDemanda)}</p>
-                  </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">PIS</span>
-                    <p className="font-semibold">{formatarReais(calculos.pis_rs)}</p>
-                  </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">COFINS</span>
-                    <p className="font-semibold">{formatarReais(calculos.cofins_rs)}</p>
-                  </div>
-                  <div className="bg-muted/30 p-3 rounded-lg">
-                    <span className="text-muted-foreground text-xs">ICMS</span>
-                    <p className="font-semibold">{formatarReais(calculos.icms_rs)}</p>
-                  </div>
-                </div>
-                
-                {/* Não compensáveis GD2 */}
-                {calculos.classificacaoGD === 'gd2' && (calculos.encargosNaoCompensados > 0 || calculos.fioBNaoCompensado > 0) && (
-                  <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/20">
-                    <Info className="h-4 w-4 text-amber-600" />
-                    <AlertTitle className="text-amber-800">Valores NÃO Compensáveis (Lei 14.300)</AlertTitle>
-                    <AlertDescription className="text-amber-700">
-                      <div className="grid grid-cols-2 gap-4 mt-2">
-                        {calculos.encargosNaoCompensados > 0 && (
-                          <div>
-                            <span className="text-xs">Encargos:</span>
-                            <p className="font-semibold">{formatarReais(calculos.encargosNaoCompensados)}</p>
-                          </div>
-                        )}
-                        {calculos.fioBNaoCompensado > 0 && (
-                          <div>
-                            <span className="text-xs">Fio B ({calculos.percentualFioB}%):</span>
-                            <p className="font-semibold">{formatarReais(calculos.fioBNaoCompensado)}</p>
-                          </div>
-                        )}
+                  {dadosConsumo.demandaContratada > 0 && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Demanda Contratada</span>
+                        <p className="font-medium">{dadosConsumo.demandaContratada.toFixed(0)} kW</p>
                       </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="bg-primary/10 border border-primary/30 rounded-lg p-3">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Valor Calculado da Fatura:</span>
-                    <span className="text-xl font-bold text-primary">{formatarReais(calculos.valorFaturaCalculado)}</span>
-                  </div>
-                  {data.valor_total_pagar > 0 && (
-                    <div className="text-sm text-muted-foreground mt-2">
-                      Valor Informado: {formatarReais(data.valor_total_pagar)} 
-                      {Math.abs(calculos.valorFaturaCalculado - data.valor_total_pagar) > 0.5 && (
-                        <Badge variant="secondary" className="ml-2">
-                          Δ {formatarReais(Math.abs(calculos.valorFaturaCalculado - data.valor_total_pagar))}
-                        </Badge>
+                      <div>
+                        <span className="text-muted-foreground text-xs">Demanda Medida</span>
+                        <p className="font-medium">{dadosConsumo.demandaMedida.toFixed(0)} kW</p>
+                      </div>
+                      {dadosConsumo.demandaUltrapassagem > 0 && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Ultrapassagem</span>
+                          <p className="font-medium text-destructive">{dadosConsumo.demandaUltrapassagem.toFixed(1)} kW</p>
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               </CollapsibleContent>
             </Collapsible>
-          </>
-        )}
+          )}
+        </div>
 
-        {/* Alertas */}
-        {alertasOperacionais.length > 0 && (
+        {/* === ALERTAS OPERACIONAIS === */}
+        {alertas.length > 0 && (
           <>
             <Separator />
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
                 Alertas Operacionais
               </h4>
-              {alertasOperacionais.map((alerta, idx) => (
-                <Alert 
-                  key={idx}
-                  variant={alerta.severidade === 'error' ? 'destructive' : 'default'}
-                  className={alerta.severidade === 'warning' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/20' : ''}
-                >
-                  {alerta.severidade === 'error' ? (
-                    <XCircle className="h-4 w-4" />
-                  ) : alerta.severidade === 'warning' ? (
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  ) : (
-                    <Info className="h-4 w-4" />
-                  )}
-                  <AlertDescription>{alerta.mensagem}</AlertDescription>
-                </Alert>
-              ))}
+              <div className="space-y-2">
+                {alertas.map((alerta, index) => (
+                  <Alert key={index} variant={alerta.severidade === 'error' ? 'destructive' : 'default'}
+                    className={
+                      alerta.severidade === 'warning' 
+                        ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30' 
+                        : alerta.severidade === 'info'
+                        ? 'border-blue-300 bg-blue-50 dark:bg-blue-950/30'
+                        : ''
+                    }
+                  >
+                    {alerta.severidade === 'error' ? (
+                      <AlertTriangle className="h-4 w-4" />
+                    ) : alerta.severidade === 'warning' ? (
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    ) : (
+                      <Info className="h-4 w-4 text-blue-600" />
+                    )}
+                    <AlertDescription>{alerta.mensagem}</AlertDescription>
+                  </Alert>
+                ))}
+              </div>
             </div>
           </>
         )}
 
-        {/* Recomendações */}
+        {/* === RECOMENDAÇÕES === */}
         {recomendacoes.length > 0 && (
           <>
             <Separator />
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
                 Recomendações
               </h4>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                {recomendacoes.map((rec, idx) => (
-                  <li key={idx}>{rec}</li>
+              <ul className="space-y-2">
+                {recomendacoes.map((rec, index) => (
+                  <li key={index} className="flex items-start gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                    <span>{rec}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           </>
         )}
 
-        {/* Status Final */}
-        <div className="flex items-center gap-2 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          <span className="text-green-800 dark:text-green-200 font-medium">
-            Dados conferidos — Pronto para fechar o mês
-          </span>
-        </div>
-
       </CardContent>
     </Card>
   );
 }
 
-// Alias para compatibilidade com Step7Conferencia
-export { Step5Conferencia as Step7Conferencia };
+// Alias para compatibilidade
+export const Step7Conferencia = Step5Conferencia;
