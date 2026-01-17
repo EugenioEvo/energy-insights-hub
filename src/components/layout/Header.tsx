@@ -17,7 +17,7 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle }: HeaderProps) {
-  const { mesAtual, setMesAtual, faturas, kpis } = useEnergy();
+  const { mesAtual, setMesAtual, faturas, kpis, cliente, unidadeConsumidora } = useEnergy();
   const { exportToPDF, isExporting } = useExportPDF();
   
   const mesesDisponiveis = [...new Set(faturas.map(f => f.mes_ref))].sort().reverse();
@@ -32,9 +32,21 @@ export function Header({ title, subtitle }: HeaderProps) {
 
   const handleExportPDF = async () => {
     await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`, {
-      companyName: 'Evolight Energia',
+      companyName: 'WeGen',
       reportTitle: 'Relatório Executivo de Energia',
       mesRef: mesFormatado,
+      // Dados do cliente
+      clienteNome: cliente?.nome || 'Cliente não informado',
+      clienteCNPJ: cliente?.cnpj || '-',
+      clienteEmail: cliente?.email || '-',
+      clienteTelefone: cliente?.telefone || '-',
+      // Dados da UC
+      ucNumero: unidadeConsumidora?.numero || '-',
+      ucEndereco: unidadeConsumidora?.endereco || '-',
+      ucDistribuidora: unidadeConsumidora?.distribuidora || unidadeConsumidora?.concessionaria || '-',
+      ucGrupoTarifario: unidadeConsumidora?.grupo_tarifario || '-',
+      ucModalidade: unidadeConsumidora?.modalidade_tarifaria || '-',
+      ucDemandaContratada: unidadeConsumidora?.demanda_contratada || 0,
     });
   };
 

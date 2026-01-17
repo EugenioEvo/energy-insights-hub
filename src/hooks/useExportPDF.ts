@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import wegenLogo from '@/assets/wegen-logo.png';
 
 interface ExportOptions {
   companyName?: string;
@@ -20,6 +21,28 @@ interface ExportOptions {
   ucDemandaContratada?: number;
 }
 
+// Função para carregar imagem e converter para base64
+const loadImageAsBase64 = (src: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Failed to get canvas context'));
+      }
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+};
+
 export function useExportPDF() {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -37,7 +60,7 @@ export function useExportPDF() {
       }
 
       const {
-        companyName = 'Evolight Energia',
+        companyName = 'WeGen',
         reportTitle = 'Relatório Executivo de Energia',
         mesRef = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
         clienteNome = 'Cliente não informado',
@@ -49,6 +72,14 @@ export function useExportPDF() {
         ucModalidade = '-',
         ucDemandaContratada = 0,
       } = options;
+
+      // Carregar logo
+      let logoBase64: string | null = null;
+      try {
+        logoBase64 = await loadImageAsBase64(wegenLogo);
+      } catch (e) {
+        console.warn('Could not load logo:', e);
+      }
 
       // Configure html2canvas options
       const canvas = await html2canvas(element, {
@@ -89,21 +120,28 @@ export function useExportPDF() {
 
       // Add header function
       const addHeader = (pageNum: number, totalPages: number) => {
-        // === FAIXA SUPERIOR (Empresa) - Azul Petróleo ===
-        pdf.setFillColor(15, 52, 67);
+        // === FAIXA SUPERIOR (Empresa) - Verde escuro WeGen ===
+        pdf.setFillColor(26, 61, 46); // Verde escuro da marca
         pdf.rect(0, 0, pageWidth, 18, 'F');
         
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(16);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(companyName, marginLeft, 11);
+        // Logo WeGen (se disponível)
+        if (logoBase64) {
+          try {
+            pdf.addImage(logoBase64, 'PNG', marginLeft, 3, 22, 12);
+          } catch (e) {
+            console.warn('Could not add logo to PDF:', e);
+          }
+        }
         
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(reportTitle, marginLeft, 16);
+        // Título do relatório (após logo)
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(reportTitle, marginLeft + 28, 11);
         
         // Data e página (direita)
         pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
         const dataGeracao = `Gerado: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
         pdf.text(dataGeracao, marginRight, 8, { align: 'right' });
         pdf.text(`Página ${pageNum} de ${totalPages}`, marginRight, 13, { align: 'right' });
@@ -151,7 +189,7 @@ export function useExportPDF() {
         const demandaFormatada = ucDemandaContratada > 0 ? `${ucDemandaContratada} kW` : '-';
         pdf.text(`Grupo: ${ucGrupoTarifario} | ${ucModalidade} | Demanda: ${demandaFormatada}`, colDireita, 35);
 
-        // === FAIXA DE PERÍODO - Amarelo Dourado ===
+        // === FAIXA DE PERÍODO - Amarelo/dourado WeGen ===
         pdf.setFillColor(196, 167, 78);
         pdf.rect(0, 40, pageWidth, 8, 'F');
         

@@ -31,7 +31,7 @@ export default function ExecutiveDashboard() {
 
   const handleExportPDF = async () => {
     await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`, {
-      companyName: 'Evolight Energia',
+      companyName: 'WeGen',
       reportTitle: 'Relatório Executivo de Energia',
       mesRef: mesFormatado,
       // Dados do cliente
