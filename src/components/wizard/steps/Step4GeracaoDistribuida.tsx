@@ -115,37 +115,88 @@ export function Step4GeracaoDistribuida() {
   }, [data.geracao_local_total_kwh, data.autoconsumo_total_kwh, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, isGrupoA]);
 
   // Auto-calcular valores financeiros quando tarifa está disponível
+  // CORRIGIDO: Cost Avoidance por posto horário (Grupo A) ou tarifa única (Grupo B)
   useEffect(() => {
     if (!tarifa) return;
 
     const updates: Partial<typeof data> = {};
     
-    // Calcular autoconsumo_rs (valor do autoconsumo em R$)
-    const tarifaLiquida = (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0) + 
-                          (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+    // Tarifas por posto (TE + TUSD)
+    const tarifaPonta = (tarifa.te_ponta_rs_kwh || 0) + (tarifa.tusd_ponta_rs_kwh || 0);
+    const tarifaFP = (tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0) + 
+                     (tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+    const tarifaHR = (tarifa.te_reservado_rs_kwh || tarifa.te_fora_ponta_rs_kwh || tarifa.te_unica_rs_kwh || 0) + 
+                     (tarifa.tusd_reservado_rs_kwh || tarifa.tusd_fora_ponta_rs_kwh || tarifa.tusd_unica_rs_kwh || 0);
+
+    // === AUTOCONSUMO R$ (Cost Avoidance) ===
+    let autoconsumoRsCalculado = 0;
     
-    const autoconsumoTotal = isGrupoA
-      ? (data.autoconsumo_ponta_kwh || 0) + (data.autoconsumo_fp_kwh || 0) + (data.autoconsumo_hr_kwh || 0)
-      : (data.autoconsumo_total_kwh || 0);
+    if (isGrupoA) {
+      // Grupo A: multiplicar cada posto pela sua tarifa
+      const autoP = (data.autoconsumo_ponta_kwh || 0) * tarifaPonta;
+      const autoFP = (data.autoconsumo_fp_kwh || 0) * tarifaFP;
+      const autoHR = (data.autoconsumo_hr_kwh || 0) * tarifaHR;
+      autoconsumoRsCalculado = autoP + autoFP + autoHR;
+      
+      // Salvar valores R$ por posto
+      if (Math.abs((data.autoconsumo_ponta_rs || 0) - autoP) > 0.01) {
+        updates.autoconsumo_ponta_rs = parseFloat(autoP.toFixed(2));
+      }
+      if (Math.abs((data.autoconsumo_fp_rs || 0) - autoFP) > 0.01) {
+        updates.autoconsumo_fp_rs = parseFloat(autoFP.toFixed(2));
+      }
+      if (Math.abs((data.autoconsumo_hr_rs || 0) - autoHR) > 0.01) {
+        updates.autoconsumo_hr_rs = parseFloat(autoHR.toFixed(2));
+      }
+    } else {
+      // Grupo B: total × tarifa única
+      autoconsumoRsCalculado = (data.autoconsumo_total_kwh || 0) * tarifaFP;
+    }
     
-    const autoconsumoRsCalculado = autoconsumoTotal * tarifaLiquida;
     if (Math.abs((data.autoconsumo_rs || 0) - autoconsumoRsCalculado) > 0.01) {
       updates.autoconsumo_rs = parseFloat(autoconsumoRsCalculado.toFixed(2));
-      updates.tarifa_liquida_fp_rs_kwh = tarifaLiquida;
+      updates.tarifa_liquida_fp_rs_kwh = tarifaFP;
     }
 
-    // Calcular credito_remoto_compensado_rs
-    const creditosRemotos = data.credito_remoto_kwh || 0;
-    const consumoRede = data.consumo_total_kwh || 0;
-    const creditoUsado = Math.min(creditosRemotos, consumoRede);
-    const creditoCompensadoRs = creditoUsado * tarifaLiquida;
+    // === CRÉDITO REMOTO R$ (Cost Avoidance) ===
+    let creditoRemotoRsCalculado = 0;
+    const temDetalhesPosto = isGrupoA && (
+      (data.credito_remoto_ponta_kwh || 0) > 0 || 
+      (data.credito_remoto_fp_kwh || 0) > 0 || 
+      (data.credito_remoto_hr_kwh || 0) > 0
+    );
     
-    if (creditosRemotos > 0 && Math.abs((data.credito_remoto_compensado_rs || 0) - creditoCompensadoRs) > 0.01) {
-      updates.credito_remoto_compensado_rs = parseFloat(creditoCompensadoRs.toFixed(2));
+    if (temDetalhesPosto) {
+      // Grupo A com detalhamento: multiplicar cada posto pela sua tarifa
+      const credP = (data.credito_remoto_ponta_kwh || 0) * tarifaPonta;
+      const credFP = (data.credito_remoto_fp_kwh || 0) * tarifaFP;
+      const credHR = (data.credito_remoto_hr_kwh || 0) * tarifaHR;
+      creditoRemotoRsCalculado = credP + credFP + credHR;
+      
+      // Salvar valores R$ por posto
+      if (Math.abs((data.credito_remoto_ponta_rs || 0) - credP) > 0.01) {
+        updates.credito_remoto_ponta_rs = parseFloat(credP.toFixed(2));
+      }
+      if (Math.abs((data.credito_remoto_fp_rs || 0) - credFP) > 0.01) {
+        updates.credito_remoto_fp_rs = parseFloat(credFP.toFixed(2));
+      }
+      if (Math.abs((data.credito_remoto_hr_rs || 0) - credHR) > 0.01) {
+        updates.credito_remoto_hr_rs = parseFloat(credHR.toFixed(2));
+      }
+    } else {
+      // Grupo B ou sem detalhamento: total × tarifa FP
+      const creditosRemotos = data.credito_remoto_kwh || 0;
+      const consumoRede = data.consumo_total_kwh || 0;
+      const creditoUsado = Math.min(creditosRemotos, consumoRede);
+      creditoRemotoRsCalculado = creditoUsado * tarifaFP;
+    }
+    
+    if (Math.abs((data.credito_remoto_compensado_rs || 0) - creditoRemotoRsCalculado) > 0.01) {
+      updates.credito_remoto_compensado_rs = parseFloat(creditoRemotoRsCalculado.toFixed(2));
     }
 
     // Total compensado = autoconsumo + créditos remotos (ambos pagam assinatura)
-    const totalCompensadoRs = autoconsumoRsCalculado + creditoCompensadoRs;
+    const totalCompensadoRs = autoconsumoRsCalculado + creditoRemotoRsCalculado;
 
     // Calcular custo_assinatura_rs (85% do TOTAL compensado)
     const custoAssinaturaCalculado = totalCompensadoRs * 0.85;
@@ -163,7 +214,8 @@ export function Step4GeracaoDistribuida() {
       updateData(updates);
     }
   }, [tarifa, data.autoconsumo_ponta_kwh, data.autoconsumo_fp_kwh, data.autoconsumo_hr_kwh, 
-      data.autoconsumo_total_kwh, data.credito_remoto_kwh, data.consumo_total_kwh, isGrupoA]);
+      data.autoconsumo_total_kwh, data.credito_remoto_kwh, data.credito_remoto_ponta_kwh,
+      data.credito_remoto_fp_kwh, data.credito_remoto_hr_kwh, data.consumo_total_kwh, isGrupoA]);
 
   // Validação
   useEffect(() => {

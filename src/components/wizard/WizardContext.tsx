@@ -71,6 +71,13 @@ export type FaturaWizardData = {
   credito_remoto_fp_kwh: number;
   credito_remoto_hr_kwh: number;
   credito_remoto_compensado_rs: number;
+  // Valores R$ por posto horário (Cost Avoidance)
+  credito_remoto_ponta_rs: number;
+  credito_remoto_fp_rs: number;
+  credito_remoto_hr_rs: number;
+  autoconsumo_ponta_rs: number;
+  autoconsumo_fp_rs: number;
+  autoconsumo_hr_rs: number;
   custo_assinatura_rs: number;
   economia_liquida_rs: number;
   
@@ -196,6 +203,13 @@ export const initialWizardData: FaturaWizardData = {
   credito_remoto_fp_kwh: 0,
   credito_remoto_hr_kwh: 0,
   credito_remoto_compensado_rs: 0,
+  // Valores R$ por posto horário (Cost Avoidance)
+  credito_remoto_ponta_rs: 0,
+  credito_remoto_fp_rs: 0,
+  credito_remoto_hr_rs: 0,
+  autoconsumo_ponta_rs: 0,
+  autoconsumo_fp_rs: 0,
+  autoconsumo_hr_rs: 0,
   custo_assinatura_rs: 0,
   economia_liquida_rs: 0,
   
