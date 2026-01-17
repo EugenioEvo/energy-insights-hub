@@ -253,9 +253,34 @@ export function Step5Conferencia() {
                   </div>
                 )}
                 {data.tem_usina_remota && resumoFinanceiro.creditoRemotoRs > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Créditos Alocados ({formatarKwh(resumoFinanceiro.creditoRemotoKwh)}):</span>
-                    <span className="font-medium">{formatarReais(resumoFinanceiro.creditoRemotoRs)}</span>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Créditos Alocados ({formatarKwh(resumoFinanceiro.creditoRemotoKwh)}):</span>
+                      <span className="font-medium">{formatarReais(resumoFinanceiro.creditoRemotoRs)}</span>
+                    </div>
+                    {/* Detalhamento por Posto */}
+                    {isGrupoA && (data.credito_remoto_ponta_kwh > 0 || data.credito_remoto_fp_kwh > 0 || data.credito_remoto_hr_kwh > 0) && (
+                      <div className="pl-4 text-xs text-muted-foreground space-y-0.5 border-l-2 border-green-300 dark:border-green-700 ml-2">
+                        {data.credito_remoto_ponta_kwh > 0 && (
+                          <div className="flex justify-between">
+                            <span>• Ponta:</span>
+                            <span>{formatarKwh(data.credito_remoto_ponta_kwh)} kWh</span>
+                          </div>
+                        )}
+                        {data.credito_remoto_fp_kwh > 0 && (
+                          <div className="flex justify-between">
+                            <span>• Fora Ponta:</span>
+                            <span>{formatarKwh(data.credito_remoto_fp_kwh)} kWh</span>
+                          </div>
+                        )}
+                        {data.credito_remoto_hr_kwh > 0 && (
+                          <div className="flex justify-between">
+                            <span>• Reservado:</span>
+                            <span>{formatarKwh(data.credito_remoto_hr_kwh)} kWh</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 <Separator className="bg-green-200 dark:bg-green-800" />
