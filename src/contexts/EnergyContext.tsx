@@ -1,11 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
-import { KPIs, User } from '@/types/energy';
+import { KPIs, User, Alerta } from '@/types/energy';
 import { useClientes, Cliente } from '@/hooks/useClientes';
 import { useUnidadesConsumidoras, UnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useFaturas, FaturaMensal, useUpsertFatura } from '@/hooks/useFaturas';
-import { useGeracoes, GeracaoMensal, useUpsertGeracao } from '@/hooks/useGeracoes';
-import { useAssinaturas, AssinaturaMensal, useUpsertAssinatura } from '@/hooks/useAssinaturas';
-import { calcularKPIsGlobais } from '@/lib/calculations';
 
 // Mock user until auth is implemented
 const mockUser: User = {
@@ -29,8 +26,6 @@ interface EnergyContextType {
   clientes: Cliente[];
   unidadesConsumidoras: UnidadeConsumidora[];
   faturas: FaturaMensal[];
-  geracoes: GeracaoMensal[];
-  assinaturas: AssinaturaMensal[];
   
   // Current selected entities
   cliente: Cliente | null;
@@ -39,19 +34,26 @@ interface EnergyContextType {
   // Loading states
   isLoading: boolean;
   
-  // KPIs
+  // KPIs - calculados diretamente dos campos da fatura
   kpis: KPIs;
   mesAtual: string;
   setMesAtual: (mes: string) => void;
   
   // Mutations
   addFatura: (fatura: Omit<FaturaMensal, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
-  addGeracao: (geracao: Omit<GeracaoMensal, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
-  addAssinatura: (assinatura: Omit<AssinaturaMensal, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   
   // Refetch functions
   refetchAll: () => void;
 }
+
+const defaultKPIs: KPIs = {
+  economiaDoMes: 0,
+  economiaAcumulada: 0,
+  custoKwhAntes: 0,
+  custoKwhDepois: 0,
+  statusGeral: 'OK',
+  alertas: [],
+};
 
 const EnergyContext = createContext<EnergyContextType | undefined>(undefined);
 
@@ -61,17 +63,13 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [ucId, setUcId] = useState<string | null>(null);
   const [mesAtual, setMesAtual] = useState<string>('');
 
-  // Fetch data from database
+  // Fetch data from database - simplificado para usar apenas faturas
   const { data: clientes = [], isLoading: loadingClientes, refetch: refetchClientes } = useClientes();
   const { data: unidadesConsumidoras = [], isLoading: loadingUCs, refetch: refetchUCs } = useUnidadesConsumidoras(clienteId || undefined);
   const { data: faturas = [], isLoading: loadingFaturas, refetch: refetchFaturas } = useFaturas(ucId || undefined);
-  const { data: geracoes = [], isLoading: loadingGeracoes, refetch: refetchGeracoes } = useGeracoes(ucId || undefined);
-  const { data: assinaturas = [], isLoading: loadingAssinaturas, refetch: refetchAssinaturas } = useAssinaturas(ucId || undefined);
   
   // Mutations
   const upsertFatura = useUpsertFatura();
-  const upsertGeracao = useUpsertGeracao();
-  const upsertAssinatura = useUpsertAssinatura();
 
   // Auto-detect most recent month from faturas
   React.useEffect(() => {
@@ -92,7 +90,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     if (!ucId && unidadesConsumidoras.length > 0) {
       setUcId(unidadesConsumidoras[0].id);
     } else if (ucId && clienteId && unidadesConsumidoras.length > 0) {
-      // Reset UC if current one doesn't belong to selected cliente
       const ucBelongsToCliente = unidadesConsumidoras.some(uc => uc.id === ucId);
       if (!ucBelongsToCliente) {
         setUcId(unidadesConsumidoras[0].id);
@@ -111,73 +108,55 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     [unidadesConsumidoras, ucId]
   );
 
-  // Calculate KPIs
-  const kpis = useMemo(() => {
-    // Convert database types to calculation types
-    const faturasForCalc = faturas.map(f => ({
-      id: f.id,
-      ucId: f.uc_id,
-      mesRef: f.mes_ref,
-      consumoTotalKwh: Number(f.consumo_total_kwh),
-      pontaKwh: Number(f.ponta_kwh),
-      foraPontaKwh: Number(f.fora_ponta_kwh),
-      demandaContratadaKw: Number(f.demanda_contratada_kw),
-      demandaMedidaKw: Number(f.demanda_medida_kw),
-      valorTotal: Number(f.valor_total),
-      valorTe: Number(f.valor_te),
-      valorTusd: Number(f.valor_tusd),
-      bandeiras: f.bandeiras as 'verde' | 'amarela' | 'vermelha1' | 'vermelha2',
-      multaDemanda: Number(f.multa_demanda),
-      multaReativo: Number(f.multa_reativo),
-      outrosEncargos: Number(f.outros_encargos),
-    }));
+  // KPIs - calculados diretamente dos campos pré-calculados da fatura
+  const kpis = useMemo((): KPIs => {
+    if (faturas.length === 0) return defaultKPIs;
+    
+    // Ordenar por mês mais recente
+    const sortedFaturas = [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
+    const faturaMaisRecente = sortedFaturas[0];
+    
+    // Economia do mês - usa campo pré-calculado
+    const economiaDoMes = Number(faturaMaisRecente.economia_liquida_rs) || 0;
+    
+    // Economia acumulada - soma de todas as faturas
+    const economiaAcumulada = faturas.reduce((acc, f) => 
+      acc + (Number(f.economia_liquida_rs) || 0), 0
+    );
+    
+    // Custo por kWh antes (valor total / consumo total)
+    const consumoTotal = Number(faturaMaisRecente.consumo_total_kwh) || 1;
+    const valorTotal = Number(faturaMaisRecente.valor_total) || 0;
+    const custoKwhAntes = consumoTotal > 0 ? valorTotal / consumoTotal : 0;
+    
+    // Custo por kWh depois (considera a economia)
+    const valorComEconomia = valorTotal - economiaDoMes;
+    const custoKwhDepois = consumoTotal > 0 ? valorComEconomia / consumoTotal : 0;
+    
+    // Status e alertas - usa campos da fatura
+    const alertas = (faturaMaisRecente.alertas as unknown as Alerta[]) || [];
+    const statusGeral = calcularStatusFromAlertas(alertas);
+    
+    return {
+      economiaDoMes,
+      economiaAcumulada,
+      custoKwhAntes,
+      custoKwhDepois,
+      statusGeral,
+      alertas,
+    };
+  }, [faturas]);
 
-    const geracoesForCalc = geracoes.map(g => ({
-      id: g.id,
-      ucId: g.uc_id,
-      mesRef: g.mes_ref,
-      geracaoTotalKwh: Number(g.geracao_total_kwh),
-      autoconsumoKwh: Number(g.autoconsumo_kwh),
-      injecaoKwh: Number(g.injecao_kwh),
-      compensacaoKwh: Number(g.compensacao_kwh),
-      disponibilidadePercent: Number(g.disponibilidade_percent),
-      perdasEstimadasKwh: Number(g.perdas_estimadas_kwh),
-    }));
-
-    const assinaturasForCalc = assinaturas.map(a => ({
-      id: a.id,
-      ucId: a.uc_id,
-      mesRef: a.mes_ref,
-      ucRemota: a.uc_remota,
-      energiaContratadaKwh: Number(a.energia_contratada_kwh),
-      energiaAlocadaKwh: Number(a.energia_alocada_kwh),
-      valorAssinatura: Number(a.valor_assinatura),
-      economiaPrometidaPercent: Number(a.economia_prometida_percent),
-    }));
-
-    return calcularKPIsGlobais(faturasForCalc, geracoesForCalc, assinaturasForCalc);
-  }, [faturas, geracoes, assinaturas]);
-
-  const isLoading = loadingClientes || loadingUCs || loadingFaturas || loadingGeracoes || loadingAssinaturas;
+  const isLoading = loadingClientes || loadingUCs || loadingFaturas;
 
   const addFatura = async (fatura: Omit<FaturaMensal, 'id' | 'created_at' | 'updated_at'>) => {
     await upsertFatura.mutateAsync(fatura);
-  };
-
-  const addGeracao = async (geracao: Omit<GeracaoMensal, 'id' | 'created_at' | 'updated_at'>) => {
-    await upsertGeracao.mutateAsync(geracao);
-  };
-
-  const addAssinatura = async (assinatura: Omit<AssinaturaMensal, 'id' | 'created_at' | 'updated_at'>) => {
-    await upsertAssinatura.mutateAsync(assinatura);
   };
 
   const refetchAll = () => {
     refetchClientes();
     refetchUCs();
     refetchFaturas();
-    refetchGeracoes();
-    refetchAssinaturas();
   };
 
   return (
@@ -191,8 +170,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         clientes,
         unidadesConsumidoras,
         faturas,
-        geracoes,
-        assinaturas,
         cliente,
         unidadeConsumidora,
         isLoading,
@@ -200,14 +177,24 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         mesAtual,
         setMesAtual,
         addFatura,
-        addGeracao,
-        addAssinatura,
         refetchAll,
       }}
     >
       {children}
     </EnergyContext.Provider>
   );
+}
+
+// Função auxiliar para calcular status a partir dos alertas
+function calcularStatusFromAlertas(alertas: Alerta[]): 'OK' | 'ATENCAO' | 'CRITICO' {
+  if (!alertas || alertas.length === 0) return 'OK';
+  
+  const temCritico = alertas.some(a => a.severidade === 'critico');
+  const temAtencao = alertas.some(a => a.severidade === 'atencao');
+  
+  if (temCritico) return 'CRITICO';
+  if (temAtencao) return 'ATENCAO';
+  return 'OK';
 }
 
 export function useEnergy() {
