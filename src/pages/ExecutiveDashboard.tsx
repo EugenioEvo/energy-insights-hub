@@ -231,7 +231,7 @@ export default function ExecutiveDashboard() {
         </div>
 
         {/* ===== SEÇÃO 1: KPIs Principais ===== */}
-        <section>
+        <section className="avoid-break">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <KPICard
               title="Economia do Mês"
@@ -280,7 +280,7 @@ export default function ExecutiveDashboard() {
 
         {/* ===== SEÇÃO 2: Alertas (se houver) ===== */}
         {kpis.alertas.length > 0 && (
-          <section>
+          <section className="avoid-break">
             <h3 className="section-title flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning" />
               Alertas e Recomendações
@@ -294,22 +294,26 @@ export default function ExecutiveDashboard() {
         )}
 
         {/* ===== SEÇÃO 3: Gráficos Principais ===== */}
-        <section>
+        <section className="avoid-break">
           <h3 className="section-title">Evolução e Comparativos</h3>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <SavingsTrendChart 
-              data={savingsTrendData} 
-              title="Tendência de Economia"
-            />
-            <ComparisonChart
-              data={comparisonData}
-              title="Custo: Original vs Otimizado"
-            />
+            <div className="avoid-break">
+              <SavingsTrendChart 
+                data={savingsTrendData} 
+                title="Tendência de Economia"
+              />
+            </div>
+            <div className="avoid-break">
+              <ComparisonChart
+                data={comparisonData}
+                title="Custo: Original vs Otimizado"
+              />
+            </div>
           </div>
         </section>
 
         {/* ===== SEÇÃO 4: Fatura - Detalhamento ===== */}
-        <section>
+        <section className="avoid-break">
           <h3 className="section-title flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
             Fatura do Mês
@@ -345,20 +349,22 @@ export default function ExecutiveDashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <DonutChart
-              data={[
-                { name: 'Energia (TE + TUSD)', value: valorTe + valorTusd, color: 'hsl(var(--primary))' },
-                { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
-                { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
-                { name: 'Encargos', value: iluminacaoPublica + outrosEncargos, color: 'hsl(var(--muted-foreground))' },
-              ].filter(item => item.value > 0)}
-              title="Composição da Fatura"
-              centerLabel="Total"
-              centerValue={formatCurrency(valorTotal)}
-            />
+            <div className="avoid-break">
+              <DonutChart
+                data={[
+                  { name: 'Energia (TE + TUSD)', value: valorTe + valorTusd, color: 'hsl(var(--primary))' },
+                  { name: 'Demanda', value: demandaContratadaRs + demandaGeracaoRs, color: 'hsl(var(--accent))' },
+                  { name: 'Multas', value: totalMultas, color: 'hsl(var(--destructive))' },
+                  { name: 'Encargos', value: iluminacaoPublica + outrosEncargos, color: 'hsl(var(--muted-foreground))' },
+                ].filter(item => item.value > 0)}
+                title="Composição da Fatura"
+                centerLabel="Total"
+                centerValue={formatCurrency(valorTotal)}
+              />
+            </div>
 
             {/* Detalhes Energia */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-6 avoid-break">
               <h4 className="font-semibold text-foreground mb-4">Energia</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center py-2 border-b border-border">
@@ -384,7 +390,7 @@ export default function ExecutiveDashboard() {
             </div>
 
             {/* Detalhes Demanda */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-6 avoid-break">
               <h4 className="font-semibold text-foreground mb-4">Demanda</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center py-2 border-b border-border">
@@ -419,7 +425,7 @@ export default function ExecutiveDashboard() {
 
         {/* ===== SEÇÃO 5: Solar (se houver geração local) ===== */}
         {temGeracaoLocal && (
-          <section>
+          <section className="avoid-break">
             <h3 className="section-title flex items-center gap-2">
               <Sun className="h-5 w-5 text-accent" />
               Geração Solar Local
@@ -453,22 +459,24 @@ export default function ExecutiveDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 avoid-break">
                 <GenerationChart data={generationData} title="Geração Real vs Esperada" />
               </div>
-              <DonutChart
-                data={energyDistribution}
-                title="Distribuição da Energia"
-                centerLabel="Total"
-                centerValue={`${formatNumber(geracaoLocalKwh / 1000, 1)}k`}
-              />
+              <div className="avoid-break">
+                <DonutChart
+                  data={energyDistribution}
+                  title="Distribuição da Energia"
+                  centerLabel="Total"
+                  centerValue={`${formatNumber(geracaoLocalKwh / 1000, 1)}k`}
+                />
+              </div>
             </div>
           </section>
         )}
 
         {/* ===== SEÇÃO 6: Créditos Remotos / Assinatura ===== */}
         {temCreditoRemoto && (
-          <section>
+          <section className="avoid-break">
             <h3 className="section-title flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               Créditos Remotos / Assinatura
@@ -503,9 +511,11 @@ export default function ExecutiveDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SubscriptionChart data={subscriptionData} title="Energia Contratada vs Alocada" />
+              <div className="avoid-break">
+                <SubscriptionChart data={subscriptionData} title="Energia Contratada vs Alocada" />
+              </div>
               
-              <div className="bg-card rounded-xl border border-border p-6">
+              <div className="bg-card rounded-xl border border-border p-6 avoid-break">
                 <h4 className="font-semibold text-foreground mb-4">Análise da Compensação</h4>
                 <div className="space-y-4">
                   {economiaLiquida >= 0 ? (
