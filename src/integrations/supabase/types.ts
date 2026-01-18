@@ -644,6 +644,33 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tarifas_concessionaria: {
         Row: {
           ativo: boolean | null
@@ -828,6 +855,56 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_cliente_vinculo: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_cliente_vinculo_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
       usina_geracao_mensal: {
         Row: {
@@ -1018,6 +1095,15 @@ export type Database = {
     }
     Functions: {
       classificar_gd: { Args: { data_protocolo: string }; Returns: string }
+      get_user_clientes: { Args: { _user_id: string }; Returns: string[] }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       obter_percentual_fio_b: {
         Args: { ano_referencia: number }
         Returns: number
@@ -1074,6 +1160,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "cliente"
       classificacao_gd: "gd1" | "gd2"
       fonte_energia: "solar" | "eolica" | "hidraulica" | "biomassa" | "outros"
       grupo_tarifario: "A" | "B"
@@ -1211,6 +1298,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "cliente"],
       classificacao_gd: ["gd1", "gd2"],
       fonte_energia: ["solar", "eolica", "hidraulica", "biomassa", "outros"],
       grupo_tarifario: ["A", "B"],
