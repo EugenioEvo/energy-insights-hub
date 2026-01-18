@@ -4,9 +4,10 @@ import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
 import { useEnergy } from '@/contexts/EnergyContext';
-import { Receipt, TrendingDown, AlertTriangle, Zap, Sun } from 'lucide-react';
+import { Receipt, TrendingDown, AlertTriangle, Zap, Sun, Calculator } from 'lucide-react';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useTarifas } from '@/hooks/useTarifas';
 const formatCurrency = (value: number) => value.toLocaleString('pt-BR', {
   style: 'currency',
   currency: 'BRL'
@@ -91,6 +92,57 @@ export default function EnergiaFatura() {
   // Custo por kWh
   const custoKwhBase = consumoTotalKwh > 0 ? valorTotal / consumoTotalKwh : 0;
   const economiaPercent = valorTotal > 0 ? economiaLiquida / valorTotal * 100 : 0;
+
+  // Buscar tarifa convencional Verde A4 para simulação
+  const { data: tarifaVerdeA4 } = useTarifas(
+    ucAtual?.concessionaria || 'Equatorial Goiás',
+    'A',
+    'THS_VERDE'
+  );
+
+  // Tarifas base Verde A4 (valores de referência Equatorial GO - sem impostos)
+  const tePontaTarifa = tarifaVerdeA4?.te_ponta_rs_kwh || 0.48489;
+  const teFpTarifa = tarifaVerdeA4?.te_fora_ponta_rs_kwh || 0.30387;
+  const tusdPontaTarifa = tarifaVerdeA4?.tusd_ponta_rs_kwh || 2.35616;
+  const tusdFpTarifa = tarifaVerdeA4?.tusd_fora_ponta_rs_kwh || 0.14961;
+
+  // Impostos (valores típicos Goiás)
+  const icmsPercent = tarifaVerdeA4?.icms_percent || 29;
+  const pisPercent = tarifaVerdeA4?.pis_percent || 0.76;
+  const cofinsPercent = tarifaVerdeA4?.cofins_percent || 3.52;
+
+  // Cálculos por posto - SIMULAÇÃO CONVENCIONAL
+  const tePontaRs = pontaKwh * tePontaTarifa;
+  const teFpRs = foraPontaKwh * teFpTarifa;
+  const tusdPontaRs = pontaKwh * tusdPontaTarifa;
+  const tusdFpRs = foraPontaKwh * tusdFpTarifa;
+
+  // Subtotais
+  const teTotal = tePontaRs + teFpRs;
+  const tusdTotal = tusdPontaRs + tusdFpRs;
+  const subtotalSemImpostos = teTotal + tusdTotal;
+
+  // Impostos calculados "por dentro" (sobre base líquida)
+  const fatorImpostos = 1 - (icmsPercent + pisPercent + cofinsPercent) / 100;
+  const baseComImpostos = subtotalSemImpostos / fatorImpostos;
+  const icmsRs = baseComImpostos * (icmsPercent / 100);
+  const pisRs = baseComImpostos * (pisPercent / 100);
+  const cofinsRs = baseComImpostos * (cofinsPercent / 100);
+  const totalImpostos = icmsRs + pisRs + cofinsRs;
+
+  // Total convencional (como se não tivesse GD)
+  const totalConvencional = subtotalSemImpostos + totalImpostos;
+
+  // Tarifa média calculada
+  const tarifaMediaConvencional = consumoTotalKwh > 0 
+    ? totalConvencional / consumoTotalKwh 
+    : 0;
+
+  // Economia comparada ao convencional
+  const economiaVsConvencional = totalConvencional - valorTotal;
+  const economiaVsConvencionalPercent = totalConvencional > 0 
+    ? (economiaVsConvencional / totalConvencional) * 100 
+    : 0;
   if (faturasLoading) {
     return <DashboardLayout title="Energia & Fatura" subtitle="Análise detalhada da conta de energia">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -246,6 +298,153 @@ export default function EnergiaFatura() {
               <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Custo por kWh</span>
                 <span className="font-bold text-lg">R$ {custoKwhBase.toFixed(4)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SIMULAÇÃO CONVENCIONAL VERDE A4 */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800 p-6">
+          <h3 className="text-sm font-medium uppercase tracking-wider text-blue-800 dark:text-blue-200 mb-4 flex items-center gap-2">
+            <Calculator className="h-4 w-4" />
+            Simulação Convencional (Verde A4)
+          </h3>
+          <p className="text-xs text-blue-600 dark:text-blue-300 mb-4">
+            Como seria a fatura se o cliente não tivesse GD ou assinatura de usina
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* TE por Posto */}
+            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                Tarifa de Energia (TE)
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <div>
+                    <span className="text-muted-foreground">TE Ponta</span>
+                    <span className="text-xs ml-2 text-blue-500">
+                      {formatNumber(pontaKwh)} kWh × R$ {tePontaTarifa.toFixed(5)}
+                    </span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(tePontaRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <div>
+                    <span className="text-muted-foreground">TE Fora Ponta</span>
+                    <span className="text-xs ml-2 text-blue-500">
+                      {formatNumber(foraPontaKwh)} kWh × R$ {teFpTarifa.toFixed(5)}
+                    </span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(teFpRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-blue-100/50 dark:bg-blue-900/30 -mx-4 px-4 rounded">
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">Subtotal TE</span>
+                  <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(teTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* TUSD por Posto */}
+            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                Tarifa de Uso do Sistema (TUSD)
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <div>
+                    <span className="text-muted-foreground">TUSD Ponta</span>
+                    <span className="text-xs ml-2 text-blue-500">
+                      {formatNumber(pontaKwh)} kWh × R$ {tusdPontaTarifa.toFixed(5)}
+                    </span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(tusdPontaRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <div>
+                    <span className="text-muted-foreground">TUSD Fora Ponta</span>
+                    <span className="text-xs ml-2 text-blue-500">
+                      {formatNumber(foraPontaKwh)} kWh × R$ {tusdFpTarifa.toFixed(5)}
+                    </span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(tusdFpRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-blue-100/50 dark:bg-blue-900/30 -mx-4 px-4 rounded">
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">Subtotal TUSD</span>
+                  <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(tusdTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Impostos e Totais */}
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Impostos */}
+            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                Impostos e Encargos
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <span className="text-muted-foreground">ICMS ({icmsPercent}%)</span>
+                  <span className="font-medium">{formatCurrency(icmsRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <span className="text-muted-foreground">PIS ({pisPercent}%)</span>
+                  <span className="font-medium">{formatCurrency(pisRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <span className="text-muted-foreground">COFINS ({cofinsPercent}%)</span>
+                  <span className="font-medium">{formatCurrency(cofinsRs)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-blue-100/50 dark:bg-blue-900/30 -mx-4 px-4 rounded">
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">Total Impostos</span>
+                  <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(totalImpostos)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Resumo Final */}
+            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                Resumo Comparativo
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <span className="text-muted-foreground">Subtotal (TE + TUSD)</span>
+                  <span className="font-medium">{formatCurrency(subtotalSemImpostos)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
+                  <span className="text-muted-foreground">Impostos</span>
+                  <span className="font-medium">{formatCurrency(totalImpostos)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-blue-200/70 dark:bg-blue-800/50 -mx-4 px-4 rounded font-bold">
+                  <span className="text-blue-900 dark:text-blue-100">Total Convencional</span>
+                  <span className="text-blue-900 dark:text-blue-100">{formatCurrency(totalConvencional)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 text-xs text-blue-600 dark:text-blue-400">
+                  <span>Tarifa média</span>
+                  <span>R$ {tarifaMediaConvencional.toFixed(5)}/kWh</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Economia */}
+          <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Valor Convencional</p>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{formatCurrency(totalConvencional)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Valor Real Pago</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(valorTotal)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Economia com GD</p>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(economiaVsConvencional)}</p>
+                <p className="text-xs text-green-500">({economiaVsConvencionalPercent.toFixed(1)}%)</p>
               </div>
             </div>
           </div>
