@@ -267,29 +267,81 @@ export default function EnergiaFatura() {
           </div>
 
           {/* Demanda */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Demanda</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Demanda Contratada</span>
-                
+          <div className="bg-gradient-to-br from-card to-muted/30 rounded-xl border border-border p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Zap className="h-4 w-4 text-primary" />
               </div>
-              <div className={`flex justify-between items-center py-2 border-b ${demandaMedidaKw > demandaContratadaKw ? 'border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6' : 'border-border'}`}>
-                <span className={demandaMedidaKw > demandaContratadaKw ? 'text-red-700 dark:text-red-300 font-medium' : 'text-muted-foreground'}>
-                  Demanda Medida
-                </span>
-                <span className={`font-medium ${demandaMedidaKw > demandaContratadaKw ? 'text-red-700 dark:text-red-300' : ''}`}>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">Demanda</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Demanda Contratada */}
+              <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span className="text-sm text-muted-foreground">Contratada</span>
+                </div>
+                <span className="font-bold text-lg text-foreground">{demandaContratadaKw} kW</span>
+              </div>
+              
+              {/* Demanda Medida */}
+              <div className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
+                demandaMedidaKw > demandaContratadaKw 
+                  ? 'bg-destructive/10 border border-destructive/30' 
+                  : 'bg-muted/50'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${demandaMedidaKw > demandaContratadaKw ? 'bg-destructive animate-pulse' : 'bg-amber-500'}`} />
+                  <span className={`text-sm ${demandaMedidaKw > demandaContratadaKw ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                    Medida
+                  </span>
+                  {demandaMedidaKw > demandaContratadaKw && (
+                    <span className="text-xs bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full">
+                      Ultrapassagem!
+                    </span>
+                  )}
+                </div>
+                <span className={`font-bold text-lg ${demandaMedidaKw > demandaContratadaKw ? 'text-destructive' : 'text-foreground'}`}>
                   {demandaMedidaKw} kW
                 </span>
               </div>
-              {isGrupoA && demandaGeracaoKw > 0 && <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground">Demanda de Geração</span>
-                  <div className="text-right">
-                    <span className="font-medium">{demandaGeracaoKw} kW</span>
-                    <span className="text-muted-foreground ml-2">({formatCurrency(demandaGeracaoRs)})</span>
-                  </div>
-                </div>}
               
+              {/* Demanda Geração */}
+              {isGrupoA && demandaGeracaoKw > 0 && (
+                <div className="flex justify-between items-center p-3 bg-emerald-500/10 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm text-muted-foreground">Geração</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-lg text-foreground">{demandaGeracaoKw} kW</span>
+                    <span className="text-xs text-muted-foreground ml-2">({formatCurrency(demandaGeracaoRs)})</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Barra de utilização */}
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="flex justify-between text-xs text-muted-foreground mb-2">
+                  <span>Utilização</span>
+                  <span className={demandaMedidaKw > demandaContratadaKw ? 'text-destructive font-medium' : ''}>
+                    {demandaContratadaKw > 0 ? Math.round((demandaMedidaKw / demandaContratadaKw) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      demandaMedidaKw > demandaContratadaKw 
+                        ? 'bg-destructive' 
+                        : demandaMedidaKw / demandaContratadaKw > 0.9 
+                          ? 'bg-amber-500' 
+                          : 'bg-primary'
+                    }`}
+                    style={{ width: `${Math.min((demandaMedidaKw / demandaContratadaKw) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
