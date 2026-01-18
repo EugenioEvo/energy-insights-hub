@@ -51,8 +51,8 @@ export default function Assinatura() {
     const totalFaturas = ultimas6.reduce((acc, f) => 
       acc + (Number(f.valor_total) || 0), 0);
 
-    const mediaEconomiaPercent = totalFaturas > 0 
-      ? (totalEconomia / totalFaturas) * 100 
+    const mediaEconomiaPercent = totalCompensado > 0 
+      ? (totalEconomia / totalCompensado) * 100 
       : 0;
 
     return {
