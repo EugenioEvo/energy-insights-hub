@@ -228,38 +228,75 @@ export default function EnergiaFatura() {
         {/* Details Grid - Grupo A */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Energia */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Energia - Ponta e Fora Ponta</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Consumo Ponta</span>
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-xl border border-amber-200 dark:border-amber-800 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-amber-900 dark:text-amber-100">
+                Energia - Ponta e Fora Ponta
+              </h3>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Consumo Ponta */}
+              <div className="flex justify-between items-center p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-sm text-muted-foreground">Consumo Ponta</span>
+                </div>
                 <div className="text-right">
-                  <span className="font-medium">{formatNumber(pontaKwh)} kWh</span>
-                  {isGrupoA && <span className="text-muted-foreground ml-2">({formatCurrency(energiaPontaRs)})</span>}
+                  <span className="font-bold text-lg text-foreground">{formatNumber(pontaKwh)} kWh</span>
+                  {isGrupoA && <span className="text-xs text-muted-foreground ml-2">({formatCurrency(energiaPontaRs)})</span>}
                 </div>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Consumo Fora Ponta</span>
+              
+              {/* Consumo Fora Ponta */}
+              <div className="flex justify-between items-center p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-muted-foreground">Consumo Fora Ponta</span>
+                </div>
                 <div className="text-right">
-                  <span className="font-medium">{formatNumber(foraPontaKwh)} kWh</span>
-                  {isGrupoA && <span className="text-muted-foreground ml-2">({formatCurrency(energiaForaPontaRs)})</span>}
+                  <span className="font-bold text-lg text-foreground">{formatNumber(foraPontaKwh)} kWh</span>
+                  {isGrupoA && <span className="text-xs text-muted-foreground ml-2">({formatCurrency(energiaForaPontaRs)})</span>}
                 </div>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Consumo Total</span>
-                <span className="font-medium">{formatNumber(consumoTotalKwh)} kWh</span>
+              
+              {/* Consumo Total */}
+              <div className="flex justify-between items-center p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Consumo Total</span>
+                </div>
+                <span className="font-bold text-xl text-amber-900 dark:text-amber-100">{formatNumber(consumoTotalKwh)} kWh</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Tarifa de Energia (TE)</span>
-                <span className="font-medium">{formatCurrency(valorTe)}</span>
+
+              {/* Separador */}
+              <div className="border-t border-amber-200 dark:border-amber-700 my-2" />
+              
+              {/* TE e TUSD */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-white/60 dark:bg-black/20 rounded-lg text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Tarifa de Energia (TE)</p>
+                  <p className="font-bold text-lg text-foreground">{formatCurrency(valorTe)}</p>
+                </div>
+                <div className="p-3 bg-white/60 dark:bg-black/20 rounded-lg text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Tarifa de Uso (TUSD)</p>
+                  <p className="font-bold text-lg text-foreground">{formatCurrency(valorTusd)}</p>
+                </div>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Tarifa de Uso (TUSD)</span>
-                <span className="font-medium">{formatCurrency(valorTusd)}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Bandeira Tarifária</span>
-                <span className={`font-medium capitalize ${faturaMesAtualDB?.bandeiras === 'verde' ? 'text-green-600' : faturaMesAtualDB?.bandeiras === 'amarela' ? 'text-amber-600' : 'text-red-600'}`}>
+              
+              {/* Bandeira */}
+              <div className="flex justify-between items-center p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <span className="text-sm text-muted-foreground">Bandeira Tarifária</span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
+                  faturaMesAtualDB?.bandeiras === 'verde' 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' 
+                    : faturaMesAtualDB?.bandeiras === 'amarela' 
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' 
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                }`}>
                   {faturaMesAtualDB?.bandeiras || '-'}
                 </span>
               </div>
@@ -347,147 +384,173 @@ export default function EnergiaFatura() {
         </div>
 
         {/* SIMULAÇÃO CONVENCIONAL VERDE A4 */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800 p-6">
-          <h3 className="text-sm font-medium uppercase tracking-wider text-blue-800 dark:text-blue-200 mb-4 flex items-center gap-2">
-            <Calculator className="h-4 w-4" />
-            Simulação Convencional (Verde A4)
-          </h3>
-          <p className="text-xs text-blue-600 dark:text-blue-300 mb-4">
-            Como seria a fatura se o cliente não tivesse GD ou assinatura de usina
-          </p>
+        <div className="bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 dark:from-indigo-950/40 dark:via-blue-950/30 dark:to-cyan-950/20 rounded-xl border border-indigo-200 dark:border-indigo-800 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-500/20 rounded-xl">
+                <Calculator className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-indigo-900 dark:text-indigo-100">
+                  Simulação Convencional (Verde A4)
+                </h3>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
+                  Como seria a fatura sem GD ou assinatura
+                </p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full">
+              <span className="text-xs text-indigo-600 dark:text-indigo-300">Tarifa média:</span>
+              <span className="text-sm font-bold text-indigo-800 dark:text-indigo-200">
+                R$ {tarifaMediaConvencional.toFixed(3)}/kWh
+              </span>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* TE por Posto */}
-            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                Tarifa de Energia (TE)
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <div>
-                    <span className="text-muted-foreground">TE Ponta</span>
-                    <span className="text-xs ml-2 text-blue-500">
-                      {formatNumber(pontaKwh)} kWh × R$ {tePontaTarifa.toFixed(5)}
-                    </span>
+            <div className="bg-white/70 dark:bg-black/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800/50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-blue-400 to-blue-600" />
+                <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                  Tarifa de Energia (TE)
+                </h4>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2.5 bg-red-50/50 dark:bg-red-950/20 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    <div>
+                      <span className="text-sm text-muted-foreground">TE Ponta</span>
+                      <p className="text-xs text-red-500/80">{formatNumber(pontaKwh)} kWh × R$ {tePontaTarifa.toFixed(5)}</p>
+                    </div>
                   </div>
-                  <span className="font-medium">{formatCurrency(tePontaRs)}</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(tePontaRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <div>
-                    <span className="text-muted-foreground">TE Fora Ponta</span>
-                    <span className="text-xs ml-2 text-blue-500">
-                      {formatNumber(foraPontaKwh)} kWh × R$ {teFpTarifa.toFixed(5)}
-                    </span>
+                <div className="flex justify-between items-center p-2.5 bg-green-50/50 dark:bg-green-950/20 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <div>
+                      <span className="text-sm text-muted-foreground">TE Fora Ponta</span>
+                      <p className="text-xs text-green-500/80">{formatNumber(foraPontaKwh)} kWh × R$ {teFpTarifa.toFixed(5)}</p>
+                    </div>
                   </div>
-                  <span className="font-medium">{formatCurrency(teFpRs)}</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(teFpRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 bg-blue-100/50 dark:bg-blue-900/30 -mx-4 px-4 rounded">
-                  <span className="font-semibold text-blue-800 dark:text-blue-200">Subtotal TE</span>
-                  <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(teTotal)}</span>
+                <div className="flex justify-between items-center p-2.5 bg-blue-100/70 dark:bg-blue-900/40 rounded-lg mt-2">
+                  <span className="font-semibold text-blue-800 dark:text-blue-200 text-sm">Subtotal TE</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(teTotal)}</span>
                 </div>
               </div>
             </div>
 
             {/* TUSD por Posto */}
-            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                Tarifa de Uso do Sistema (TUSD)
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <div>
-                    <span className="text-muted-foreground">TUSD Ponta</span>
-                    <span className="text-xs ml-2 text-blue-500">
-                      {formatNumber(pontaKwh)} kWh × R$ {tusdPontaTarifa.toFixed(5)}
-                    </span>
+            <div className="bg-white/70 dark:bg-black/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800/50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-purple-400 to-purple-600" />
+                <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                  Tarifa de Uso (TUSD)
+                </h4>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2.5 bg-red-50/50 dark:bg-red-950/20 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    <div>
+                      <span className="text-sm text-muted-foreground">TUSD Ponta</span>
+                      <p className="text-xs text-red-500/80">{formatNumber(pontaKwh)} kWh × R$ {tusdPontaTarifa.toFixed(5)}</p>
+                    </div>
                   </div>
-                  <span className="font-medium">{formatCurrency(tusdPontaRs)}</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(tusdPontaRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <div>
-                    <span className="text-muted-foreground">TUSD Fora Ponta</span>
-                    <span className="text-xs ml-2 text-blue-500">
-                      {formatNumber(foraPontaKwh)} kWh × R$ {tusdFpTarifa.toFixed(5)}
-                    </span>
+                <div className="flex justify-between items-center p-2.5 bg-green-50/50 dark:bg-green-950/20 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <div>
+                      <span className="text-sm text-muted-foreground">TUSD Fora Ponta</span>
+                      <p className="text-xs text-green-500/80">{formatNumber(foraPontaKwh)} kWh × R$ {tusdFpTarifa.toFixed(5)}</p>
+                    </div>
                   </div>
-                  <span className="font-medium">{formatCurrency(tusdFpRs)}</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(tusdFpRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 bg-blue-100/50 dark:bg-blue-900/30 -mx-4 px-4 rounded">
-                  <span className="font-semibold text-blue-800 dark:text-blue-200">Subtotal TUSD</span>
-                  <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(tusdTotal)}</span>
+                <div className="flex justify-between items-center p-2.5 bg-purple-100/70 dark:bg-purple-900/40 rounded-lg mt-2">
+                  <span className="font-semibold text-purple-800 dark:text-purple-200 text-sm">Subtotal TUSD</span>
+                  <span className="font-bold text-purple-900 dark:text-purple-100">{formatCurrency(tusdTotal)}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Impostos e Totais */}
-          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Impostos e Resumo */}
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Impostos */}
-            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                Impostos e Encargos
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <span className="text-muted-foreground">ICMS ({icmsPercent}%)</span>
+            <div className="bg-white/70 dark:bg-black/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800/50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-amber-400 to-orange-500" />
+                <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                  Impostos e Encargos
+                </h4>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <span className="text-sm text-muted-foreground">ICMS ({icmsPercent}%)</span>
                   <span className="font-medium">{formatCurrency(icmsRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <span className="text-muted-foreground">PIS ({pisPercent}%)</span>
+                <div className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <span className="text-sm text-muted-foreground">PIS ({pisPercent}%)</span>
                   <span className="font-medium">{formatCurrency(pisRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <span className="text-muted-foreground">COFINS ({cofinsPercent}%)</span>
+                <div className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <span className="text-sm text-muted-foreground">COFINS ({cofinsPercent}%)</span>
                   <span className="font-medium">{formatCurrency(cofinsRs)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 bg-blue-100/50 dark:bg-blue-900/30 -mx-4 px-4 rounded">
-                  <span className="font-semibold text-blue-800 dark:text-blue-200">Total Impostos</span>
-                  <span className="font-bold text-blue-800 dark:text-blue-200">{formatCurrency(totalImpostos)}</span>
+                <div className="flex justify-between items-center p-2.5 bg-amber-100/70 dark:bg-amber-900/40 rounded-lg mt-2">
+                  <span className="font-semibold text-amber-800 dark:text-amber-200 text-sm">Total Impostos</span>
+                  <span className="font-bold text-amber-900 dark:text-amber-100">{formatCurrency(totalImpostos)}</span>
                 </div>
               </div>
             </div>
 
             {/* Resumo Final */}
-            <div className="bg-white/60 dark:bg-black/20 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
-                Resumo Comparativo
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <span className="text-muted-foreground">Subtotal (TE + TUSD)</span>
+            <div className="bg-white/70 dark:bg-black/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800/50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-400 to-indigo-600" />
+                <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                  Resumo Comparativo
+                </h4>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <span className="text-sm text-muted-foreground">Subtotal (TE + TUSD)</span>
                   <span className="font-medium">{formatCurrency(subtotalSemImpostos)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-blue-100 dark:border-blue-800">
-                  <span className="text-muted-foreground">Impostos</span>
+                <div className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <span className="text-sm text-muted-foreground">Impostos</span>
                   <span className="font-medium">{formatCurrency(totalImpostos)}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 bg-blue-200/70 dark:bg-blue-800/50 -mx-4 px-4 rounded font-bold">
-                  <span className="text-blue-900 dark:text-blue-100">Total Convencional</span>
-                  <span className="text-blue-900 dark:text-blue-100">{formatCurrency(totalConvencional)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 text-xs text-blue-600 dark:text-blue-400">
-                  <span>Tarifa média</span>
-                  <span>R$ {tarifaMediaConvencional.toFixed(5)}/kWh</span>
+                <div className="flex justify-between items-center p-3 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-lg mt-2">
+                  <span className="font-semibold text-white text-sm">Total Convencional</span>
+                  <span className="font-bold text-white text-lg">{formatCurrency(totalConvencional)}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Economia */}
-          <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-xs text-muted-foreground">Valor Convencional</p>
-                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{formatCurrency(totalConvencional)}</p>
+          {/* Economia - Destaque */}
+          <div className="mt-5 p-4 bg-gradient-to-r from-emerald-500/10 via-green-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:via-green-500/20 dark:to-teal-500/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+              <div className="p-3 bg-white/50 dark:bg-black/20 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Valor Convencional</p>
+                <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">{formatCurrency(totalConvencional)}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Valor Real Pago</p>
-                <p className="text-lg font-bold text-foreground">{formatCurrency(valorTotal)}</p>
+              <div className="p-3 bg-white/50 dark:bg-black/20 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Valor Real Pago</p>
+                <p className="text-xl font-bold text-foreground">{formatCurrency(valorTotal)}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Economia com GD</p>
-                <p className="text-lg font-bold text-green-600">{formatCurrency(economiaVsConvencional)}</p>
-                <p className="text-xs text-green-500">({economiaVsConvencionalPercent.toFixed(1)}%)</p>
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg border border-emerald-300 dark:border-emerald-700">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">💰 Economia com GD</p>
+                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(economiaVsConvencional)}</p>
+                <p className="text-sm font-semibold text-emerald-500">({economiaVsConvencionalPercent.toFixed(1)}%)</p>
               </div>
             </div>
           </div>
