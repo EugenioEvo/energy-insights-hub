@@ -3,14 +3,7 @@ import { KPIs, User, Alerta } from '@/types/energy';
 import { useClientes, Cliente } from '@/hooks/useClientes';
 import { useUnidadesConsumidoras, UnidadeConsumidora } from '@/hooks/useUnidadesConsumidoras';
 import { useFaturas, FaturaMensal, useUpsertFatura } from '@/hooks/useFaturas';
-
-// Mock user until auth is implemented
-const mockUser: User = {
-  id: 'user-1',
-  nome: 'Administrador',
-  email: 'admin@evolight.com.br',
-  role: 'admin',
-};
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface EnergyContextType {
   // User
@@ -58,7 +51,16 @@ const defaultKPIs: KPIs = {
 const EnergyContext = createContext<EnergyContextType | undefined>(undefined);
 
 export function EnergyProvider({ children }: { children: ReactNode }) {
-  const [user] = useState<User>(mockUser);
+  const { user: authUser, isAdmin, clienteIds } = useAuthContext();
+  
+  // User object for context
+  const user: User = useMemo(() => ({
+    id: authUser?.id || '',
+    nome: authUser?.user_metadata?.nome || authUser?.email || 'Usuário',
+    email: authUser?.email || '',
+    role: isAdmin ? 'admin' : 'cliente',
+  }), [authUser, isAdmin]);
+
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [ucId, setUcId] = useState<string | null>(null);
   const [mesAtual, setMesAtual] = useState<string>('');
@@ -67,6 +69,15 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const { data: clientes = [], isLoading: loadingClientes, refetch: refetchClientes } = useClientes();
   const { data: unidadesConsumidoras = [], isLoading: loadingUCs, refetch: refetchUCs } = useUnidadesConsumidoras(clienteId || undefined);
   const { data: faturas = [], isLoading: loadingFaturas, refetch: refetchFaturas } = useFaturas(ucId || undefined);
+  
+  // Filtrar clientes baseado no role do usuário
+  const filteredClientes = useMemo(() => {
+    if (isAdmin) {
+      return clientes;
+    }
+    // Cliente vê apenas os clientes vinculados a ele
+    return clientes.filter(c => clienteIds.includes(c.id));
+  }, [clientes, isAdmin, clienteIds]);
   
   // Mutations
   const upsertFatura = useUpsertFatura();
@@ -81,10 +92,10 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Auto-select first cliente and UC if none selected
   React.useEffect(() => {
-    if (!clienteId && clientes.length > 0) {
-      setClienteId(clientes[0].id);
+    if (!clienteId && filteredClientes.length > 0) {
+      setClienteId(filteredClientes[0].id);
     }
-  }, [clientes, clienteId]);
+  }, [filteredClientes, clienteId]);
 
   React.useEffect(() => {
     if (!ucId && unidadesConsumidoras.length > 0) {
@@ -99,8 +110,8 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Get current selected entities
   const cliente = useMemo(() => 
-    clientes.find(c => c.id === clienteId) || null,
-    [clientes, clienteId]
+    filteredClientes.find(c => c.id === clienteId) || null,
+    [filteredClientes, clienteId]
   );
 
   const unidadeConsumidora = useMemo(() => 
@@ -175,7 +186,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         setClienteId,
         ucId,
         setUcId,
-        clientes,
+        clientes: filteredClientes,
         unidadesConsumidoras,
         faturas,
         cliente,

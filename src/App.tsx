@@ -3,7 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { EnergyProvider } from "@/contexts/EnergyContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import Auth from "./pages/Auth";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import EnergiaFatura from "./pages/EnergiaFatura";
 import Solar from "./pages/Solar";
@@ -20,24 +23,83 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <EnergyProvider>
-        <Toaster />
-        <Sonner />
+      <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<ExecutiveDashboard />} />
-            <Route path="/energia" element={<EnergiaFatura />} />
-            <Route path="/solar" element={<Solar />} />
-            <Route path="/assinatura" element={<Assinatura />} />
-            <Route path="/admin/lancar" element={<LancarDados />} />
-            <Route path="/admin/clientes" element={<Clientes />} />
-            <Route path="/admin/faturas" element={<GerenciarFaturas />} />
-            <Route path="/admin/usinas" element={<UsinasRemotas />} />
-            <Route path="/admin/tarifas" element={<Tarifas />} />
+            {/* Public route */}
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Protected routes - Cliente e Admin */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <EnergyProvider>
+                  <ExecutiveDashboard />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/energia" element={
+              <ProtectedRoute>
+                <EnergyProvider>
+                  <EnergiaFatura />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/solar" element={
+              <ProtectedRoute>
+                <EnergyProvider>
+                  <Solar />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/assinatura" element={
+              <ProtectedRoute>
+                <EnergyProvider>
+                  <Assinatura />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin only routes */}
+            <Route path="/admin/lancar" element={
+              <ProtectedRoute requireAdmin>
+                <EnergyProvider>
+                  <LancarDados />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/clientes" element={
+              <ProtectedRoute requireAdmin>
+                <EnergyProvider>
+                  <Clientes />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/faturas" element={
+              <ProtectedRoute requireAdmin>
+                <EnergyProvider>
+                  <GerenciarFaturas />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/usinas" element={
+              <ProtectedRoute requireAdmin>
+                <EnergyProvider>
+                  <UsinasRemotas />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/tarifas" element={
+              <ProtectedRoute requireAdmin>
+                <EnergyProvider>
+                  <Tarifas />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </EnergyProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
