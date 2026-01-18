@@ -207,7 +207,7 @@ export default function ExecutiveDashboard() {
             <h2 className="text-2xl font-bold text-foreground">Status Geral</h2>
             <p className="text-muted-foreground">Mês de referência: {mesFormatado}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" data-no-pdf>
             <Button
               onClick={handleExportPDF}
               disabled={isExporting}
