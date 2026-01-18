@@ -79,15 +79,66 @@ export function useExportPDF() {
       }
 
       // Capture entire content as single canvas with high quality
-      // Use scale 1.5 for smaller/sharper output
-      const captureScale = 1.5;
+      // Use fixed viewport width for consistent rendering
+      const captureScale = 2;
+      const fixedViewportWidth = 1280;
+      
       const canvas = await html2canvas(element, {
         scale: captureScale,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
+        windowWidth: fixedViewportWidth,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          // Remove elements marked with data-no-pdf
+          clonedDoc.querySelectorAll('[data-no-pdf]').forEach(el => el.remove());
+
+          // Fix positioning and overflow issues for all elements
+          clonedDoc.querySelectorAll('*').forEach((el: Element) => {
+            const htmlEl = el as HTMLElement;
+            const style = clonedDoc.defaultView?.getComputedStyle(htmlEl);
+            if (!style) return;
+
+            // Remove sticky/fixed positioning that causes duplication
+            if (style.position === 'fixed' || style.position === 'sticky') {
+              htmlEl.style.position = 'static';
+            }
+
+            // Fix overflow containers that can cause cut content
+            if (style.overflow === 'auto' || style.overflow === 'scroll' || 
+                style.overflowY === 'auto' || style.overflowY === 'scroll' ||
+                style.overflowX === 'auto' || style.overflowX === 'scroll') {
+              htmlEl.style.overflow = 'visible';
+              htmlEl.style.overflowX = 'visible';
+              htmlEl.style.overflowY = 'visible';
+              htmlEl.style.maxHeight = 'none';
+              htmlEl.style.height = 'auto';
+            }
+
+            // Remove max-height constraints
+            if (style.maxHeight !== 'none') {
+              htmlEl.style.maxHeight = 'none';
+            }
+          });
+
+          // Apply avoid-break to cards and important elements
+          clonedDoc.querySelectorAll('[class*="card"], [class*="Card"], .avoid-break').forEach((el: Element) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.breakInside = 'avoid';
+            htmlEl.style.pageBreakInside = 'avoid';
+          });
+
+          // Ensure the cloned element has proper dimensions
+          const clonedElement = clonedDoc.getElementById(elementId);
+          if (clonedElement) {
+            clonedElement.style.width = `${fixedViewportWidth}px`;
+            clonedElement.style.minHeight = 'auto';
+            clonedElement.style.overflow = 'visible';
+          }
+        }
       });
 
       // A4 dimensions in mm
@@ -95,12 +146,12 @@ export function useExportPDF() {
       const pageHeight = 297;
       const marginLeft = 6;
       const marginRight = 6;
-      const headerHeight = 42; // Reduced header
+      const headerHeight = 42;
       const footerHeight = 8;
       const contentWidth = pageWidth - marginLeft - marginRight;
       const contentHeight = pageHeight - headerHeight - footerHeight;
 
-      // Calculate image dimensions - reduce content to 85% to fit more per page
+      // Calculate image dimensions
       const reductionFactor = 0.82;
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
@@ -249,16 +300,16 @@ export function useExportPDF() {
           ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
           ctx.drawImage(
             canvas,
-            0, sourceY, // Source position
-            imgWidth, sourceHeight, // Source size
-            0, 0, // Destination position
-            imgWidth, sourceHeight // Destination size
+            0, sourceY,
+            imgWidth, sourceHeight,
+            0, 0,
+            imgWidth, sourceHeight
           );
           
           const sliceImgData = sliceCanvas.toDataURL('image/png');
           const actualContentWidth = contentWidth * reductionFactor;
           const renderHeight = Math.min(contentHeight, (sourceHeight / captureScale) * scale);
-          const xOffset = marginLeft + (contentWidth - actualContentWidth) / 2; // Center content
+          const xOffset = marginLeft + (contentWidth - actualContentWidth) / 2;
           
           pdf.addImage(
             sliceImgData, 
