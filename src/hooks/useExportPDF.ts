@@ -79,8 +79,10 @@ export function useExportPDF() {
       }
 
       // Capture entire content as single canvas with high quality
+      // Use scale 1.5 for smaller/sharper output
+      const captureScale = 1.5;
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: captureScale,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
@@ -91,18 +93,20 @@ export function useExportPDF() {
       // A4 dimensions in mm
       const pageWidth = 210;
       const pageHeight = 297;
-      const marginLeft = 8;
-      const marginRight = 8;
-      const headerHeight = 50;
-      const footerHeight = 10;
+      const marginLeft = 6;
+      const marginRight = 6;
+      const headerHeight = 42; // Reduced header
+      const footerHeight = 8;
       const contentWidth = pageWidth - marginLeft - marginRight;
       const contentHeight = pageHeight - headerHeight - footerHeight;
 
-      // Calculate image dimensions
+      // Calculate image dimensions - reduce content to 85% to fit more per page
+      const reductionFactor = 0.82;
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const scale = contentWidth / (imgWidth / 2); // Divide by 2 because of html2canvas scale:2
-      const totalContentHeightMm = (imgHeight / 2) * scale;
+      const baseScale = contentWidth / (imgWidth / captureScale);
+      const scale = baseScale * reductionFactor;
+      const totalContentHeightMm = (imgHeight / captureScale) * scale;
       
       // Calculate number of pages needed
       const totalPages = Math.ceil(totalContentHeightMm / contentHeight);
@@ -226,9 +230,9 @@ export function useExportPDF() {
         addFooter();
 
         // Calculate which portion of the image to render
-        const sourceY = (page * contentHeight / scale) * 2; // *2 for html2canvas scale
+        const sourceY = (page * contentHeight / scale) * captureScale;
         const sourceHeight = Math.min(
-          (contentHeight / scale) * 2,
+          (contentHeight / scale) * captureScale,
           imgHeight - sourceY
         );
         
@@ -252,14 +256,16 @@ export function useExportPDF() {
           );
           
           const sliceImgData = sliceCanvas.toDataURL('image/png');
-          const renderHeight = Math.min(contentHeight, (sourceHeight / 2) * scale);
+          const actualContentWidth = contentWidth * reductionFactor;
+          const renderHeight = Math.min(contentHeight, (sourceHeight / captureScale) * scale);
+          const xOffset = marginLeft + (contentWidth - actualContentWidth) / 2; // Center content
           
           pdf.addImage(
             sliceImgData, 
             'PNG', 
-            marginLeft, 
+            xOffset, 
             headerHeight, 
-            contentWidth, 
+            actualContentWidth, 
             renderHeight
           );
         }
