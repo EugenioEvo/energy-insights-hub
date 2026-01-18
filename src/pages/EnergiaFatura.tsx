@@ -559,50 +559,128 @@ export default function EnergiaFatura() {
         {/* Multas e Encargos - Grupo A */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Multas */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Multas e Penalidades</h3>
-            <div className="space-y-4">
-              {multaDemanda > 0 && <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
-                  <span className="text-red-700 dark:text-red-300 font-medium">Multa por Demanda</span>
-                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaDemanda)}</span>
-                </div>}
-              {multaUltrapassagem > 0 && <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
-                  <span className="text-red-700 dark:text-red-300 font-medium">Ultrapassagem de Demanda</span>
-                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaUltrapassagem)}</span>
-                </div>}
-              {multaUferPonta > 0 && <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
-                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Ponta (Reativo)</span>
-                  <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferPonta)}</span>
-                </div>}
-              {multaUferForaPonta > 0 && <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
-                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Fora Ponta (Reativo)</span>
-                  
-                </div>}
-              {totalMultas === 0 && <div className="flex items-center justify-center py-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                  <span className="text-green-700 dark:text-green-300 font-medium">✓ Sem multas neste mês</span>
-                </div>}
-              {totalMultas > 0 && <div className="flex justify-between items-center py-3 bg-red-100 dark:bg-red-950/50 -mx-6 px-6 rounded-lg mt-4">
-                  <span className="font-semibold text-red-700 dark:text-red-300">Total de Multas</span>
-                  <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(totalMultas)}</span>
-                </div>}
+          <div className={`rounded-xl border p-6 shadow-sm ${
+            totalMultas > 0 
+              ? 'bg-gradient-to-br from-red-50 via-rose-50 to-orange-50 dark:from-red-950/40 dark:via-rose-950/30 dark:to-orange-950/20 border-red-200 dark:border-red-800' 
+              : 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-200 dark:border-emerald-800'
+          }`}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className={`p-2 rounded-lg ${totalMultas > 0 ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
+                  <AlertTriangle className={`h-4 w-4 ${totalMultas > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                </div>
+                <h3 className={`text-sm font-semibold uppercase tracking-wider ${
+                  totalMultas > 0 ? 'text-red-900 dark:text-red-100' : 'text-emerald-900 dark:text-emerald-100'
+                }`}>
+                  Multas e Penalidades
+                </h3>
+              </div>
+              {totalMultas > 0 && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-100 dark:bg-red-900/50 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-medium text-red-700 dark:text-red-300">Atenção</span>
+                </span>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              {multaDemanda > 0 && (
+                <div className="flex justify-between items-center p-3 bg-red-100/70 dark:bg-red-900/40 rounded-lg border border-red-200 dark:border-red-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-sm font-medium text-red-800 dark:text-red-200">Multa por Demanda</span>
+                  </div>
+                  <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(multaDemanda)}</span>
+                </div>
+              )}
+              
+              {multaUltrapassagem > 0 && (
+                <div className="flex justify-between items-center p-3 bg-red-100/70 dark:bg-red-900/40 rounded-lg border border-red-200 dark:border-red-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-600" />
+                    <span className="text-sm font-medium text-red-800 dark:text-red-200">Ultrapassagem de Demanda</span>
+                  </div>
+                  <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(multaUltrapassagem)}</span>
+                </div>
+              )}
+              
+              {multaUferPonta > 0 && (
+                <div className="flex justify-between items-center p-3 bg-amber-100/70 dark:bg-amber-900/40 rounded-lg border border-amber-200 dark:border-amber-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">UFER Ponta (Reativo)</span>
+                  </div>
+                  <span className="font-bold text-lg text-amber-700 dark:text-amber-300">{formatCurrency(multaUferPonta)}</span>
+                </div>
+              )}
+              
+              {multaUferForaPonta > 0 && (
+                <div className="flex justify-between items-center p-3 bg-amber-100/70 dark:bg-amber-900/40 rounded-lg border border-amber-200 dark:border-amber-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">UFER Fora Ponta (Reativo)</span>
+                  </div>
+                  <span className="font-bold text-lg text-amber-700 dark:text-amber-300">{formatCurrency(multaUferForaPonta)}</span>
+                </div>
+              )}
+              
+              {totalMultas === 0 && (
+                <div className="flex items-center justify-center gap-3 py-6 bg-emerald-100/70 dark:bg-emerald-900/40 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <span className="text-xl">✓</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-emerald-800 dark:text-emerald-200">Sem multas neste mês</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Demanda e fator de potência OK</p>
+                  </div>
+                </div>
+              )}
+              
+              {totalMultas > 0 && (
+                <>
+                  <div className="border-t border-red-200 dark:border-red-700 my-2" />
+                  <div className="flex justify-between items-center p-4 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg">
+                    <span className="font-semibold text-white">Total de Multas</span>
+                    <span className="font-bold text-xl text-white">{formatCurrency(totalMultas)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* Outros Encargos */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Outros Encargos</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Iluminação Pública (CIP)</span>
-                <span className="font-medium">{formatCurrency(iluminacaoPublica)}</span>
+          <div className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/40 dark:via-gray-950/30 dark:to-zinc-950/20 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="p-2 bg-slate-500/20 rounded-lg">
+                <Receipt className="h-4 w-4 text-slate-600 dark:text-slate-400" />
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Outros Encargos</span>
-                <span className="font-medium">{formatCurrency(outrosEncargos)}</span>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                Outros Encargos
+              </h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                  <span className="text-sm text-muted-foreground">Iluminação Pública (CIP)</span>
+                </div>
+                <span className="font-bold text-lg text-foreground">{formatCurrency(iluminacaoPublica)}</span>
               </div>
-              <div className="flex justify-between items-center py-3 bg-primary/5 -mx-6 px-6 rounded-lg mt-4">
-                <span className="font-semibold">Total da Fatura</span>
-                <span className="font-bold text-lg">{formatCurrency(valorTotal)}</span>
+              
+              <div className="flex justify-between items-center p-3 bg-white/60 dark:bg-black/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span className="text-sm text-muted-foreground">Outros Encargos</span>
+                </div>
+                <span className="font-bold text-lg text-foreground">{formatCurrency(outrosEncargos)}</span>
+              </div>
+              
+              <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
+              
+              <div className="flex justify-between items-center p-4 bg-gradient-to-r from-slate-600 to-slate-700 dark:from-slate-700 dark:to-slate-800 rounded-lg">
+                <span className="font-semibold text-white">Total da Fatura</span>
+                <span className="font-bold text-xl text-white">{formatCurrency(valorTotal)}</span>
               </div>
             </div>
           </div>
