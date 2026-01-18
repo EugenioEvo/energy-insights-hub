@@ -9,7 +9,8 @@ import {
   LogOut,
   FileSearch,
   Factory,
-  DollarSign
+  DollarSign,
+  Users
 } from 'lucide-react';
 import { useEnergy } from '@/contexts/EnergyContext';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -28,6 +29,7 @@ const adminNavigation = [
   { name: 'Lançar Dados', href: '/admin/lancar', icon: PlusCircle },
   { name: 'Gerenciar Faturas', href: '/admin/faturas', icon: FileSearch },
   { name: 'Clientes', href: '/admin/clientes', icon: Building2 },
+  { name: 'Usuários', href: '/admin/usuarios', icon: Users },
   { name: 'Usinas Remotas', href: '/admin/usinas', icon: Factory },
   { name: 'Tarifas', href: '/admin/tarifas', icon: DollarSign },
 ];

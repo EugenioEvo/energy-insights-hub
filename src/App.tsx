@@ -13,6 +13,7 @@ import Solar from "./pages/Solar";
 import Assinatura from "./pages/Assinatura";
 import LancarDados from "./pages/admin/LancarDados";
 import Clientes from "./pages/admin/Clientes";
+import Usuarios from "./pages/admin/Usuarios";
 import GerenciarFaturas from "./pages/admin/GerenciarFaturas";
 import UsinasRemotas from "./pages/admin/UsinasRemotas";
 import Tarifas from "./pages/admin/Tarifas";
@@ -71,6 +72,13 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <EnergyProvider>
                   <Clientes />
+                </EnergyProvider>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/usuarios" element={
+              <ProtectedRoute requireAdmin>
+                <EnergyProvider>
+                  <Usuarios />
                 </EnergyProvider>
               </ProtectedRoute>
             } />
