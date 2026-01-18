@@ -4,7 +4,6 @@ import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
 import { useEnergy } from '@/contexts/EnergyContext';
-import { useTarifas } from '@/hooks/useTarifas';
 import { Receipt, TrendingDown, AlertTriangle, Zap, Sun } from 'lucide-react';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,13 +34,6 @@ export default function EnergiaFatura() {
   const faturaMesAtualDB = faturasOrdenadas.find(f => f.mes_ref === mesAtual);
   const ucAtual = ucs?.find(uc => uc.id === faturaMesAtualDB?.uc_id);
   const isGrupoA = ucAtual?.grupo_tarifario === 'A';
-
-  // Buscar tarifa convencional da Equatorial GO para referência
-  const { data: tarifaConvencional } = useTarifas(
-    ucAtual?.concessionaria || 'Equatorial Goiás',
-    ucAtual?.grupo_tarifario as 'A' | 'B' || 'A',
-    ucAtual?.modalidade_tarifaria || 'VERDE'
-  );
 
   // Prepare comparison chart data - usando dados da fatura diretamente
   const comparisonData = useMemo(() => {
@@ -95,18 +87,6 @@ export default function EnergiaFatura() {
   const demandaMedidaKw = Number(faturaMesAtualDB?.demanda_medida_kw || 0);
   const demandaGeracaoKw = Number(faturaMesAtualDB?.demanda_geracao_kw || 0);
   const outrosEncargos = Number(faturaMesAtualDB?.outros_encargos || 0);
-
-  // Tarifas por posto horário (usando tarifa convencional como referência)
-  const tePontaTarifa = tarifaConvencional?.te_ponta_rs_kwh || 0;
-  const teFpTarifa = tarifaConvencional?.te_fora_ponta_rs_kwh || tarifaConvencional?.te_unica_rs_kwh || 0;
-  const tusdPontaTarifa = tarifaConvencional?.tusd_ponta_rs_kwh || 0;
-  const tusdFpTarifa = tarifaConvencional?.tusd_fora_ponta_rs_kwh || tarifaConvencional?.tusd_unica_rs_kwh || 0;
-
-  // Valores calculados por posto (TE e TUSD)
-  const tePontaRs = pontaKwh * tePontaTarifa;
-  const teFpRs = foraPontaKwh * teFpTarifa;
-  const tusdPontaRs = pontaKwh * tusdPontaTarifa;
-  const tusdFpRs = foraPontaKwh * tusdFpTarifa;
 
   // Custo por kWh
   const custoKwhBase = consumoTotalKwh > 0 ? valorTotal / consumoTotalKwh : 0;
@@ -223,50 +203,13 @@ export default function EnergiaFatura() {
                 <span className="text-muted-foreground">Consumo Total</span>
                 <span className="font-medium">{formatNumber(consumoTotalKwh)} kWh</span>
               </div>
-              {/* TE por posto tarifário */}
-              <div className="border-t border-border pt-3 mt-2">
-                <p className="text-xs font-medium uppercase tracking-wider text-primary/70 mb-2">Tarifa de Energia (TE)</p>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground text-sm">TE Ponta</span>
-                  <div className="text-right">
-                    <span className="font-medium">{formatCurrency(tePontaRs)}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({tePontaTarifa.toFixed(5)} R$/kWh)</span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground text-sm">TE Fora Ponta</span>
-                  <div className="text-right">
-                    <span className="font-medium">{formatCurrency(teFpRs)}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({teFpTarifa.toFixed(5)} R$/kWh)</span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center py-2 bg-primary/5 -mx-6 px-6">
-                  <span className="font-medium text-sm">Total TE</span>
-                  <span className="font-semibold">{formatCurrency(tePontaRs + teFpRs)}</span>
-                </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-muted-foreground">Tarifa de Energia (TE)</span>
+                <span className="font-medium">{formatCurrency(valorTe)}</span>
               </div>
-
-              {/* TUSD por posto tarifário */}
-              <div className="border-t border-border pt-3 mt-2">
-                <p className="text-xs font-medium uppercase tracking-wider text-primary/70 mb-2">Tarifa de Uso do Sistema (TUSD)</p>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground text-sm">TUSD Ponta</span>
-                  <div className="text-right">
-                    <span className="font-medium">{formatCurrency(tusdPontaRs)}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({tusdPontaTarifa.toFixed(5)} R$/kWh)</span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground text-sm">TUSD Fora Ponta</span>
-                  <div className="text-right">
-                    <span className="font-medium">{formatCurrency(tusdFpRs)}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({tusdFpTarifa.toFixed(5)} R$/kWh)</span>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center py-2 bg-primary/5 -mx-6 px-6">
-                  <span className="font-medium text-sm">Total TUSD</span>
-                  <span className="font-semibold">{formatCurrency(tusdPontaRs + tusdFpRs)}</span>
-                </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-muted-foreground">Tarifa de Uso (TUSD)</span>
+                <span className="font-medium">{formatCurrency(valorTusd)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Bandeira Tarifária</span>
@@ -277,16 +220,13 @@ export default function EnergiaFatura() {
             </div>
           </div>
 
-          {/* Demanda e Multas */}
+          {/* Demanda */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Demanda e Multas</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Demanda</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Demanda Contratada</span>
-                <div className="text-right">
-                  <span className="font-medium">{demandaContratadaKw} kW</span>
-                  {isGrupoA && <span className="text-muted-foreground ml-2">({formatCurrency(demandaContratadaRs)})</span>}
-                </div>
+                
               </div>
               <div className={`flex justify-between items-center py-2 border-b ${demandaMedidaKw > demandaContratadaKw ? 'border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6' : 'border-border'}`}>
                 <span className={demandaMedidaKw > demandaContratadaKw ? 'text-red-700 dark:text-red-300 font-medium' : 'text-muted-foreground'}>
@@ -303,50 +243,50 @@ export default function EnergiaFatura() {
                     <span className="text-muted-foreground ml-2">({formatCurrency(demandaGeracaoRs)})</span>
                   </div>
                 </div>}
-
-              {/* Multas */}
-              {totalMultas > 0 && (
-                <div className="border-t border-border pt-4 mt-2">
-                  <p className="text-xs font-medium uppercase tracking-wider text-red-600 dark:text-red-400 mb-3">Penalidades</p>
-                  {multaDemanda > 0 && <div className="flex justify-between items-center py-2 border-b border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
-                      <span className="text-red-700 dark:text-red-300 text-sm">Multa por Demanda</span>
-                      <span className="text-red-700 dark:text-red-300 font-medium">{formatCurrency(multaDemanda)}</span>
-                    </div>}
-                  {multaUltrapassagem > 0 && <div className="flex justify-between items-center py-2 border-b border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
-                      <span className="text-red-700 dark:text-red-300 text-sm">Ultrapassagem de Demanda</span>
-                      <span className="text-red-700 dark:text-red-300 font-medium">{formatCurrency(multaUltrapassagem)}</span>
-                    </div>}
-                  {multaUferPonta > 0 && <div className="flex justify-between items-center py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
-                      <span className="text-amber-700 dark:text-amber-300 text-sm">UFER Ponta (Reativo)</span>
-                      <span className="text-amber-700 dark:text-amber-300 font-medium">{formatCurrency(multaUferPonta)}</span>
-                    </div>}
-                  {multaUferForaPonta > 0 && <div className="flex justify-between items-center py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
-                      <span className="text-amber-700 dark:text-amber-300 text-sm">UFER Fora Ponta (Reativo)</span>
-                      <span className="text-amber-700 dark:text-amber-300 font-medium">{formatCurrency(multaUferForaPonta)}</span>
-                    </div>}
-                  <div className="flex justify-between items-center py-3 bg-red-100 dark:bg-red-950/50 -mx-6 px-6 rounded-lg mt-2">
-                    <span className="font-semibold text-red-700 dark:text-red-300">Total de Multas</span>
-                    <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(totalMultas)}</span>
-                  </div>
-                </div>
-              )}
-
-              {totalMultas === 0 && (
-                <div className="flex items-center justify-center py-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                  <span className="text-green-700 dark:text-green-300 font-medium text-sm">✓ Sem multas neste mês</span>
-                </div>
-              )}
-
               <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Custo por kWh</span>
                 <span className="font-bold text-lg">R$ {custoKwhBase.toFixed(4)}</span>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Multas e Encargos - Grupo A */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Multas */}
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Multas e Penalidades</h3>
+            <div className="space-y-4">
+              {multaDemanda > 0 && <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
+                  <span className="text-red-700 dark:text-red-300 font-medium">Multa por Demanda</span>
+                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaDemanda)}</span>
+                </div>}
+              {multaUltrapassagem > 0 && <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
+                  <span className="text-red-700 dark:text-red-300 font-medium">Ultrapassagem de Demanda</span>
+                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaUltrapassagem)}</span>
+                </div>}
+              {multaUferPonta > 0 && <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
+                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Ponta (Reativo)</span>
+                  <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferPonta)}</span>
+                </div>}
+              {multaUferForaPonta > 0 && <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
+                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Fora Ponta (Reativo)</span>
+                  
+                </div>}
+              {totalMultas === 0 && <div className="flex items-center justify-center py-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                  <span className="text-green-700 dark:text-green-300 font-medium">✓ Sem multas neste mês</span>
+                </div>}
+              {totalMultas > 0 && <div className="flex justify-between items-center py-3 bg-red-100 dark:bg-red-950/50 -mx-6 px-6 rounded-lg mt-4">
+                  <span className="font-semibold text-red-700 dark:text-red-300">Total de Multas</span>
+                  <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(totalMultas)}</span>
+                </div>}
+            </div>
+          </div>
+
           {/* Outros Encargos */}
-          <div className="bg-card rounded-xl border border-border p-6 lg:col-span-2">
+          <div className="bg-card rounded-xl border border-border p-6">
             <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Outros Encargos</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Iluminação Pública (CIP)</span>
                 <span className="font-medium">{formatCurrency(iluminacaoPublica)}</span>
@@ -355,7 +295,7 @@ export default function EnergiaFatura() {
                 <span className="text-muted-foreground">Outros Encargos</span>
                 <span className="font-medium">{formatCurrency(outrosEncargos)}</span>
               </div>
-              <div className="flex justify-between items-center py-3 bg-primary/5 px-4 rounded-lg">
+              <div className="flex justify-between items-center py-3 bg-primary/5 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Total da Fatura</span>
                 <span className="font-bold text-lg">{formatCurrency(valorTotal)}</span>
               </div>
