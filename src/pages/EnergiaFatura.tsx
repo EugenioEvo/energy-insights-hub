@@ -94,11 +94,9 @@ export default function EnergiaFatura() {
   const economiaPercent = valorTotal > 0 ? economiaLiquida / valorTotal * 100 : 0;
 
   // Buscar tarifa convencional Verde A4 para simulação
-  const { data: tarifaVerdeA4 } = useTarifas(
-    ucAtual?.concessionaria || 'Equatorial Goiás',
-    'A',
-    'THS_VERDE'
-  );
+  const {
+    data: tarifaVerdeA4
+  } = useTarifas(ucAtual?.concessionaria || 'Equatorial Goiás', 'A', 'THS_VERDE');
 
   // Tarifas base Verde A4 (valores de referência Equatorial GO - sem impostos)
   const tePontaTarifa = tarifaVerdeA4?.te_ponta_rs_kwh || 0.48489;
@@ -134,15 +132,11 @@ export default function EnergiaFatura() {
   const totalConvencional = subtotalSemImpostos + totalImpostos;
 
   // Tarifa média calculada
-  const tarifaMediaConvencional = consumoTotalKwh > 0 
-    ? totalConvencional / consumoTotalKwh 
-    : 0;
+  const tarifaMediaConvencional = consumoTotalKwh > 0 ? totalConvencional / consumoTotalKwh : 0;
 
   // Economia comparada ao convencional
   const economiaVsConvencional = totalConvencional - valorTotal;
-  const economiaVsConvencionalPercent = totalConvencional > 0 
-    ? (economiaVsConvencional / totalConvencional) * 100 
-    : 0;
+  const economiaVsConvencionalPercent = totalConvencional > 0 ? economiaVsConvencional / totalConvencional * 100 : 0;
   if (faturasLoading) {
     return <DashboardLayout title="Energia & Fatura" subtitle="Análise detalhada da conta de energia">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -295,10 +289,7 @@ export default function EnergiaFatura() {
                     <span className="text-muted-foreground ml-2">({formatCurrency(demandaGeracaoRs)})</span>
                   </div>
                 </div>}
-              <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
-                <span className="font-semibold">Custo por kWh</span>
-                <span className="font-bold text-lg">R$ {custoKwhBase.toFixed(4)}</span>
-              </div>
+              
             </div>
           </div>
         </div>
