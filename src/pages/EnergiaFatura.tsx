@@ -257,9 +257,9 @@ export default function EnergiaFatura() {
             </div>
           </div>
 
-          {/* Demanda */}
+          {/* Demanda e Multas */}
           <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Demanda</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Demanda e Multas</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Demanda Contratada</span>
@@ -289,6 +289,41 @@ export default function EnergiaFatura() {
                   </div>
                 </div>
               )}
+              
+              {/* Multas */}
+              {totalMultas > 0 && (
+                <div className="border-t border-border pt-4 mt-2">
+                  {multaDemanda > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
+                      <span className="text-red-700 dark:text-red-300 font-medium">Multa por Demanda</span>
+                      <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaDemanda)}</span>
+                    </div>
+                  )}
+                  {multaUltrapassagem > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
+                      <span className="text-red-700 dark:text-red-300 font-medium">Ultrapassagem de Demanda</span>
+                      <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaUltrapassagem)}</span>
+                    </div>
+                  )}
+                  {multaUferPonta > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
+                      <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Ponta (Reativo)</span>
+                      <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferPonta)}</span>
+                    </div>
+                  )}
+                  {multaUferForaPonta > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
+                      <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Fora Ponta (Reativo)</span>
+                      <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferForaPonta)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center py-3 bg-red-100 dark:bg-red-950/50 -mx-6 px-6 rounded-lg mt-2">
+                    <span className="font-semibold text-red-700 dark:text-red-300">Total de Multas</span>
+                    <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(totalMultas)}</span>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex justify-between items-center py-3 bg-accent/10 -mx-6 px-6 rounded-lg mt-4">
                 <span className="font-semibold">Custo por kWh</span>
                 <span className="font-bold text-lg">R$ {custoKwhBase.toFixed(4)}</span>
@@ -297,49 +332,8 @@ export default function EnergiaFatura() {
           </div>
         </div>
 
-        {/* Multas e Encargos - Grupo A */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Multas */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-4">Multas e Penalidades</h3>
-            <div className="space-y-4">
-              {multaDemanda > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
-                  <span className="text-red-700 dark:text-red-300 font-medium">Multa por Demanda</span>
-                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaDemanda)}</span>
-                </div>
-              )}
-              {multaUltrapassagem > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-red-300 bg-red-50 dark:bg-red-950/30 -mx-6 px-6">
-                  <span className="text-red-700 dark:text-red-300 font-medium">Ultrapassagem de Demanda</span>
-                  <span className="text-red-700 dark:text-red-300 font-bold">{formatCurrency(multaUltrapassagem)}</span>
-                </div>
-              )}
-              {multaUferPonta > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
-                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Ponta (Reativo)</span>
-                  <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferPonta)}</span>
-                </div>
-              )}
-              {multaUferForaPonta > 0 && (
-                <div className="flex justify-between items-center py-2 border-b border-amber-300 bg-amber-50 dark:bg-amber-950/30 -mx-6 px-6">
-                  <span className="text-amber-700 dark:text-amber-300 font-medium">UFER Fora Ponta (Reativo)</span>
-                  <span className="text-amber-700 dark:text-amber-300 font-bold">{formatCurrency(multaUferForaPonta)}</span>
-                </div>
-              )}
-              {totalMultas === 0 && (
-                <div className="flex items-center justify-center py-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                  <span className="text-green-700 dark:text-green-300 font-medium">✓ Sem multas neste mês</span>
-                </div>
-              )}
-              {totalMultas > 0 && (
-                <div className="flex justify-between items-center py-3 bg-red-100 dark:bg-red-950/50 -mx-6 px-6 rounded-lg mt-4">
-                  <span className="font-semibold text-red-700 dark:text-red-300">Total de Multas</span>
-                  <span className="font-bold text-lg text-red-700 dark:text-red-300">{formatCurrency(totalMultas)}</span>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Outros Encargos - Linha única */}
+        <div className="grid grid-cols-1 gap-6">
 
           {/* Outros Encargos */}
           <div className="bg-card rounded-xl border border-border p-6">
