@@ -4,6 +4,7 @@ import { ComparisonChart } from '@/components/charts/ComparisonChart';
 import { DonutChart } from '@/components/charts/DonutChart';
 import { useUnidadesConsumidoras } from '@/hooks/useUnidadesConsumidoras';
 import { useEnergy } from '@/contexts/EnergyContext';
+import { useTarifas } from '@/hooks/useTarifas';
 import { Receipt, TrendingDown, AlertTriangle, Zap, Sun } from 'lucide-react';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +35,13 @@ export default function EnergiaFatura() {
   const faturaMesAtualDB = faturasOrdenadas.find(f => f.mes_ref === mesAtual);
   const ucAtual = ucs?.find(uc => uc.id === faturaMesAtualDB?.uc_id);
   const isGrupoA = ucAtual?.grupo_tarifario === 'A';
+
+  // Buscar tarifa convencional da Equatorial GO para referência
+  const { data: tarifaConvencional } = useTarifas(
+    ucAtual?.concessionaria || 'Equatorial Goiás',
+    ucAtual?.grupo_tarifario as 'A' | 'B' || 'A',
+    ucAtual?.modalidade_tarifaria || 'VERDE'
+  );
 
   // Prepare comparison chart data - usando dados da fatura diretamente
   const comparisonData = useMemo(() => {
@@ -87,6 +95,18 @@ export default function EnergiaFatura() {
   const demandaMedidaKw = Number(faturaMesAtualDB?.demanda_medida_kw || 0);
   const demandaGeracaoKw = Number(faturaMesAtualDB?.demanda_geracao_kw || 0);
   const outrosEncargos = Number(faturaMesAtualDB?.outros_encargos || 0);
+
+  // Tarifas por posto horário (usando tarifa convencional como referência)
+  const tePontaTarifa = tarifaConvencional?.te_ponta_rs_kwh || 0;
+  const teFpTarifa = tarifaConvencional?.te_fora_ponta_rs_kwh || tarifaConvencional?.te_unica_rs_kwh || 0;
+  const tusdPontaTarifa = tarifaConvencional?.tusd_ponta_rs_kwh || 0;
+  const tusdFpTarifa = tarifaConvencional?.tusd_fora_ponta_rs_kwh || tarifaConvencional?.tusd_unica_rs_kwh || 0;
+
+  // Valores calculados por posto (TE e TUSD)
+  const tePontaRs = pontaKwh * tePontaTarifa;
+  const teFpRs = foraPontaKwh * teFpTarifa;
+  const tusdPontaRs = pontaKwh * tusdPontaTarifa;
+  const tusdFpRs = foraPontaKwh * tusdFpTarifa;
 
   // Custo por kWh
   const custoKwhBase = consumoTotalKwh > 0 ? valorTotal / consumoTotalKwh : 0;
@@ -203,13 +223,50 @@ export default function EnergiaFatura() {
                 <span className="text-muted-foreground">Consumo Total</span>
                 <span className="font-medium">{formatNumber(consumoTotalKwh)} kWh</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Tarifa de Energia (TE)</span>
-                <span className="font-medium">{formatCurrency(valorTe)}</span>
+              {/* TE por posto tarifário */}
+              <div className="border-t border-border pt-3 mt-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-primary/70 mb-2">Tarifa de Energia (TE)</p>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground text-sm">TE Ponta</span>
+                  <div className="text-right">
+                    <span className="font-medium">{formatCurrency(tePontaRs)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({tePontaTarifa.toFixed(5)} R$/kWh)</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground text-sm">TE Fora Ponta</span>
+                  <div className="text-right">
+                    <span className="font-medium">{formatCurrency(teFpRs)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({teFpTarifa.toFixed(5)} R$/kWh)</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-primary/5 -mx-6 px-6">
+                  <span className="font-medium text-sm">Total TE</span>
+                  <span className="font-semibold">{formatCurrency(tePontaRs + teFpRs)}</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-muted-foreground">Tarifa de Uso (TUSD)</span>
-                <span className="font-medium">{formatCurrency(valorTusd)}</span>
+
+              {/* TUSD por posto tarifário */}
+              <div className="border-t border-border pt-3 mt-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-primary/70 mb-2">Tarifa de Uso do Sistema (TUSD)</p>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground text-sm">TUSD Ponta</span>
+                  <div className="text-right">
+                    <span className="font-medium">{formatCurrency(tusdPontaRs)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({tusdPontaTarifa.toFixed(5)} R$/kWh)</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground text-sm">TUSD Fora Ponta</span>
+                  <div className="text-right">
+                    <span className="font-medium">{formatCurrency(tusdFpRs)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">({tusdFpTarifa.toFixed(5)} R$/kWh)</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center py-2 bg-primary/5 -mx-6 px-6">
+                  <span className="font-medium text-sm">Total TUSD</span>
+                  <span className="font-semibold">{formatCurrency(tusdPontaRs + tusdFpRs)}</span>
+                </div>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Bandeira Tarifária</span>
