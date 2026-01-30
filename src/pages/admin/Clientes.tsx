@@ -27,6 +27,8 @@ import { useConcessionariasComTarifas } from '@/hooks/useTarifas';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Plus, MapPin, Zap, Loader2, Pencil, Factory, Sun, Link2, Trash2, DollarSign, Percent } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { clienteSchema, clienteUsinaVinculoSchema, formatCNPJ, formatPhone } from '@/lib/validation';
+import { z } from 'zod';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,23 +149,30 @@ export default function Clientes() {
   });
 
   const handleCreateCliente = async () => {
-    if (!novoCliente.nome || !novoCliente.cnpj || !novoCliente.email) {
-      toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
-      return;
-    }
-
     try {
-      await createCliente.mutateAsync({
+      // Validate with Zod schema
+      const validatedData = clienteSchema.parse({
         nome: novoCliente.nome,
         cnpj: novoCliente.cnpj,
         email: novoCliente.email,
         telefone: novoCliente.telefone || null,
+      });
+
+      await createCliente.mutateAsync({
+        nome: validatedData.nome,
+        cnpj: formatCNPJ(validatedData.cnpj), // Store formatted
+        email: validatedData.email,
+        telefone: validatedData.telefone || null,
       });
       toast({ title: 'Sucesso', description: 'Cliente criado com sucesso!' });
       setNovoCliente({ nome: '', cnpj: '', email: '', telefone: '' });
       setClienteDialogOpen(false);
       refetchAll();
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({ title: 'Erro de validação', description: error.errors[0].message, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Erro', description: 'Falha ao criar cliente', variant: 'destructive' });
     }
   };
@@ -182,24 +191,31 @@ export default function Clientes() {
   const handleUpdateCliente = async () => {
     if (!editCliente) return;
     
-    if (!editCliente.nome || !editCliente.cnpj || !editCliente.email) {
-      toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
-      return;
-    }
-
     try {
-      await updateCliente.mutateAsync({
-        id: editCliente.id,
+      // Validate with Zod schema
+      const validatedData = clienteSchema.parse({
         nome: editCliente.nome,
         cnpj: editCliente.cnpj,
         email: editCliente.email,
         telefone: editCliente.telefone || null,
+      });
+
+      await updateCliente.mutateAsync({
+        id: editCliente.id,
+        nome: validatedData.nome,
+        cnpj: formatCNPJ(validatedData.cnpj),
+        email: validatedData.email,
+        telefone: validatedData.telefone || null,
       });
       toast({ title: 'Sucesso', description: 'Cliente atualizado com sucesso!' });
       setEditDialogOpen(false);
       setEditCliente(null);
       refetchAll();
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({ title: 'Erro de validação', description: error.errors[0].message, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Erro', description: 'Falha ao atualizar cliente', variant: 'destructive' });
     }
   };
@@ -285,19 +301,31 @@ export default function Clientes() {
     }
 
     try {
-      await createVinculo.mutateAsync({
-        cliente_id: clienteId,
-        usina_id: novoVinculo.usina_id,
-        uc_beneficiaria_id: novoVinculo.uc_beneficiaria_id,
+      // Validate with Zod schema
+      const validatedData = clienteUsinaVinculoSchema.parse({
         percentual_rateio: parseFloat(novoVinculo.percentual_rateio) || 0,
         energia_contratada_kwh: parseFloat(novoVinculo.energia_contratada_kwh) || 0,
         desconto_garantido_percent: parseFloat(novoVinculo.desconto_garantido_percent) || 0,
+        tarifa_ppa_rs_kwh: parseFloat(novoVinculo.tarifa_ppa_rs_kwh) || 0,
         numero_contrato: novoVinculo.numero_contrato || null,
         data_inicio_contrato: novoVinculo.data_inicio_contrato || null,
         data_fim_contrato: null,
         ativo: true,
+      });
+
+      await createVinculo.mutateAsync({
+        cliente_id: clienteId,
+        usina_id: novoVinculo.usina_id,
+        uc_beneficiaria_id: novoVinculo.uc_beneficiaria_id,
+        percentual_rateio: validatedData.percentual_rateio,
+        energia_contratada_kwh: validatedData.energia_contratada_kwh,
+        desconto_garantido_percent: validatedData.desconto_garantido_percent,
+        numero_contrato: validatedData.numero_contrato,
+        data_inicio_contrato: validatedData.data_inicio_contrato,
+        data_fim_contrato: null,
+        ativo: true,
         modalidade_economia: novoVinculo.modalidade_economia,
-        tarifa_ppa_rs_kwh: parseFloat(novoVinculo.tarifa_ppa_rs_kwh) || 0,
+        tarifa_ppa_rs_kwh: validatedData.tarifa_ppa_rs_kwh,
         referencia_desconto: novoVinculo.referencia_desconto,
       });
       toast({ title: 'Sucesso', description: 'Vínculo com usina criado com sucesso!' });
@@ -316,6 +344,10 @@ export default function Clientes() {
       setVinculoDialogOpen(false);
       refetchVinculos();
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({ title: 'Erro de validação', description: error.errors[0].message, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Erro', description: 'Falha ao criar vínculo. Verifique se já não existe.', variant: 'destructive' });
     }
   };
@@ -343,19 +375,31 @@ export default function Clientes() {
     if (!editVinculo) return;
 
     try {
-      await updateVinculo.mutateAsync({
-        id: editVinculo.id,
-        usina_id: editVinculo.usina_id,
-        uc_beneficiaria_id: editVinculo.uc_beneficiaria_id,
+      // Validate with Zod schema
+      const validatedData = clienteUsinaVinculoSchema.parse({
         percentual_rateio: parseFloat(editVinculo.percentual_rateio) || 0,
         energia_contratada_kwh: parseFloat(editVinculo.energia_contratada_kwh) || 0,
         desconto_garantido_percent: parseFloat(editVinculo.desconto_garantido_percent) || 0,
+        tarifa_ppa_rs_kwh: parseFloat(editVinculo.tarifa_ppa_rs_kwh) || 0,
         numero_contrato: editVinculo.numero_contrato || null,
         data_inicio_contrato: editVinculo.data_inicio_contrato || null,
         data_fim_contrato: editVinculo.data_fim_contrato || null,
         ativo: editVinculo.ativo,
+      });
+
+      await updateVinculo.mutateAsync({
+        id: editVinculo.id,
+        usina_id: editVinculo.usina_id,
+        uc_beneficiaria_id: editVinculo.uc_beneficiaria_id,
+        percentual_rateio: validatedData.percentual_rateio,
+        energia_contratada_kwh: validatedData.energia_contratada_kwh,
+        desconto_garantido_percent: validatedData.desconto_garantido_percent,
+        numero_contrato: validatedData.numero_contrato,
+        data_inicio_contrato: validatedData.data_inicio_contrato,
+        data_fim_contrato: validatedData.data_fim_contrato,
+        ativo: validatedData.ativo,
         modalidade_economia: editVinculo.modalidade_economia,
-        tarifa_ppa_rs_kwh: parseFloat(editVinculo.tarifa_ppa_rs_kwh) || 0,
+        tarifa_ppa_rs_kwh: validatedData.tarifa_ppa_rs_kwh,
         referencia_desconto: editVinculo.referencia_desconto,
       });
       toast({ title: 'Sucesso', description: 'Vínculo atualizado com sucesso!' });
@@ -363,6 +407,10 @@ export default function Clientes() {
       setEditVinculo(null);
       refetchVinculos();
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({ title: 'Erro de validação', description: error.errors[0].message, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Erro', description: 'Falha ao atualizar vínculo', variant: 'destructive' });
     }
   };
