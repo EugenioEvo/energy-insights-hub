@@ -29,6 +29,8 @@ import {
 import { Sun, Wind, Droplets, Leaf, Factory, Plus, Loader2, Pencil, Trash2, MapPin, Zap, Shield, AlertTriangle } from 'lucide-react';
 import { classificarGD, formatarClassificacaoGD } from '@/lib/lei14300';
 import { LancamentosMensais } from '@/components/usina/LancamentosMensais';
+import { usinaRemotaSchema, formatCNPJ } from '@/lib/validation';
+import { z } from 'zod';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,17 +100,9 @@ export default function UsinasRemotas() {
   const [editForm, setEditForm] = useState(emptyForm);
 
   const handleCreate = async () => {
-    if (!form.nome || !form.uc_geradora || !form.cnpj_titular || !form.distribuidora) {
-      toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
-      return;
-    }
-
     try {
-      const classificacao = form.data_protocolo_aneel 
-        ? classificarGD(form.data_protocolo_aneel) 
-        : 'gd2';
-        
-      await createUsina.mutateAsync({
+      // Validate with Zod schema
+      const validatedData = usinaRemotaSchema.parse({
         nome: form.nome,
         uc_geradora: form.uc_geradora,
         cnpj_titular: form.cnpj_titular,
@@ -118,15 +112,38 @@ export default function UsinasRemotas() {
         distribuidora: form.distribuidora,
         endereco: form.endereco || null,
         data_conexao: form.data_conexao || null,
-        ativo: form.ativo,
         data_protocolo_aneel: form.data_protocolo_aneel || null,
-        classificacao_gd: classificacao,
         numero_processo_aneel: form.numero_processo_aneel || null,
+        ativo: form.ativo,
+      });
+
+      const classificacao = validatedData.data_protocolo_aneel 
+        ? classificarGD(validatedData.data_protocolo_aneel) 
+        : 'gd2';
+        
+      await createUsina.mutateAsync({
+        nome: validatedData.nome,
+        uc_geradora: validatedData.uc_geradora,
+        cnpj_titular: formatCNPJ(validatedData.cnpj_titular),
+        potencia_instalada_kw: validatedData.potencia_instalada_kw,
+        fonte: validatedData.fonte,
+        modalidade_gd: validatedData.modalidade_gd,
+        distribuidora: validatedData.distribuidora,
+        endereco: validatedData.endereco,
+        data_conexao: validatedData.data_conexao,
+        ativo: validatedData.ativo,
+        data_protocolo_aneel: validatedData.data_protocolo_aneel,
+        classificacao_gd: classificacao,
+        numero_processo_aneel: validatedData.numero_processo_aneel,
       });
       toast({ title: 'Sucesso', description: 'Usina cadastrada com sucesso!' });
       setForm(emptyForm);
       setDialogOpen(false);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({ title: 'Erro de validação', description: error.errors[0].message, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Erro', description: 'Falha ao criar usina', variant: 'destructive' });
     }
   };
@@ -153,18 +170,9 @@ export default function UsinasRemotas() {
   const handleUpdate = async () => {
     if (!selectedUsina) return;
 
-    if (!editForm.nome || !editForm.uc_geradora || !editForm.cnpj_titular || !editForm.distribuidora) {
-      toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
-      return;
-    }
-
     try {
-      const classificacao = editForm.data_protocolo_aneel 
-        ? classificarGD(editForm.data_protocolo_aneel) 
-        : 'gd2';
-        
-      await updateUsina.mutateAsync({
-        id: selectedUsina.id,
+      // Validate with Zod schema
+      const validatedData = usinaRemotaSchema.parse({
         nome: editForm.nome,
         uc_geradora: editForm.uc_geradora,
         cnpj_titular: editForm.cnpj_titular,
@@ -174,15 +182,39 @@ export default function UsinasRemotas() {
         distribuidora: editForm.distribuidora,
         endereco: editForm.endereco || null,
         data_conexao: editForm.data_conexao || null,
-        ativo: editForm.ativo,
         data_protocolo_aneel: editForm.data_protocolo_aneel || null,
-        classificacao_gd: classificacao,
         numero_processo_aneel: editForm.numero_processo_aneel || null,
+        ativo: editForm.ativo,
+      });
+
+      const classificacao = validatedData.data_protocolo_aneel 
+        ? classificarGD(validatedData.data_protocolo_aneel) 
+        : 'gd2';
+        
+      await updateUsina.mutateAsync({
+        id: selectedUsina.id,
+        nome: validatedData.nome,
+        uc_geradora: validatedData.uc_geradora,
+        cnpj_titular: formatCNPJ(validatedData.cnpj_titular),
+        potencia_instalada_kw: validatedData.potencia_instalada_kw,
+        fonte: validatedData.fonte,
+        modalidade_gd: validatedData.modalidade_gd,
+        distribuidora: validatedData.distribuidora,
+        endereco: validatedData.endereco,
+        data_conexao: validatedData.data_conexao,
+        ativo: validatedData.ativo,
+        data_protocolo_aneel: validatedData.data_protocolo_aneel,
+        classificacao_gd: classificacao,
+        numero_processo_aneel: validatedData.numero_processo_aneel,
       });
       toast({ title: 'Sucesso', description: 'Usina atualizada com sucesso!' });
       setEditDialogOpen(false);
       setSelectedUsina(null);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({ title: 'Erro de validação', description: error.errors[0].message, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Erro', description: 'Falha ao atualizar usina', variant: 'destructive' });
     }
   };
