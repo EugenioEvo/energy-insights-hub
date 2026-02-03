@@ -57,7 +57,9 @@ export default function GerenciarFaturas() {
 
   const formatMesRef = (mesRef: string) => {
     try {
-      const date = new Date(mesRef + '-01');
+      // Parse usando date-fns para evitar problemas de timezone
+      const [year, month] = mesRef.split('-').map(Number);
+      const date = new Date(year, month - 1, 1); // month é 0-indexed
       return format(date, 'MMM/yyyy', { locale: ptBR }).toUpperCase();
     } catch {
       return mesRef;
