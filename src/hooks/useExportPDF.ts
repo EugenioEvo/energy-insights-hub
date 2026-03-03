@@ -3,6 +3,25 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import wegenLogo from '@/assets/wegen-logo.png';
 
+interface KPISummary {
+  valorFatura: number;
+  economiaDoMes: number;
+  economiaAcumulada: number;
+  consumoTotal: number;
+  consumoPonta: number;
+  consumoForaPonta: number;
+  custoKwh: number;
+  geracaoLocal: number;
+  creditoRemoto: number;
+  custoAssinatura: number;
+  totalMultas: number;
+  demandaContratada: number;
+  demandaMedida: number;
+  bandeira: string;
+  variacaoFatura: number;
+  variacaoEconomia: number;
+}
+
 interface ExportOptions {
   companyName?: string;
   reportTitle?: string;
@@ -17,6 +36,7 @@ interface ExportOptions {
   ucGrupoTarifario?: string;
   ucModalidade?: string;
   ucDemandaContratada?: number;
+  kpis?: KPISummary;
 }
 
 // Brand colors
@@ -156,7 +176,8 @@ export function useExportPDF() {
       const sc = bScale * reductionFactor;
       const totalMm = (imgH / captureScale) * sc;
       const contentPages = Math.ceil(totalMm / CONTENT_H);
-      const totalPages = 1 + contentPages;
+      const hasKpis = !!options.kpis;
+      const totalPages = (hasKpis ? 2 : 1) + contentPages; // cover + summary? + content
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const now = new Date();
@@ -505,10 +526,180 @@ export function useExportPDF() {
         textColor(pdf, B.dark);
       };
 
+      // ─── EXECUTIVE SUMMARY PAGE ──────────────────────────────
+
+      const drawSummaryPage = () => {
+        const k = options.kpis!;
+        const pageNum = 2;
+        
+        drawWatermark();
+        drawContentHeader(pageNum);
+        drawFooter(pageNum);
+
+        let y = 34;
+
+        // Section title
+        const drawSectionTitle = (title: string, yPos: number): number => {
+          fill(pdf, B.green);
+          pdf.roundedRect(ML, yPos, CW, 8, 1.5, 1.5, 'F');
+          // Gold left accent
+          fill(pdf, B.gold);
+          pdf.roundedRect(ML, yPos, 3, 8, 1.5, 0, 'F');
+          pdf.rect(ML + 1.5, yPos, 1.5, 8, 'F');
+          
+          textColor(pdf, B.white);
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(title, ML + 7, yPos + 5.5);
+          return yPos + 12;
+        };
+
+        // KPI Card
+        const drawKpiCard = (x: number, yPos: number, w: number, label: string, value: string, sub?: string, variant?: 'success' | 'danger' | 'warning') => {
+          // Card bg
+          fill(pdf, B.white);
+          pdf.roundedRect(x, yPos, w, 22, 2, 2, 'F');
+          // Border
+          stroke(pdf, B.subtle);
+          pdf.setLineWidth(0.15);
+          pdf.roundedRect(x, yPos, w, 22, 2, 2, 'S');
+          
+          // Left colored accent
+          const accentColor = variant === 'success' ? [34, 139, 34] as const : 
+                              variant === 'danger' ? [200, 50, 50] as const : 
+                              variant === 'warning' ? [200, 150, 30] as const : B.gold;
+          fill(pdf, accentColor);
+          pdf.rect(x, yPos + 3, 2, 16, 'F');
+
+          // Label
+          textColor(pdf, B.medium);
+          pdf.setFontSize(6.5);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(label.toUpperCase(), x + 6, yPos + 7);
+
+          // Value
+          textColor(pdf, B.dark);
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(value, x + 6, yPos + 14.5);
+
+          // Subtitle
+          if (sub) {
+            textColor(pdf, B.medium);
+            pdf.setFontSize(6);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(sub, x + 6, yPos + 19);
+          }
+        };
+
+        const fmtCur = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const fmtNum = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+        const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+        // ── Section: Resumo Financeiro
+        y = drawSectionTitle('💰  RESUMO FINANCEIRO', y);
+
+        const cardW = (CW - 6) / 3;
+        drawKpiCard(ML, y, cardW, 'Valor da Fatura', fmtCur(k.valorFatura), 
+          k.variacaoFatura !== 0 ? `${fmtPct(k.variacaoFatura)} vs anterior` : undefined);
+        drawKpiCard(ML + cardW + 3, y, cardW, 'Economia do Mês', fmtCur(k.economiaDoMes),
+          k.variacaoEconomia !== 0 ? `${fmtPct(k.variacaoEconomia)} vs anterior` : undefined, 'success');
+        drawKpiCard(ML + (cardW + 3) * 2, y, cardW, 'Economia Acumulada', fmtCur(k.economiaAcumulada),
+          'Últimos 6 meses', 'success');
+        y += 27;
+
+        // Bullet details
+        const drawBullet = (x: number, yPos: number, text: string, color: readonly [number, number, number] = B.gold): number => {
+          fill(pdf, color);
+          pdf.circle(x + 1.5, yPos - 1, 1, 'F');
+          textColor(pdf, B.dark);
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(text, x + 5, yPos);
+          return yPos + 5.5;
+        };
+
+        const custoKwhStr = `R$ ${k.custoKwh.toFixed(4)}/kWh`;
+        y = drawBullet(ML, y, `Custo médio por kWh: ${custoKwhStr}`);
+        if (k.custoAssinatura > 0) {
+          y = drawBullet(ML, y, `Custo de assinatura solar: ${fmtCur(k.custoAssinatura)}`);
+        }
+        if (k.totalMultas > 0) {
+          y = drawBullet(ML, y, `Total de multas (demanda + UFER): ${fmtCur(k.totalMultas)}`, [200, 50, 50] as const);
+        } else {
+          y = drawBullet(ML, y, `Sem multas no período ✓`, [34, 139, 34] as const);
+        }
+        y += 4;
+
+        // ── Section: Consumo e Demanda
+        y = drawSectionTitle('⚡  CONSUMO E DEMANDA', y);
+
+        const cardW2 = (CW - 6) / 3;
+        drawKpiCard(ML, y, cardW2, 'Consumo Total', `${fmtNum(k.consumoTotal)} kWh`,
+          `Ponta: ${fmtNum(k.consumoPonta)} kWh`);
+        drawKpiCard(ML + cardW2 + 3, y, cardW2, 'Demanda Contratada', `${fmtNum(k.demandaContratada)} kW`,
+          k.demandaMedida > 0 ? `Medida: ${fmtNum(k.demandaMedida)} kW` : undefined);
+        
+        // Bandeira card with colored accent
+        const bandVar = k.bandeira === 'verde' ? 'success' as const : 
+                        k.bandeira === 'amarela' ? 'warning' as const : 
+                        k.bandeira.includes('vermelha') ? 'danger' as const : undefined;
+        drawKpiCard(ML + (cardW2 + 3) * 2, y, cardW2, 'Bandeira Tarifária', 
+          k.bandeira.charAt(0).toUpperCase() + k.bandeira.slice(1), undefined, bandVar);
+        y += 27;
+
+        // Consumption breakdown
+        if (k.consumoTotal > 0) {
+          const pontaPct = (k.consumoPonta / k.consumoTotal * 100).toFixed(1);
+          const fpPct = (k.consumoForaPonta / k.consumoTotal * 100).toFixed(1);
+          y = drawBullet(ML, y, `Distribuição: ${pontaPct}% ponta  ·  ${fpPct}% fora ponta`);
+          y += 2;
+        }
+
+        // ── Section: Geração e Créditos
+        if (k.geracaoLocal > 0 || k.creditoRemoto > 0) {
+          y = drawSectionTitle('☀️  GERAÇÃO E CRÉDITOS', y);
+
+          const items: { label: string; value: string; sub?: string; variant?: 'success' | 'danger' | 'warning' }[] = [];
+          
+          if (k.geracaoLocal > 0) {
+            items.push({ label: 'Geração Local', value: `${fmtNum(k.geracaoLocal)} kWh`, variant: 'success' });
+          }
+          if (k.creditoRemoto > 0) {
+            items.push({ label: 'Crédito Remoto', value: `${fmtNum(k.creditoRemoto)} kWh`, sub: 'Usina remota' });
+          }
+          if (k.custoAssinatura > 0) {
+            items.push({ label: 'Assinatura', value: fmtCur(k.custoAssinatura), sub: 'Custo mensal' });
+          }
+
+          const iw = items.length > 0 ? (CW - (items.length - 1) * 3) / items.length : CW;
+          items.forEach((item, i) => {
+            drawKpiCard(ML + i * (iw + 3), y, iw, item.label, item.value, item.sub, item.variant);
+          });
+          y += 27;
+        }
+
+        // ── Disclaimer
+        y += 4;
+        fill(pdf, B.cardBg);
+        pdf.roundedRect(ML, y, CW, 10, 2, 2, 'F');
+        textColor(pdf, B.medium);
+        pdf.setFontSize(6.5);
+        pdf.setFont('helvetica', 'italic');
+        pdf.text('Os valores apresentados são baseados nos dados lançados no sistema. Para detalhes completos,', ML + 4, y + 4);
+        pdf.text('consulte as páginas seguintes com gráficos e tabelas detalhadas.', ML + 4, y + 8);
+      };
+
       // ═══════════════ BUILD PDF ═══════════════
       
       // Page 1: Cover
       drawCoverPage();
+
+      // Page 2: Executive Summary (if KPIs provided)
+      if (hasKpis) {
+        pdf.addPage();
+        drawSummaryPage();
+      }
 
       // Content pages
       const CY = 29.5;
@@ -517,7 +708,7 @@ export function useExportPDF() {
       for (let page = 0; page < contentPages; page++) {
         pdf.addPage();
         
-        const pn = page + 2;
+        const pn = page + (hasKpis ? 3 : 2);
         
         // Watermark first (behind content)
         drawWatermark();
