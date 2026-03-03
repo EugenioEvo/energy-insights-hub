@@ -19,6 +19,20 @@ interface ExportOptions {
   ucDemandaContratada?: number;
 }
 
+// Brand colors
+const BRAND = {
+  green: { r: 26, g: 61, b: 46 },       // #1A3D2E
+  greenLight: { r: 35, g: 80, b: 60 },   // lighter green for accents
+  gold: { r: 196, g: 167, b: 78 },       // #C4A74E
+  goldLight: { r: 220, g: 200, b: 130 },
+  dark: { r: 30, g: 30, b: 30 },
+  medium: { r: 100, g: 100, b: 100 },
+  light: { r: 160, g: 160, b: 160 },
+  bg: { r: 250, g: 250, b: 248 },
+  white: { r: 255, g: 255, b: 255 },
+  cardBg: { r: 245, g: 245, b: 243 },
+};
+
 const loadImageAsBase64 = (src: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -38,6 +52,13 @@ const loadImageAsBase64 = (src: string): Promise<string> => {
     img.onerror = reject;
     img.src = src;
   });
+};
+
+const formatCNPJ = (cnpj: string) => {
+  if (!cnpj || cnpj === '-') return '-';
+  const cleaned = cnpj.replace(/\D/g, '');
+  if (cleaned.length !== 14) return cnpj;
+  return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 };
 
 export function useExportPDF() {
@@ -78,9 +99,8 @@ export function useExportPDF() {
         console.warn('Could not load logo:', e);
       }
 
-      // Capture entire content as single canvas with high quality
-      // Use fixed viewport width for consistent rendering
-      const captureScale = 2;
+      // Capture content
+      const captureScale = 2.5;
       const fixedViewportWidth = 1280;
       
       const canvas = await html2canvas(element, {
@@ -93,21 +113,14 @@ export function useExportPDF() {
         scrollX: 0,
         scrollY: 0,
         onclone: (clonedDoc) => {
-          // Remove elements marked with data-no-pdf
           clonedDoc.querySelectorAll('[data-no-pdf]').forEach(el => el.remove());
-
-          // Fix positioning and overflow issues for all elements
           clonedDoc.querySelectorAll('*').forEach((el: Element) => {
             const htmlEl = el as HTMLElement;
             const style = clonedDoc.defaultView?.getComputedStyle(htmlEl);
             if (!style) return;
-
-            // Remove sticky/fixed positioning that causes duplication
             if (style.position === 'fixed' || style.position === 'sticky') {
               htmlEl.style.position = 'static';
             }
-
-            // Fix overflow containers that can cause cut content
             if (style.overflow === 'auto' || style.overflow === 'scroll' || 
                 style.overflowY === 'auto' || style.overflowY === 'scroll' ||
                 style.overflowX === 'auto' || style.overflowX === 'scroll') {
@@ -117,21 +130,15 @@ export function useExportPDF() {
               htmlEl.style.maxHeight = 'none';
               htmlEl.style.height = 'auto';
             }
-
-            // Remove max-height constraints
             if (style.maxHeight !== 'none') {
               htmlEl.style.maxHeight = 'none';
             }
           });
-
-          // Apply avoid-break to cards and important elements
           clonedDoc.querySelectorAll('[class*="card"], [class*="Card"], .avoid-break').forEach((el: Element) => {
             const htmlEl = el as HTMLElement;
             htmlEl.style.breakInside = 'avoid';
             htmlEl.style.pageBreakInside = 'avoid';
           });
-
-          // Ensure the cloned element has proper dimensions
           const clonedElement = clonedDoc.getElementById(elementId);
           if (clonedElement) {
             clonedElement.style.width = `${fixedViewportWidth}px`;
@@ -141,26 +148,27 @@ export function useExportPDF() {
         }
       });
 
-      // A4 dimensions in mm
+      // A4 dimensions
       const pageWidth = 210;
       const pageHeight = 297;
-      const marginLeft = 6;
-      const marginRight = 6;
-      const headerHeight = 42;
-      const footerHeight = 8;
-      const contentWidth = pageWidth - marginLeft - marginRight;
-      const contentHeight = pageHeight - headerHeight - footerHeight;
+      const margin = { left: 10, right: 10, top: 0, bottom: 0 };
+      const headerTotalHeight = 50; // Total header area including cover page header
+      const footerHeight = 12;
+      const contentWidth = pageWidth - margin.left - margin.right;
+      const contentStartY = headerTotalHeight;
+      const contentAvailableHeight = pageHeight - contentStartY - footerHeight;
 
       // Calculate image dimensions
-      const reductionFactor = 0.82;
+      const reductionFactor = 0.85;
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
       const baseScale = contentWidth / (imgWidth / captureScale);
       const scale = baseScale * reductionFactor;
       const totalContentHeightMm = (imgHeight / captureScale) * scale;
       
-      // Calculate number of pages needed
-      const totalPages = Math.ceil(totalContentHeightMm / contentHeight);
+      // Total pages = cover + content pages
+      const contentPages = Math.ceil(totalContentHeightMm / contentAvailableHeight);
+      const totalPages = 1 + contentPages; // 1 cover + content
 
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -168,23 +176,155 @@ export function useExportPDF() {
         format: 'a4',
       });
 
-      const formatCNPJ = (cnpj: string) => {
-        if (!cnpj || cnpj === '-') return '-';
-        const cleaned = cnpj.replace(/\D/g, '');
-        if (cleaned.length !== 14) return cnpj;
-        return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-      };
+      const dataGeracao = `${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
-      // Helper: Add header
-      const addHeader = (pageNum: number) => {
-        // Green header bar
-        pdf.setFillColor(26, 61, 46);
-        pdf.rect(0, 0, pageWidth, 16, 'F');
-        
-        // Logo
+      // ========== COVER PAGE ==========
+      const drawCoverPage = () => {
+        // Full green background at top (60% of page)
+        const coverGreenHeight = 170;
+        pdf.setFillColor(BRAND.green.r, BRAND.green.g, BRAND.green.b);
+        pdf.rect(0, 0, pageWidth, coverGreenHeight, 'F');
+
+        // Subtle diagonal accent line
+        pdf.setDrawColor(BRAND.gold.r, BRAND.gold.g, BRAND.gold.b);
+        pdf.setLineWidth(0.8);
+        pdf.line(0, coverGreenHeight - 1, pageWidth, coverGreenHeight - 1);
+
+        // Logo - centered, large
         if (logoBase64) {
           try {
-            pdf.addImage(logoBase64, 'PNG', marginLeft, 2, 20, 11);
+            const logoW = 50;
+            const logoH = 28;
+            pdf.addImage(logoBase64, 'PNG', (pageWidth - logoW) / 2, 35, logoW, logoH);
+          } catch (e) {
+            console.warn('Could not add logo:', e);
+          }
+        }
+
+        // Report Title
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(22);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(reportTitle, pageWidth / 2, 85, { align: 'center' });
+
+        // Gold underline below title
+        const titleWidth = pdf.getTextWidth(reportTitle);
+        pdf.setDrawColor(BRAND.gold.r, BRAND.gold.g, BRAND.gold.b);
+        pdf.setLineWidth(1);
+        pdf.line((pageWidth - titleWidth) / 2, 88, (pageWidth + titleWidth) / 2, 88);
+
+        // Period
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(mesRef, pageWidth / 2, 100, { align: 'center' });
+
+        // Client info card (white card on green background)
+        const cardX = 25;
+        const cardY = 115;
+        const cardW = pageWidth - 50;
+        const cardH = 42;
+        
+        // Card shadow effect
+        pdf.setFillColor(20, 50, 38);
+        pdf.roundedRect(cardX + 1, cardY + 1, cardW, cardH, 3, 3, 'F');
+        
+        // Card
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(cardX, cardY, cardW, cardH, 3, 3, 'F');
+
+        // Card content
+        const cardPadding = 8;
+        const leftCol = cardX + cardPadding;
+        const rightCol = cardX + cardW / 2 + 5;
+
+        // Left column - Cliente
+        pdf.setTextColor(BRAND.green.r, BRAND.green.g, BRAND.green.b);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('CLIENTE', leftCol, cardY + 10);
+
+        pdf.setTextColor(BRAND.dark.r, BRAND.dark.g, BRAND.dark.b);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        const maxNameLen = 28;
+        const nameTrunc = clienteNome.length > maxNameLen ? clienteNome.substring(0, maxNameLen) + '...' : clienteNome;
+        pdf.text(nameTrunc, leftCol, cardY + 16);
+
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(BRAND.medium.r, BRAND.medium.g, BRAND.medium.b);
+        pdf.text(`CNPJ: ${formatCNPJ(clienteCNPJ)}`, leftCol, cardY + 22);
+        
+        const maxEndLen = 38;
+        const endTrunc = ucEndereco.length > maxEndLen ? ucEndereco.substring(0, maxEndLen) + '...' : ucEndereco;
+        pdf.text(endTrunc, leftCol, cardY + 28);
+
+        // Vertical divider
+        pdf.setDrawColor(230, 230, 230);
+        pdf.setLineWidth(0.3);
+        pdf.line(cardX + cardW / 2, cardY + 7, cardX + cardW / 2, cardY + cardH - 7);
+
+        // Right column - UC
+        pdf.setTextColor(BRAND.green.r, BRAND.green.g, BRAND.green.b);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('UNIDADE CONSUMIDORA', rightCol, cardY + 10);
+
+        pdf.setTextColor(BRAND.dark.r, BRAND.dark.g, BRAND.dark.b);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`UC ${ucNumero}`, rightCol, cardY + 16);
+
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(BRAND.medium.r, BRAND.medium.g, BRAND.medium.b);
+        pdf.text(`Distribuidora: ${ucDistribuidora}`, rightCol, cardY + 22);
+        
+        const demandaStr = ucDemandaContratada > 0 ? `${ucDemandaContratada} kW` : '-';
+        pdf.text(`${ucGrupoTarifario} | ${ucModalidade} | ${demandaStr}`, rightCol, cardY + 28);
+
+        // Gold accent tag
+        const tagY = cardY + 33;
+        pdf.setFillColor(BRAND.gold.r, BRAND.gold.g, BRAND.gold.b);
+        pdf.roundedRect(rightCol, tagY, 45, 5, 1, 1, 'F');
+        pdf.setTextColor(BRAND.dark.r, BRAND.dark.g, BRAND.dark.b);
+        pdf.setFontSize(6.5);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('RELATÓRIO PERSONALIZADO', rightCol + 2, tagY + 3.5);
+
+        // Bottom section (below green)
+        const bottomY = coverGreenHeight + 10;
+        
+        pdf.setTextColor(BRAND.medium.r, BRAND.medium.g, BRAND.medium.b);
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Gerado em ${dataGeracao}`, pageWidth / 2, bottomY, { align: 'center' });
+
+        pdf.setTextColor(BRAND.dark.r, BRAND.dark.g, BRAND.dark.b);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Este relatório apresenta uma visão consolidada do consumo de energia,', pageWidth / 2, bottomY + 10, { align: 'center' });
+        pdf.text('geração solar, créditos de assinatura e oportunidades de economia.', pageWidth / 2, bottomY + 16, { align: 'center' });
+
+        // Confidentiality notice
+        pdf.setFontSize(7);
+        pdf.setTextColor(BRAND.light.r, BRAND.light.g, BRAND.light.b);
+        pdf.text('Documento confidencial - uso exclusivo do destinatário', pageWidth / 2, bottomY + 30, { align: 'center' });
+
+        // Footer on cover
+        drawFooter(1);
+      };
+
+      // ========== HEADER (content pages) ==========
+      const drawContentHeader = (pageNum: number) => {
+        // Top bar - green
+        pdf.setFillColor(BRAND.green.r, BRAND.green.g, BRAND.green.b);
+        pdf.rect(0, 0, pageWidth, 14, 'F');
+        
+        // Logo (small)
+        if (logoBase64) {
+          try {
+            pdf.addImage(logoBase64, 'PNG', margin.left, 2, 18, 10);
           } catch (e) {
             console.warn('Could not add logo:', e);
           }
@@ -192,104 +332,91 @@ export function useExportPDF() {
         
         // Title
         pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(reportTitle, marginLeft + 24, 10);
-        
-        // Date and page number
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'normal');
-        const dataGeracao = `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-        pdf.text(dataGeracao, pageWidth - marginRight, 7, { align: 'right' });
-        pdf.text(`Página ${pageNum}/${totalPages}`, pageWidth - marginRight, 12, { align: 'right' });
-
-        // Client info bar (light gray)
-        pdf.setFillColor(248, 248, 248);
-        pdf.rect(0, 16, pageWidth, 22, 'F');
-        
-        pdf.setDrawColor(230, 230, 230);
-        pdf.setLineWidth(0.2);
-        pdf.line(0, 16, pageWidth, 16);
-        
-        pdf.setTextColor(40, 40, 40);
-        
-        // Left column - Client info
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Cliente:', marginLeft, 22);
-        pdf.setFont('helvetica', 'normal');
-        const clienteNomeTrunc = clienteNome.length > 35 ? clienteNome.substring(0, 35) + '...' : clienteNome;
-        pdf.text(clienteNomeTrunc, marginLeft + 13, 22);
-        
-        pdf.setFontSize(7);
-        pdf.text(`CNPJ: ${formatCNPJ(clienteCNPJ)}`, marginLeft, 27);
-        
-        const maxEndLen = 50;
-        const endTrunc = ucEndereco.length > maxEndLen ? ucEndereco.substring(0, maxEndLen) + '...' : ucEndereco;
-        pdf.text(`End: ${endTrunc}`, marginLeft, 32);
-        
-        // Right column - UC info
-        const col2 = pageWidth / 2 + 5;
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('UC:', col2, 22);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(ucNumero, col2 + 7, 22);
-        
-        pdf.setFontSize(7);
-        pdf.text(`Distribuidora: ${ucDistribuidora}`, col2, 27);
-        
-        const demandaStr = ucDemandaContratada > 0 ? `${ucDemandaContratada} kW` : '-';
-        pdf.text(`${ucGrupoTarifario} | ${ucModalidade} | ${demandaStr}`, col2, 32);
-
-        // Period bar (gold)
-        pdf.setFillColor(196, 167, 78);
-        pdf.rect(0, 38, pageWidth, 7, 'F');
-        
-        pdf.setTextColor(30, 30, 30);
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`Período: ${mesRef}`, pageWidth / 2, 43, { align: 'center' });
+        pdf.text(reportTitle, margin.left + 22, 9);
         
-        pdf.setDrawColor(170, 140, 50);
-        pdf.setLineWidth(0.3);
-        pdf.line(0, 45, pageWidth, 45);
-        
-        pdf.setTextColor(0, 0, 0);
-      };
-
-      // Helper: Add footer
-      const addFooter = () => {
+        // Right side info
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(mesRef, pageWidth - margin.right, 7, { align: 'right' });
         pdf.setFontSize(6);
-        pdf.setTextColor(120, 120, 120);
-        pdf.text(
-          `© ${new Date().getFullYear()} ${companyName} - Relatório gerado automaticamente`,
-          pageWidth / 2,
-          pageHeight - 4,
-          { align: 'center' }
-        );
+        pdf.text(`Página ${pageNum}/${totalPages}`, pageWidth - margin.right, 11, { align: 'right' });
+
+        // Gold accent line
+        pdf.setFillColor(BRAND.gold.r, BRAND.gold.g, BRAND.gold.b);
+        pdf.rect(0, 14, pageWidth, 1.2, 'F');
+
+        // Info strip (light bg)
+        pdf.setFillColor(BRAND.cardBg.r, BRAND.cardBg.g, BRAND.cardBg.b);
+        pdf.rect(0, 15.2, pageWidth, 12, 'F');
+
+        pdf.setTextColor(BRAND.dark.r, BRAND.dark.g, BRAND.dark.b);
+        pdf.setFontSize(7.5);
+        pdf.setFont('helvetica', 'bold');
+        const nameTrunc2 = clienteNome.length > 30 ? clienteNome.substring(0, 30) + '...' : clienteNome;
+        pdf.text(nameTrunc2, margin.left, 22);
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(BRAND.medium.r, BRAND.medium.g, BRAND.medium.b);
+        pdf.setFontSize(7);
+        pdf.text(`UC ${ucNumero}  |  ${ucDistribuidora}  |  ${ucGrupoTarifario} ${ucModalidade}`, margin.left, 25.5);
+
+        // Bottom border
+        pdf.setDrawColor(230, 230, 230);
+        pdf.setLineWidth(0.2);
+        pdf.line(0, 27.2, pageWidth, 27.2);
+      };
+
+      // ========== FOOTER ==========
+      const drawFooter = (pageNum: number) => {
+        const footerY = pageHeight - footerHeight;
+        
+        // Top line
+        pdf.setDrawColor(BRAND.gold.r, BRAND.gold.g, BRAND.gold.b);
+        pdf.setLineWidth(0.5);
+        pdf.line(margin.left, footerY, pageWidth - margin.right, footerY);
+
+        // Left: company
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(BRAND.medium.r, BRAND.medium.g, BRAND.medium.b);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`© ${new Date().getFullYear()} ${companyName} — Energia inteligente para o seu negócio`, margin.left, footerY + 5);
+
+        // Right: page number
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(BRAND.green.r, BRAND.green.g, BRAND.green.b);
+        pdf.text(`${pageNum} / ${totalPages}`, pageWidth - margin.right, footerY + 5, { align: 'right' });
+
         pdf.setTextColor(0, 0, 0);
       };
 
-      // Render pages
-      for (let page = 0; page < totalPages; page++) {
-        if (page > 0) {
-          pdf.addPage();
-        }
+      // ========== BUILD PDF ==========
+      
+      // Page 1: Cover
+      drawCoverPage();
+
+      // Content pages
+      const contentStartYForPages = 29; // after header on content pages
+      const contentAvailableForPages = pageHeight - contentStartYForPages - footerHeight;
+
+      for (let page = 0; page < contentPages; page++) {
+        pdf.addPage();
         
-        addHeader(page + 1);
-        addFooter();
+        const pageNum = page + 2; // +2 because cover is page 1
+        drawContentHeader(pageNum);
+        drawFooter(pageNum);
 
         // Calculate which portion of the image to render
-        const sourceY = (page * contentHeight / scale) * captureScale;
+        const sourceY = (page * contentAvailableForPages / scale) * captureScale;
         const sourceHeight = Math.min(
-          (contentHeight / scale) * captureScale,
+          (contentAvailableForPages / scale) * captureScale,
           imgHeight - sourceY
         );
         
         if (sourceHeight <= 0) continue;
 
-        // Create a temporary canvas for this page's slice
+        // Create slice canvas
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = imgWidth;
         sliceCanvas.height = Math.ceil(sourceHeight);
@@ -308,14 +435,14 @@ export function useExportPDF() {
           
           const sliceImgData = sliceCanvas.toDataURL('image/png');
           const actualContentWidth = contentWidth * reductionFactor;
-          const renderHeight = Math.min(contentHeight, (sourceHeight / captureScale) * scale);
-          const xOffset = marginLeft + (contentWidth - actualContentWidth) / 2;
+          const renderHeight = Math.min(contentAvailableForPages, (sourceHeight / captureScale) * scale);
+          const xOffset = margin.left + (contentWidth - actualContentWidth) / 2;
           
           pdf.addImage(
             sliceImgData, 
             'PNG', 
             xOffset, 
-            headerHeight, 
+            contentStartYForPages, 
             actualContentWidth, 
             renderHeight
           );
