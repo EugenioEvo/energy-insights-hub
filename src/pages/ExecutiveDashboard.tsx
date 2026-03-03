@@ -29,67 +29,80 @@ export default function ExecutiveDashboard() {
     return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   })();
 
-  const handleExportPDF = async () => {
-    await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`, {
-      companyName: 'WeGen',
-      reportTitle: 'Relatório Executivo de Energia',
-      mesRef: mesFormatado,
-      // Dados do cliente
-      clienteNome: cliente?.nome || 'Cliente não informado',
-      clienteCNPJ: cliente?.cnpj || '-',
-      clienteEmail: cliente?.email || '-',
-      clienteTelefone: cliente?.telefone || '-',
-      // Dados da UC
-      ucNumero: unidadeConsumidora?.numero || '-',
-      ucEndereco: unidadeConsumidora?.endereco || '-',
-      ucDistribuidora: unidadeConsumidora?.distribuidora || unidadeConsumidora?.concessionaria || '-',
-      ucGrupoTarifario: unidadeConsumidora?.grupo_tarifario || '-',
-      ucModalidade: unidadeConsumidora?.modalidade_tarifaria || '-',
-      ucDemandaContratada: unidadeConsumidora?.demanda_contratada || 0,
-    });
-  };
-
-  // Current month data - usa apenas faturas
+  // Valores computados para KPIs do PDF (declarados aqui para acesso no handleExportPDF)
   const faturaMesAtualDB = faturas.find(f => f.mes_ref === mesAtual);
-
-  // Valores da fatura atual (pré-calculados pelo wizard)
   const valorTotal = Number(faturaMesAtualDB?.valor_total) || 0;
   const consumoTotal = Number(faturaMesAtualDB?.consumo_total_kwh) || 0;
   const pontaKwh = Number(faturaMesAtualDB?.ponta_kwh) || 0;
   const foraPontaKwh = Number(faturaMesAtualDB?.fora_ponta_kwh) || 0;
   const economiaLiquida = Number(faturaMesAtualDB?.economia_liquida_rs) || 0;
   const custoAssinatura = Number(faturaMesAtualDB?.custo_assinatura_rs) || 0;
-  const autoconsumoRs = Number(faturaMesAtualDB?.autoconsumo_rs) || 0;
-  const creditoRemotoRs = Number(faturaMesAtualDB?.credito_remoto_compensado_rs) || 0;
-  const totalCompensado = autoconsumoRs + creditoRemotoRs;
+  const custoKwhBase = consumoTotal > 0 ? valorTotal / consumoTotal : 0;
+  const geracaoLocalKwh = Number(faturaMesAtualDB?.geracao_local_total_kwh) || 0;
+  const creditoRemotoKwh = Number(faturaMesAtualDB?.credito_remoto_kwh) || 0;
+  const totalMultas = (Number(faturaMesAtualDB?.multa_demanda || 0)) + 
+    (Number(faturaMesAtualDB?.multa_demanda_ultrapassagem || 0)) +
+    (Number(faturaMesAtualDB?.multa_ufer_ponta || 0)) +
+    (Number(faturaMesAtualDB?.multa_ufer_fora_ponta || 0));
+  const demandaContratadaKw = Number(faturaMesAtualDB?.demanda_contratada_kw || 0);
+  const demandaMedidaKw = Number(faturaMesAtualDB?.demanda_medida_kw || 0);
+  const bandeira = faturaMesAtualDB?.bandeiras || '-';
 
-  // Trend calculation
   const faturasOrdenadas = [...faturas].sort((a, b) => b.mes_ref.localeCompare(a.mes_ref));
   const indexMesAtual = faturasOrdenadas.findIndex(f => f.mes_ref === mesAtual);
   const faturaMesAnteriorDB = indexMesAtual >= 0 && indexMesAtual < faturasOrdenadas.length - 1 
     ? faturasOrdenadas[indexMesAtual + 1] 
     : null;
-
   const variacao = faturaMesAnteriorDB 
     ? ((valorTotal - Number(faturaMesAnteriorDB.valor_total)) / Number(faturaMesAnteriorDB.valor_total) * 100)
     : 0;
-
-  // CORRIGIDO: Trend de economia calculado dinamicamente (não hardcoded)
   const economiaAnterior = Number(faturaMesAnteriorDB?.economia_liquida_rs) || 0;
   const trendEconomia = economiaAnterior > 0 
     ? ((economiaLiquida - economiaAnterior) / economiaAnterior * 100)
     : 0;
 
-  // Custo por kWh
-  const custoKwhBase = consumoTotal > 0 ? valorTotal / consumoTotal : 0;
+  const handleExportPDF = async () => {
+    await exportToPDF('dashboard-content', `relatorio-executivo-${mesAtual}.pdf`, {
+      companyName: 'WeGen',
+      reportTitle: 'Relatório Executivo de Energia',
+      mesRef: mesFormatado,
+      clienteNome: cliente?.nome || 'Cliente não informado',
+      clienteCNPJ: cliente?.cnpj || '-',
+      clienteEmail: cliente?.email || '-',
+      clienteTelefone: cliente?.telefone || '-',
+      ucNumero: unidadeConsumidora?.numero || '-',
+      ucEndereco: unidadeConsumidora?.endereco || '-',
+      ucDistribuidora: unidadeConsumidora?.distribuidora || unidadeConsumidora?.concessionaria || '-',
+      ucGrupoTarifario: unidadeConsumidora?.grupo_tarifario || '-',
+      ucModalidade: unidadeConsumidora?.modalidade_tarifaria || '-',
+      ucDemandaContratada: unidadeConsumidora?.demanda_contratada || 0,
+      kpis: {
+        valorFatura: valorTotal,
+        economiaDoMes: economiaLiquida,
+        economiaAcumulada: kpis.economiaAcumulada,
+        consumoTotal,
+        consumoPonta: pontaKwh,
+        consumoForaPonta: foraPontaKwh,
+        custoKwh: custoKwhBase,
+        geracaoLocal: geracaoLocalKwh,
+        creditoRemoto: creditoRemotoKwh,
+        custoAssinatura,
+        totalMultas,
+        demandaContratada: demandaContratadaKw,
+        demandaMedida: demandaMedidaKw,
+        bandeira,
+        variacaoFatura: variacao,
+        variacaoEconomia: trendEconomia,
+      },
+    });
+  };
 
-  // Solar - dados da fatura
-  const geracaoLocalKwh = Number(faturaMesAtualDB?.geracao_local_total_kwh) || 0;
+  // Derived values
+  const autoconsumoRs = Number(faturaMesAtualDB?.autoconsumo_rs) || 0;
+  const creditoRemotoRs = Number(faturaMesAtualDB?.credito_remoto_compensado_rs) || 0;
+  const totalCompensado = autoconsumoRs + creditoRemotoRs;
   const injecaoTotalKwh = Number(faturaMesAtualDB?.injecao_total_kwh) || 0;
   const temGeracaoLocal = geracaoLocalKwh > 0;
-
-  // Créditos remotos - dados da fatura
-  const creditoRemotoKwh = Number(faturaMesAtualDB?.credito_remoto_kwh) || 0;
   const temCreditoRemoto = creditoRemotoKwh > 0 || custoAssinatura > 0;
 
   // Chart data - Savings trend
@@ -152,21 +165,17 @@ export default function ExecutiveDashboard() {
     : Number(faturaMesAtualDB?.autoconsumo_total_kwh) || 
       Number(faturaMesAtualDB?.energia_simultanea_kwh) || 0;
 
-  // Grupo A values
+  // Grupo A values (totalMultas, demandaContratadaKw, demandaMedidaKw, bandeira already declared above)
   const multaDemanda = Number(faturaMesAtualDB?.multa_demanda || 0);
   const multaUltrapassagem = Number(faturaMesAtualDB?.multa_demanda_ultrapassagem || 0);
   const multaUferPonta = Number(faturaMesAtualDB?.multa_ufer_ponta || 0);
   const multaUferForaPonta = Number(faturaMesAtualDB?.multa_ufer_fora_ponta || 0);
-  const totalMultas = multaDemanda + multaUltrapassagem + multaUferPonta + multaUferForaPonta;
-  const demandaContratadaKw = Number(faturaMesAtualDB?.demanda_contratada_kw || 0);
-  const demandaMedidaKw = Number(faturaMesAtualDB?.demanda_medida_kw || 0);
   const demandaContratadaRs = Number(faturaMesAtualDB?.demanda_contratada_rs || 0);
   const demandaGeracaoRs = Number(faturaMesAtualDB?.demanda_geracao_rs || 0);
   const iluminacaoPublica = Number(faturaMesAtualDB?.iluminacao_publica || 0);
   const valorTe = Number(faturaMesAtualDB?.valor_te || 0);
   const valorTusd = Number(faturaMesAtualDB?.valor_tusd || 0);
   const outrosEncargos = Number(faturaMesAtualDB?.outros_encargos || 0);
-  const bandeira = faturaMesAtualDB?.bandeiras || '-';
 
   // Energy distribution for solar
   const energyDistribution = temGeracaoLocal ? [
